@@ -10,6 +10,7 @@
     "./admin-router": "./adminRouter.ts",
     "./client-router": "./clientRouter.ts",
     "./route-handler": "./routeHandler.ts",
+    "./payments-webhook": "./routers/payments.ts",
     "./trpc": "./trpc.ts",
     "./context": "./context.ts"
   },
