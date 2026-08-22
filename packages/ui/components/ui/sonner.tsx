@@ -22,4 +22,8 @@ const Toaster = ({ ...props }: ToasterProps) => {
   );
 };
 
+// Re-exported so apps raise toasts through the design system rather than
+// taking their own direct dependency on sonner.
+export { toast } from "sonner";
+
 export { Toaster };
