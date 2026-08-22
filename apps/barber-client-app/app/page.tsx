@@ -11,6 +11,12 @@ const pathways = [
   { number: "03", title: "Grow your next chapter", text: "Choose a learning path that supports your goals, from a focused craft to a broader beauty career." },
 ];
 
+const testimonials = [
+  { quote: "GlowCraft gave me the technique and the confidence to open my own studio within a year of graduating.", name: "Ama O.", program: "Professional Hair Artistry" },
+  { quote: "The instructors treat every student like a future professional from day one. The practical hours made all the difference.", name: "Efua K.", program: "Nail Craft & Design" },
+  { quote: "Applying online, tracking my documents, and paying fees all happened in one place. It made starting so much easier.", name: "Linda M.", program: "Foundations of Beauty" },
+];
+
 export default function Home() {
   return (
     <PublicShell>
@@ -31,6 +37,7 @@ export default function Home() {
         </section>
         <section className="container py-24"><div className="grid gap-12 lg:grid-cols-[.8fr_1.2fr]"><div><p className="eyebrow">The GlowCraft approach</p><h2 className="mt-5 font-serif text-4xl leading-tight text-[#484159] sm:text-5xl">A softer way to become exceptional.</h2></div><p className="max-w-2xl self-end text-lg leading-8 text-[#716a7d]">We pair clear professional standards with spacious, student-centered learning. You will build technique, a beautiful practice rhythm, and the confidence to show up for every client with care.</p></div><div className="mt-14 grid gap-4 md:grid-cols-3">{pathways.map(path => <article key={path.number} className="rounded-3xl border border-white/80 bg-white/60 p-7 shadow-[0_12px_36px_rgba(90,72,103,.06)] transition-transform duration-200 hover:-translate-y-1"><p className="text-[11px] font-semibold tracking-[.2em] text-[#a17d9f]">{path.number}</p><h3 className="mt-12 font-serif text-2xl text-[#51465c]">{path.title}</h3><p className="mt-4 text-sm leading-7 text-[#766e7f]">{path.text}</p></article>)}</div></section>
         <section className="relative overflow-hidden bg-[#f1ebf4]/75 py-24"><div className="container grid gap-12 lg:grid-cols-[1fr_.82fr]"><div className="rounded-[2rem] bg-[#dac8da]/40 p-8 sm:p-12"><p className="eyebrow">Discover your programme</p><h2 className="mt-5 max-w-lg font-serif text-4xl leading-tight text-[#4d445a] sm:text-5xl">From first practice to professional presence.</h2><Link href="/programs"><Button variant="outline" className="mt-9 rounded-full border-[#6d5b76]/25 bg-white/70 px-6 text-[#584c63] hover:bg-white">View learning pathways <ArrowRight className="ml-2 h-4 w-4" /></Button></Link></div><div className="flex flex-col justify-center"><p className="eyebrow">More than a classroom</p><h3 className="mt-4 font-serif text-3xl text-[#51465c]">The studio is open.</h3><p className="mt-4 max-w-md text-sm leading-7 text-[#716a7c]">Visit the student clinic, find thoughtful beauty essentials, and move at your own pace through the information you need.</p><div className="mt-7 flex flex-wrap gap-3"><Link href="/appointments"><Button className="rounded-full bg-[#7d657e] text-white hover:bg-[#6a526b]">Book a clinic service</Button></Link><Link href="/store"><Button variant="ghost" className="rounded-full text-[#65576f] hover:bg-white/70"><ShoppingBag className="mr-2 h-4 w-4" />Visit the store</Button></Link></div></div></div></section>
+        <section className="container py-24"><div className="max-w-2xl"><p className="eyebrow">Student voices</p><h2 className="mt-5 font-serif text-4xl leading-tight text-[#484159] sm:text-5xl">What graduates say.</h2></div><div className="mt-14 grid gap-5 md:grid-cols-3">{testimonials.map(item => <figure key={item.name} className="flex h-full flex-col rounded-3xl border border-white/80 bg-white/65 p-7 shadow-[0_12px_36px_rgba(90,72,103,.06)]"><blockquote className="text-sm leading-7 text-[#5b5266]">“{item.quote}”</blockquote><figcaption className="mt-6 border-t border-[#6d5c78]/10 pt-4"><p className="text-sm font-semibold text-[#51465c]">{item.name}</p><p className="mt-1 text-xs uppercase tracking-[.14em] text-[#8a808f]">{item.program}</p></figcaption></figure>)}</div></section>
       </main>
     </PublicShell>
   );
