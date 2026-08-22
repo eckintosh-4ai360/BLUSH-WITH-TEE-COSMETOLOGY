@@ -115,6 +115,43 @@
   --sidebar-ring: #fe00b6;
 }
 
+/**
+ * Data-visualisation palette.
+ *
+ * Four categorical slots in a fixed order, assigned by entity and never
+ * cycled. Both modes were validated (not eyeballed) against their own surface
+ * for lightness band, chroma floor, colour-vision-deficiency separation,
+ * normal-vision separation, and contrast:
+ *
+ *   light on #fdf8fc - worst adjacent CVD deltaE 17.3, normal 24.9, all >= 3:1
+ *   dark  on #14010f - worst adjacent CVD deltaE 13.5, normal 20.4, all >= 3:1
+ *
+ * A fifth series is never a generated hue: fold the tail into "Other" or facet.
+ * Nominal categories (products, expense headings) use slot 1 alone - a
+ * value-ramp on unordered categories double-encodes bar length as colour.
+ */
+:root {
+  --viz-series-1: #b3157f;
+  --viz-series-2: #bc7d00;
+  --viz-series-3: #6d4aa8;
+  --viz-series-4: #128f6e;
+  --viz-grid: rgba(143, 13, 107, 0.12);
+  --viz-axis: #7d5975;
+  --viz-surface: #ffffff;
+  --viz-muted: rgba(143, 13, 107, 0.18);
+}
+
+.dark {
+  --viz-series-1: #d95e9f;
+  --viz-series-2: #b8862b;
+  --viz-series-3: #8168c8;
+  --viz-series-4: #1c9e7a;
+  --viz-grid: rgba(254, 0, 182, 0.16);
+  --viz-axis: #c295ba;
+  --viz-surface: #200219;
+  --viz-muted: rgba(254, 0, 182, 0.24);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

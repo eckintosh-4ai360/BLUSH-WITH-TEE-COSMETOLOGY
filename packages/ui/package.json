@@ -8,7 +8,9 @@
     "./theme": "./theme.tsx",
     "./lib/utils": "./lib/utils.ts",
     "./hooks/*": "./hooks/*.ts",
-    "./components/ui/*": "./components/ui/*.tsx"
+    "./components/ui/*": "./components/ui/*.tsx",
+    "./components/viz/*": "./components/viz/*.tsx",
+    "./lib/viz": "./lib/viz.ts"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.12",
