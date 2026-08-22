@@ -7,7 +7,8 @@
   "types": "./index.ts",
   "exports": {
     ".": "./index.ts",
-    "./const": "./const.ts"
+    "./const": "./const.ts",
+    "./permissions": "./permissions.ts"
   },
   "dependencies": {
     "@blush/db": "workspace:*"
