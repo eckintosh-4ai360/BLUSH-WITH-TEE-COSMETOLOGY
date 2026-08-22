@@ -14,6 +14,7 @@ const sora = Sora({
 
 export const metadata: Metadata = {
   title: "GlowCraft Admin Dashboard",
+  description: "Back-office workspace for admissions, students, inventory, orders, finance, and operations.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -14,6 +14,7 @@ const sora = Sora({
 
 export const metadata: Metadata = {
   title: "GlowCraft Beauty Academy",
+  description: "Apply to a cosmetology programme, book a student-clinic service, and shop academy beauty essentials — all in one place.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
