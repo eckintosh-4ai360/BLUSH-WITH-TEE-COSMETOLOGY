@@ -1,9 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, BookOpen, CalendarDays, ShoppingBag, Sparkle, WandSparkles } from "lucide-react";
+import { ArrowRight, ArrowUpRight, BookOpen, CalendarDays, ShoppingBag, Sparkle, WandSparkles } from "lucide-react";
 import { Button } from "@blush/ui/components/ui/button";
 import PublicShell from "@/components/PublicShell";
+
+const heroStats = [
+  { value: "12+", label: "Programmes" },
+  { value: "600+", label: "Graduates" },
+  { value: "94%", label: "Complete" },
+];
+
+const heroPrograms = [
+  { title: "Professional Hair Artistry", meta: "24 weeks · Professional Certificate" },
+  { title: "Nail Craft & Design", meta: "12 weeks · Weekend studio" },
+  { title: "Foundations of Beauty", meta: "16 weeks · Weekday mornings" },
+];
 
 const pathways = [
   { number: "01", title: "Learn with intention", text: "Structured theory, guided practice, and reflective feedback create a calm route from first lesson to professional confidence." },
@@ -21,18 +33,94 @@ export default function Home() {
   return (
     <PublicShell>
       <main>
-        <section className="relative isolate overflow-hidden">
-          <div className="hero-mist absolute inset-0 -z-10" />
-          <div className="vertical-lines absolute inset-0 -z-10 opacity-60" />
-          <div className="container grid min-h-[680px] items-center gap-14 py-20 lg:grid-cols-[1.15fr_.85fr] lg:py-28">
-            <div className="max-w-3xl">
-              <div className="mb-7 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.28em] text-[#766b85]"><Sparkle className="h-3.5 w-3.5" /> Beauty education, reimagined</div>
-              <h1 className="font-serif text-5xl leading-[.96] tracking-[-0.045em] text-[#423b57] sm:text-6xl lg:text-8xl">Craft a life that<br /><span className="text-[#7f657d]">feels like you.</span></h1>
-              <p className="mt-8 max-w-xl text-base leading-8 text-[#686175] sm:text-lg">GlowCraft is a welcoming beauty academy for people ready to discover their hands, shape their point of view, and practice the art of care.</p>
-              <div className="mt-10 flex flex-wrap gap-3"><Link href="/apply"><Button size="lg" className="rounded-full bg-[#5f5277] px-7 text-white shadow-[0_16px_32px_rgba(95,82,119,0.24)] hover:bg-[#4d4264]">Start your application <ArrowRight className="ml-2 h-4 w-4" /></Button></Link><Link href="/programs"><Button size="lg" variant="outline" className="rounded-full border-[#5f5277]/20 bg-white/55 px-7 text-[#554b69] hover:bg-white">Explore programs</Button></Link></div>
-              <div className="mt-14 flex flex-wrap gap-x-10 gap-y-4 text-sm text-[#635c70]"><span className="flex items-center gap-2"><BookOpen className="h-4 w-4 text-[#8d748f]" /> Flexible study pathways</span><span className="flex items-center gap-2"><WandSparkles className="h-4 w-4 text-[#8d748f]" /> Studio-led practical learning</span></div>
+        {/* Pulled up under the sticky header so the dark ground runs edge to edge;
+            PublicShell renders the header transparent while the hero is in view. */}
+        <section className="hero-deep relative isolate -mt-20 overflow-hidden text-white">
+          <div className="hero-grain pointer-events-none absolute inset-0 -z-10 opacity-45" />
+          <div className="pointer-events-none absolute -left-40 top-[-18%] -z-10 h-[34rem] w-[34rem] rounded-full bg-[#a97fb0]/25 blur-[130px]" />
+          <div className="pointer-events-none absolute -right-32 bottom-[-22%] -z-10 h-[30rem] w-[30rem] rounded-full bg-[#7fb39c]/20 blur-[130px]" />
+
+          <div className="container grid items-center gap-16 pb-24 pt-44 lg:grid-cols-[1.08fr_.92fr] lg:pb-32 lg:pt-52">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.24em] text-white/80 backdrop-blur">
+                <Sparkle className="h-3.5 w-3.5" /> Beauty education, reimagined
+              </div>
+
+              <h1 className="mt-8 text-5xl font-semibold leading-[1.02] tracking-[-0.04em] sm:text-6xl lg:text-7xl">
+                Craft a life that<br />
+                <span className="bg-gradient-to-r from-[#f6cddd] via-[#e9c4e6] to-[#cbb4e8] bg-clip-text text-transparent">feels like you.</span>
+              </h1>
+
+              <p className="mt-7 max-w-lg text-base leading-8 text-white/70 sm:text-lg">
+                A welcoming cosmetology academy for people ready to discover their hands, shape a point of view, and practise the art of care.
+              </p>
+
+              <div className="mt-10 flex flex-wrap items-center gap-3">
+                <Link href="/apply">
+                  <Button size="lg" className="h-12 rounded-full bg-white px-7 text-[#332a44] shadow-[0_18px_40px_rgba(0,0,0,.28)] hover:bg-white/90">
+                    Start your application <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </Link>
+                <Link href="/programs">
+                  <Button size="lg" variant="outline" className="h-12 rounded-full border-white/25 bg-white/5 px-7 text-white backdrop-blur hover:bg-white/15 hover:text-white">
+                    Explore programmes
+                  </Button>
+                </Link>
+              </div>
+
+              <div className="hero-rule mt-12 h-px w-full max-w-lg" />
+
+              <dl className="mt-8 grid max-w-lg grid-cols-3 gap-6">
+                {heroStats.map(stat => (
+                  <div key={stat.label}>
+                    <dt className="text-3xl font-semibold tracking-tight text-white">{stat.value}</dt>
+                    <dd className="mt-1.5 text-[11px] uppercase tracking-[.14em] text-white/55">{stat.label}</dd>
+                  </div>
+                ))}
+              </dl>
             </div>
-            <div className="relative mx-auto w-full max-w-md"><div className="relative aspect-[.88] overflow-hidden rounded-[2.5rem] border border-white/70 bg-[linear-gradient(145deg,rgba(255,255,255,.78),rgba(234,222,241,.6),rgba(217,237,229,.7))] p-6 shadow-[0_30px_80px_rgba(84,65,102,0.17)]"><div className="corner-accent left-6 top-6" /><div className="corner-accent corner-accent--flip right-6 top-6" /><div className="absolute inset-x-10 bottom-10 top-20 rounded-[1.8rem] bg-[radial-gradient(circle_at_50%_30%,rgba(255,255,255,.9),rgba(237,217,230,.68)_40%,rgba(194,221,210,.5)_75%)]" /><div className="absolute left-1/2 top-1/2 h-48 w-48 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/80 bg-white/25 shadow-[inset_0_0_0_18px_rgba(255,255,255,.22)]" /><div className="absolute inset-x-10 bottom-12 rounded-2xl border border-white/70 bg-white/65 p-5 backdrop-blur-sm"><p className="text-[10px] font-semibold uppercase tracking-[.24em] text-[#85748b]">Your next learning season</p><p className="mt-2 font-serif text-2xl text-[#554861]">Begin beautifully.</p></div></div><div className="absolute -bottom-6 -left-9 hidden rounded-2xl border border-white/70 bg-white/80 p-4 shadow-[0_14px_32px_rgba(84,65,102,0.13)] backdrop-blur md:block"><div className="flex items-center gap-3"><span className="grid h-9 w-9 place-items-center rounded-full bg-[#eee3ed] text-[#7d6380]"><CalendarDays className="h-4 w-4" /></span><div><p className="text-[10px] uppercase tracking-[.16em] text-[#8a8291]">New pathways</p><p className="text-sm font-semibold text-[#554e63]">Applications open</p></div></div></div></div>
+
+            <div className="relative mx-auto w-full max-w-md lg:max-w-lg">
+              <div className="hero-frame rounded-[2rem] border border-white/15 p-7 shadow-[0_40px_90px_rgba(0,0,0,.35)] backdrop-blur-xl">
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-semibold uppercase tracking-[.22em] text-white/55">Now enrolling</p>
+                  <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[.14em] text-white/75">2026 intake</span>
+                </div>
+
+                <div className="mt-7 grid gap-3">
+                  {heroPrograms.map(program => (
+                    <Link key={program.title} href="/programs" className="group flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.07] p-4 transition-colors hover:border-white/25 hover:bg-white/[0.12]">
+                      <div className="min-w-0">
+                        <p className="truncate text-[15px] font-medium text-white">{program.title}</p>
+                        <p className="mt-1 text-xs text-white/55">{program.meta}</p>
+                      </div>
+                      <ArrowUpRight className="h-4 w-4 shrink-0 text-white/40 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-white/80" />
+                    </Link>
+                  ))}
+                </div>
+
+                <div className="mt-7 flex items-center gap-3 border-t border-white/10 pt-6">
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/12 text-white/85">
+                    <CalendarDays className="h-4 w-4" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-white">Applications are open</p>
+                    <p className="mt-0.5 text-xs text-white/55">Apply online in about ten minutes.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <div className="flex items-center gap-2.5 rounded-2xl border border-white/12 bg-white/[0.06] px-4 py-3.5 backdrop-blur">
+                  <BookOpen className="h-4 w-4 shrink-0 text-[#d9bfe0]" />
+                  <span className="text-xs leading-snug text-white/70">Flexible study pathways</span>
+                </div>
+                <div className="flex items-center gap-2.5 rounded-2xl border border-white/12 bg-white/[0.06] px-4 py-3.5 backdrop-blur">
+                  <WandSparkles className="h-4 w-4 shrink-0 text-[#b3d9c6]" />
+                  <span className="text-xs leading-snug text-white/70">Studio-led practical hours</span>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
         <section className="container py-24"><div className="grid gap-12 lg:grid-cols-[.8fr_1.2fr]"><div><p className="eyebrow">The GlowCraft approach</p><h2 className="mt-5 font-serif text-4xl leading-tight text-[#484159] sm:text-5xl">A softer way to become exceptional.</h2></div><p className="max-w-2xl self-end text-lg leading-8 text-[#716a7d]">We pair clear professional standards with spacious, student-centered learning. You will build technique, a beautiful practice rhythm, and the confidence to show up for every client with care.</p></div><div className="mt-14 grid gap-4 md:grid-cols-3">{pathways.map(path => <article key={path.number} className="rounded-3xl border border-white/80 bg-white/60 p-7 shadow-[0_12px_36px_rgba(90,72,103,.06)] transition-transform duration-200 hover:-translate-y-1"><p className="text-[11px] font-semibold tracking-[.2em] text-[#a17d9f]">{path.number}</p><h3 className="mt-12 font-serif text-2xl text-[#51465c]">{path.title}</h3><p className="mt-4 text-sm leading-7 text-[#766e7f]">{path.text}</p></article>)}</div></section>

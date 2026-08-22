@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Flower2, Menu, Sparkles } from "lucide-react";
@@ -20,24 +20,36 @@ export default function PublicShell({ children }: { children: React.ReactNode })
   const pathname = usePathname();
   const { user } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 24);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // The homepage opens on a dark hero, so the header sits transparent over it
+  // and only takes on its light surface once the user scrolls past.
+  const onDark = pathname === "/" && !scrolled && !menuOpen;
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#fdfaff] text-[#403c59]">
-      <header className="sticky top-0 z-50 border-b border-white/55 bg-[#fdfaff]/75 backdrop-blur-xl">
+      <header className={`sticky top-0 z-50 border-b transition-colors duration-300 ${onDark ? "border-white/10 bg-transparent" : "border-white/55 bg-[#fdfaff]/75 backdrop-blur-xl"}`}>
         <div className="container flex h-20 items-center justify-between gap-5">
           <Link href="/" className="group flex items-center gap-3">
-            <span className="grid h-10 w-10 place-items-center rounded-full border border-[#73688d]/20 bg-white/70 text-[#675c80] shadow-[0_8px_22px_rgba(111,90,134,0.12)] transition-transform duration-200 group-hover:scale-105">
+            <span className={`grid h-10 w-10 place-items-center rounded-full border transition-colors duration-300 group-hover:scale-105 ${onDark ? "border-white/25 bg-white/10 text-white" : "border-[#73688d]/20 bg-white/70 text-[#675c80] shadow-[0_8px_22px_rgba(111,90,134,0.12)]"}`}>
               <Flower2 className="h-5 w-5" />
             </span>
             <span>
-              <span className="block font-serif text-xl font-semibold tracking-tight text-[#4b4662]">GlowCraft</span>
-              <span className="block text-[9px] font-medium uppercase tracking-[0.28em] text-[#80768f]">Beauty Academy</span>
+              <span className={`block font-serif text-xl font-semibold tracking-tight transition-colors duration-300 ${onDark ? "text-white" : "text-[#4b4662]"}`}>GlowCraft</span>
+              <span className={`block text-[9px] font-medium uppercase tracking-[0.28em] transition-colors duration-300 ${onDark ? "text-white/60" : "text-[#80768f]"}`}>Beauty Academy</span>
             </span>
           </Link>
 
           <nav className="hidden items-center gap-6 lg:flex" aria-label="Primary navigation">
             {links.map(link => (
-              <Link key={link.path} href={link.path} className={`text-[11px] font-medium uppercase tracking-[0.18em] transition-colors ${pathname === link.path ? "text-[#5f4d77]" : "text-[#726c7f] hover:text-[#5f4d77]"}`}>
+              <Link key={link.path} href={link.path} className={`text-[11px] font-medium uppercase tracking-[0.18em] transition-colors duration-300 ${onDark ? "text-white/70 hover:text-white" : pathname === link.path ? "text-[#5f4d77]" : "text-[#726c7f] hover:text-[#5f4d77]"}`}>
                 {link.label}
               </Link>
             ))}
@@ -45,14 +57,14 @@ export default function PublicShell({ children }: { children: React.ReactNode })
 
           <div className="hidden items-center gap-3 sm:flex">
             {user ? (
-              <Link href="/portal"><Button variant="outline" className="rounded-full border-[#675c80]/25 bg-white/70 px-4 text-xs text-[#514a68] hover:bg-white">My portal</Button></Link>
+              <Link href="/portal"><Button variant="outline" className={`rounded-full px-4 text-xs transition-colors duration-300 ${onDark ? "border-white/25 bg-white/10 text-white hover:bg-white/20 hover:text-white" : "border-[#675c80]/25 bg-white/70 text-[#514a68] hover:bg-white"}`}>My portal</Button></Link>
             ) : (
-              <Button variant="ghost" className="rounded-full text-xs text-[#514a68] hover:bg-white/70" onClick={() => startLogin()}>Sign in</Button>
+              <Button variant="ghost" className={`rounded-full text-xs transition-colors duration-300 ${onDark ? "text-white/80 hover:bg-white/10 hover:text-white" : "text-[#514a68] hover:bg-white/70"}`} onClick={() => startLogin()}>Sign in</Button>
             )}
-            <Link href="/apply"><Button className="rounded-full bg-[#5f5277] px-5 text-xs text-white shadow-[0_12px_24px_rgba(95,82,119,0.25)] hover:bg-[#4d4264]">Apply now</Button></Link>
+            <Link href="/apply"><Button className={`rounded-full px-5 text-xs transition-colors duration-300 ${onDark ? "bg-white text-[#332a44] hover:bg-white/90" : "bg-[#5f5277] text-white shadow-[0_12px_24px_rgba(95,82,119,0.25)] hover:bg-[#4d4264]"}`}>Apply now</Button></Link>
           </div>
 
-          <button className="grid h-10 w-10 place-items-center rounded-full border border-[#73688d]/15 bg-white/70 lg:hidden" onClick={() => setMenuOpen(v => !v)} aria-label="Toggle navigation">
+          <button className={`grid h-10 w-10 place-items-center rounded-full border transition-colors duration-300 lg:hidden ${onDark ? "border-white/25 bg-white/10 text-white" : "border-[#73688d]/15 bg-white/70"}`} onClick={() => setMenuOpen(v => !v)} aria-label="Toggle navigation">
             <Menu className="h-5 w-5" />
           </button>
         </div>

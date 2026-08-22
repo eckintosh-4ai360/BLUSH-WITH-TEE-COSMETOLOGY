@@ -181,6 +181,13 @@
 }
 
 .hero-mist { background: radial-gradient(circle at 18% 18%, rgba(231, 211, 236, .92), transparent 31%), radial-gradient(circle at 85% 22%, rgba(218, 239, 227, .85), transparent 31%), radial-gradient(circle at 57% 91%, rgba(246, 219, 227, .83), transparent 36%), linear-gradient(120deg, #fdfaff 0%, #faf2f7 48%, #f1f8f4 100%); }
+
+/* Deep editorial hero: saturated aubergine ground so the headline and CTAs
+   carry real contrast instead of floating on a pale wash. */
+.hero-deep { background: radial-gradient(ellipse 70% 55% at 10% 6%, rgba(158, 104, 158, .55), transparent 60%), radial-gradient(ellipse 50% 45% at 95% 12%, rgba(120, 158, 142, .26), transparent 64%), radial-gradient(ellipse 65% 50% at 72% 104%, rgba(201, 126, 154, .48), transparent 62%), linear-gradient(145deg, #2b2139 0%, #3d2f4d 45%, #332741 100%); }
+.hero-grain { background-image: radial-gradient(rgba(255,255,255,.14) .5px, transparent .5px); background-size: 3px 3px; }
+.hero-rule { background-image: linear-gradient(to right, transparent, rgba(255,255,255,.16), transparent); }
+.hero-frame { background: linear-gradient(158deg, rgba(255,255,255,.13), rgba(255,255,255,.04) 45%, rgba(255,255,255,.09)); }
 .vertical-lines { background-image: linear-gradient(to right, transparent 0, transparent calc(25% - 1px), rgba(99, 77, 117, .08) 25%, transparent calc(25% + 1px), transparent calc(50% - 1px), rgba(99, 77, 117, .07) 50%, transparent calc(50% + 1px), transparent calc(75% - 1px), rgba(99, 77, 117, .07) 75%, transparent calc(75% + 1px)); }
 .corner-accent { position:absolute; width:28px; height:28px; border-left:1px solid rgba(90,68,109,.5); border-top:1px solid rgba(90,68,109,.5); }
 .corner-accent--flip { transform:scaleX(-1); }
