@@ -16,7 +16,9 @@
     "test": "turbo run test",
     "format": "prettier --write .",
     "db:push": "pnpm --filter @blush/db db:push",
-    "db:seed": "pnpm --filter @blush/db db:seed"
+    "db:seed": "pnpm --filter @blush/db db:seed",
+    "db:seed:demo": "pnpm --filter @blush/db db:seed --demo",
+    "db:reconcile": "pnpm --filter @blush/db db:reconcile"
   },
   "devDependencies": {
     "prettier": "^3.6.2",
