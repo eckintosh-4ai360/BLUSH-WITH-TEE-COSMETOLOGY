@@ -52,7 +52,7 @@ export default function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
       onFocusCapture={() => setPaused(true)}
       onBlurCapture={() => setPaused(false)}
     >
-      <div className="relative aspect-[4/5] overflow-hidden rounded-[2rem] border border-white/15 shadow-[0_40px_90px_rgba(0,0,0,.4)]">
+      <div className="relative aspect-[4/5] overflow-hidden rounded-[2.25rem] border border-[#fe00b6]/30 shadow-[0_30px_90px_rgba(0,0,0,.6)]">
         {slides.map((slide, i) => {
           const isActive = i === index;
           return (
@@ -75,7 +75,7 @@ export default function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
                   className={`object-cover ${isActive && !reduced ? "hero-zoom" : ""}`}
                 />
               )}
-              <div className="absolute inset-0 bg-gradient-to-t from-[#241d30]/85 via-[#241d30]/20 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#1b0114]/90 via-[#1b0114]/25 to-transparent" />
             </div>
           );
         })}
@@ -83,14 +83,14 @@ export default function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
         <div className="absolute inset-x-0 bottom-0 p-6 sm:p-7">
           <Link href={active.href} className="group inline-flex max-w-full items-end gap-3">
             <span className="min-w-0">
-              <span className="block text-[10px] font-semibold uppercase tracking-[.22em] text-white/60">
+              <span className="block text-[10px] font-bold uppercase tracking-[.22em] text-[#ffb8ed]">
                 {active.meta}
               </span>
-              <span className="mt-1.5 block truncate text-2xl font-semibold text-white">
+              <span className="mt-1.5 block truncate text-2xl font-bold text-white group-hover:text-[#ff94e4] transition-colors">
                 {active.label}
               </span>
             </span>
-            <ArrowUpRight className="mb-1 h-5 w-5 shrink-0 text-white/50 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-white" />
+            <ArrowUpRight className="mb-1 h-5 w-5 shrink-0 text-[#ffb8ed] transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-white" />
           </Link>
 
           <div className="mt-5 flex items-center gap-2">
@@ -101,13 +101,13 @@ export default function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
                 onClick={() => setIndex(i)}
                 aria-label={`Show ${slide.label}`}
                 aria-current={i === index}
-                className="h-1 flex-1 overflow-hidden rounded-full bg-white/25 transition-colors hover:bg-white/40"
+                className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/20 transition-colors hover:bg-white/40"
               >
                 {i === index && (
                   <span
                     // Re-keying on index restarts the fill for the new slide.
                     key={`${index}-${paused}-${reduced}`}
-                    className="hero-progress block h-full w-full rounded-full bg-white"
+                    className="hero-progress block h-full w-full rounded-full bg-gradient-to-r from-[#fe00b6] to-white shadow-[0_0_8px_#fe00b6]"
                     style={{
                       animationDuration: `${SLIDE_MS}ms`,
                       animationPlayState: paused ? "paused" : "running",

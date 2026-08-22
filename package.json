@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "turbo run dev",
     "dev:admin": "turbo run dev --filter=admin-dashboard",
-    "dev:client": "turbo run dev --filter=barber-client-app",
+    "dev:client": "turbo run dev --filter=beauty-client-app",
     "build": "turbo run build",
     "check": "turbo run check",
     "test": "turbo run test",

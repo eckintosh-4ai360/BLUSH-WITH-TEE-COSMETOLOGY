@@ -13,8 +13,12 @@ const sora = Sora({
 });
 
 export const metadata: Metadata = {
-  title: "GlowCraft Beauty Academy",
-  description: "Apply to a cosmetology programme, book a student-clinic service, and shop academy beauty essentials — all in one place.",
+  title: "BWT School of Cosmetology | Blush With Tee",
+  description: "Apply to a professional cosmetology programme, book a student-clinic beauty service, and shop academy essentials at Blush With Tee School of Cosmetology.",
+  icons: {
+    icon: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
