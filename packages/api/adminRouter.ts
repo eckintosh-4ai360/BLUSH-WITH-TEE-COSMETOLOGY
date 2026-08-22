@@ -6,6 +6,7 @@ import { dashboardRouter } from "./routers/dashboard";
 import { financeRouter } from "./routers/finance";
 import { inventoryRouter } from "./routers/inventory";
 import { notificationsRouter } from "./routers/notifications";
+import { platformRouter } from "./routers/platform";
 import { ordersRouter } from "./routers/orders";
 import { staffRouter } from "./routers/staff";
 import { systemRouter } from "./routers/system";
@@ -22,6 +23,7 @@ export const adminAppRouter = router({
   inventory: inventoryRouter,
   orders: ordersRouter,
   certificates: certificatesRouter,
+  platform: platformRouter,
   dashboard: dashboardRouter,
   notifications: notificationsRouter,
 });
