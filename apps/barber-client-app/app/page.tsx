@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, ArrowUpRight, BookOpen, CalendarDays, ShoppingBag, Sparkle, WandSparkles } from "lucide-react";
+import { ArrowRight, BookOpen, ShoppingBag, Sparkle, WandSparkles } from "lucide-react";
 import { Button } from "@blush/ui/components/ui/button";
 import PublicShell from "@/components/PublicShell";
+import HeroCarousel, { type HeroSlide } from "@/components/HeroCarousel";
 
 const heroStats = [
   { value: "12+", label: "Programmes" },
@@ -11,10 +12,41 @@ const heroStats = [
   { value: "94%", label: "Complete" },
 ];
 
-const heroPrograms = [
-  { title: "Professional Hair Artistry", meta: "24 weeks · Professional Certificate" },
-  { title: "Nail Craft & Design", meta: "12 weeks · Weekend studio" },
-  { title: "Foundations of Beauty", meta: "16 weeks · Weekday mornings" },
+// Photographs live in /public/hero (see the README there). Each slide keeps a
+// gradient `tone` so the panel still reads as designed before the images land.
+const heroSlides: HeroSlide[] = [
+  {
+    src: "/hero/hair.jpg",
+    alt: "A student finishing a client's blow-dry in the teaching salon",
+    label: "Hair artistry",
+    meta: "24 weeks · Professional Certificate",
+    href: "/programs",
+    tone: "from-[#6d4f74] via-[#8a6486] to-[#4a3a5c]",
+  },
+  {
+    src: "/hero/makeup.jpg",
+    alt: "Close detail of a makeup artist blending colour on a client",
+    label: "Makeup artistry",
+    meta: "Studio-led practical hours",
+    href: "/programs",
+    tone: "from-[#8a5f70] via-[#a8788a] to-[#553f5b]",
+  },
+  {
+    src: "/hero/nails.jpg",
+    alt: "Nail technician shaping and finishing a manicure",
+    label: "Nail craft & design",
+    meta: "12 weeks · Weekend studio",
+    href: "/programs",
+    tone: "from-[#5f6f78] via-[#7f9a91] to-[#3f4f5c]",
+  },
+  {
+    src: "/hero/skincare.jpg",
+    alt: "A calm facial treatment in the student clinic",
+    label: "Skincare & spa therapy",
+    meta: "Student clinic appointments",
+    href: "/appointments",
+    tone: "from-[#63775f] via-[#8fae94] to-[#3f4f52]",
+  },
 ];
 
 const pathways = [
@@ -81,34 +113,7 @@ export default function Home() {
             </div>
 
             <div className="relative mx-auto w-full max-w-md lg:max-w-lg">
-              <div className="hero-frame rounded-[2rem] border border-white/15 p-7 shadow-[0_40px_90px_rgba(0,0,0,.35)] backdrop-blur-xl">
-                <div className="flex items-center justify-between">
-                  <p className="text-[10px] font-semibold uppercase tracking-[.22em] text-white/55">Now enrolling</p>
-                  <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[.14em] text-white/75">2026 intake</span>
-                </div>
-
-                <div className="mt-7 grid gap-3">
-                  {heroPrograms.map(program => (
-                    <Link key={program.title} href="/programs" className="group flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.07] p-4 transition-colors hover:border-white/25 hover:bg-white/[0.12]">
-                      <div className="min-w-0">
-                        <p className="truncate text-[15px] font-medium text-white">{program.title}</p>
-                        <p className="mt-1 text-xs text-white/55">{program.meta}</p>
-                      </div>
-                      <ArrowUpRight className="h-4 w-4 shrink-0 text-white/40 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-white/80" />
-                    </Link>
-                  ))}
-                </div>
-
-                <div className="mt-7 flex items-center gap-3 border-t border-white/10 pt-6">
-                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/12 text-white/85">
-                    <CalendarDays className="h-4 w-4" />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-white">Applications are open</p>
-                    <p className="mt-0.5 text-xs text-white/55">Apply online in about ten minutes.</p>
-                  </div>
-                </div>
-              </div>
+              <HeroCarousel slides={heroSlides} />
 
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <div className="flex items-center gap-2.5 rounded-2xl border border-white/12 bg-white/[0.06] px-4 py-3.5 backdrop-blur">
