@@ -1,4 +1,12 @@
-import { nanoid } from "nanoid";
+import { customAlphabet } from "nanoid";
+
+/**
+ * Uppercase letters and digits with the lookalikes removed (no I, O, 0, 1).
+ * References get read down a phone line and copied off printed receipts, so
+ * they must not contain the hyphen used as the delimiter or characters a
+ * person can transcribe two ways.
+ */
+const referenceSuffix = customAlphabet("ABCDEFGHJKLMNPQRSTUVWXYZ23456789", 6);
 
 export {
   amountString,
@@ -37,9 +45,9 @@ const MIME_SIGNATURES: Record<AcceptedDocumentMimeType, (buffer: Buffer) => bool
 
 export const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
 
-/** Human-readable reference, e.g. `PAY-2026-A1B2C3`. */
+/** Human-readable reference, e.g. `PAY-2026-A7B2C4`. */
 export function buildReference(prefix: string) {
-  return `${prefix}-${new Date().getFullYear()}-${nanoid(6).toUpperCase()}`;
+  return `${prefix}-${new Date().getFullYear()}-${referenceSuffix()}`;
 }
 
 /** Sequential, human-quotable document number, e.g. `COS-2026-00124`. */

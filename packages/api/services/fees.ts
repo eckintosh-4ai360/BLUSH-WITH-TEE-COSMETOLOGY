@@ -64,10 +64,78 @@ export async function studentAccountSummary(
   };
 }
 
+export type AllocatableCharge = {
+  id: number;
+  amountDue: string | number;
+  amountPaid: string | number;
+};
+
+export type AllocationLine = {
+  feeChargeId: number;
+  amountMinor: number;
+  /** What the charge total becomes once this line is applied. */
+  paidAfterMinor: number;
+  dueMinor: number;
+  settled: boolean;
+};
+
 /**
- * Spreads a payment across the charges it settles, oldest due date first, and
- * moves each charge to its correct status. Allocation is the only thing that
- * may write `feeCharges.amountPaid`.
+ * Decides how one payment is spread across the charges it settles.
+ *
+ * Pure on purpose: this is the arithmetic the whole fee system rests on, so it
+ * is kept free of database access and tested directly. `allocatePayment` does
+ * the reading and writing around it.
+ *
+ * Charges are settled in the order given (oldest due date first), except that
+ * an explicitly chosen charge is pulled to the front. Any surplus beyond what
+ * is owed is left unallocated and reported as `unallocatedMinor`.
+ */
+export function planAllocation(
+  charges: AllocatableCharge[],
+  amountMinor: number,
+  preferredFeeChargeId?: number | null,
+): { lines: AllocationLine[]; unallocatedMinor: number } {
+  if (amountMinor <= 0) return { lines: [], unallocatedMinor: Math.max(amountMinor, 0) };
+
+  const ordered = preferredFeeChargeId
+    ? [
+        ...charges.filter(charge => charge.id === preferredFeeChargeId),
+        ...charges.filter(charge => charge.id !== preferredFeeChargeId),
+      ]
+    : charges;
+
+  let remaining = amountMinor;
+  const lines: AllocationLine[] = [];
+
+  for (const charge of ordered) {
+    if (remaining <= 0) break;
+
+    const dueMinor = toMinor(charge.amountDue);
+    const paidMinor = toMinor(charge.amountPaid);
+    const owingMinor = dueMinor - paidMinor;
+    if (owingMinor <= 0) continue;
+
+    const applyMinor = Math.min(owingMinor, remaining);
+    const paidAfterMinor = paidMinor + applyMinor;
+
+    lines.push({
+      feeChargeId: charge.id,
+      amountMinor: applyMinor,
+      paidAfterMinor,
+      dueMinor,
+      settled: paidAfterMinor >= dueMinor,
+    });
+
+    remaining -= applyMinor;
+  }
+
+  return { lines, unallocatedMinor: remaining };
+}
+
+/**
+ * Spreads a payment across the charges it settles and moves each to its
+ * correct status. Allocation is the only thing that may write
+ * `feeCharges.amountPaid`.
  *
  * Must run inside the same transaction as the payment insert.
  */
@@ -94,46 +162,25 @@ export async function allocatePayment(
     )
     .orderBy(asc(feeCharges.dueDate), asc(feeCharges.id));
 
-  const ordered = input.preferredFeeChargeId
-    ? [
-        ...open.filter(charge => charge.id === input.preferredFeeChargeId),
-        ...open.filter(charge => charge.id !== input.preferredFeeChargeId),
-      ]
-    : open;
+  const { lines } = planAllocation(open, input.amountMinor, input.preferredFeeChargeId);
 
-  let remaining = input.amountMinor;
-  const applied: Array<{ feeChargeId: number; amountMinor: number }> = [];
-
-  for (const charge of ordered) {
-    if (remaining <= 0) break;
-
-    const dueMinor = toMinor(charge.amountDue);
-    const paidMinor = toMinor(charge.amountPaid);
-    const owingMinor = dueMinor - paidMinor;
-    if (owingMinor <= 0) continue;
-
-    const applyMinor = Math.min(owingMinor, remaining);
-    const nextPaidMinor = paidMinor + applyMinor;
-
+  for (const line of lines) {
     await db.insert(paymentAllocations).values({
       paymentId: input.paymentId,
-      feeChargeId: charge.id,
-      amount: toAmountString(applyMinor),
+      feeChargeId: line.feeChargeId,
+      amount: toAmountString(line.amountMinor),
     });
 
     await db
       .update(feeCharges)
       .set({
-        amountPaid: toAmountString(nextPaidMinor),
-        status: nextPaidMinor >= dueMinor ? "paid" : "partially_paid",
+        amountPaid: toAmountString(line.paidAfterMinor),
+        status: line.settled ? "paid" : "partially_paid",
       })
-      .where(eq(feeCharges.id, charge.id));
-
-    applied.push({ feeChargeId: charge.id, amountMinor: applyMinor });
-    remaining -= applyMinor;
+      .where(eq(feeCharges.id, line.feeChargeId));
   }
 
-  return applied;
+  return lines.map(line => ({ feeChargeId: line.feeChargeId, amountMinor: line.amountMinor }));
 }
 
 /**
