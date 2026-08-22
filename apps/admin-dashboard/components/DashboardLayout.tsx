@@ -38,8 +38,8 @@ const menuItems = [
   { icon: ShoppingBag, label: "Orders", path: "/orders", roles: ["admin"] },
   { icon: ReceiptText, label: "Finance", path: "/finance", roles: ["admin"] },
   { icon: Users, label: "Operations", path: "/operations", roles: ["admin"] },
-  { icon: CalendarDays, label: "Clinic bookings", path: "/staff", roles: ["admin", "staff"] },
-] as const;
+  { icon: CalendarDays, label: "Clinic bookings", path: "/staff", roles: ["admin", "staff"] as Array<"admin" | "staff"> },
+];
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";
 const DEFAULT_WIDTH = 280;

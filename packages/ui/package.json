@@ -7,7 +7,7 @@
     "./globals.css": "./globals.css",
     "./theme": "./theme.tsx",
     "./lib/utils": "./lib/utils.ts",
-    "./hooks/*": ["./hooks/*.ts", "./hooks/*.tsx"],
+    "./hooks/*": "./hooks/*.ts",
     "./components/ui/*": "./components/ui/*.tsx"
   },
   "dependencies": {
@@ -56,5 +56,10 @@
   "peerDependencies": {
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.1",
+    "@types/react-dom": "^19.2.1",
+    "typescript": "5.9.3"
   }
 }
