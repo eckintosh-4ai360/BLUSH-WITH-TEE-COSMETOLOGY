@@ -10,7 +10,8 @@
     "./schema": "./schema.ts"
   },
   "scripts": {
-    "db:push": "drizzle-kit generate && drizzle-kit migrate"
+    "db:push": "drizzle-kit generate && drizzle-kit migrate",
+    "db:seed": "tsx seed.ts"
   },
   "dependencies": {
     "@blush/env": "workspace:*",
@@ -19,6 +20,8 @@
   },
   "devDependencies": {
     "@types/pg": "^8.23.1",
-    "drizzle-kit": "^0.31.4"
+    "dotenv": "^17.4.2",
+    "drizzle-kit": "^0.31.4",
+    "tsx": "^4.23.12"
   }
 }
