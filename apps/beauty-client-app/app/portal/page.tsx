@@ -2,6 +2,7 @@
 
 import { Badge } from "@blush/ui/components/ui/badge";
 import PortalGuard from "@/components/PortalGuard";
+import PublicShell from "@/components/PublicShell";
 import { trpc } from "@/lib/trpc";
 
 function StudentPortalContent() {
