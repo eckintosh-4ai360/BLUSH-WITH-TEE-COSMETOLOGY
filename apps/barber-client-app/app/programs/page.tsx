@@ -1,0 +1,13 @@
+"use client";
+
+import Link from "next/link";
+import { ArrowRight, Clock3, GraduationCap } from "lucide-react";
+import { Badge } from "@blush/ui/components/ui/badge";
+import { Button } from "@blush/ui/components/ui/button";
+import PublicShell from "@/components/PublicShell";
+import { trpc } from "@/lib/trpc";
+
+export default function ProgramsPage() {
+  const { data: courses = [], isLoading } = trpc.content.courses.useQuery();
+  return <PublicShell><main className="container py-16 sm:py-24"><div className="max-w-3xl"><p className="eyebrow">Learning pathways</p><h1 className="mt-5 font-serif text-5xl leading-none text-[#474057] sm:text-6xl">Find the practice that feels like home.</h1><p className="mt-6 max-w-2xl text-lg leading-8 text-[#716a7d]">Every pathway combines structured technique with supervised practical work, professional habits, and space to make the craft your own.</p></div><section className="mt-16 grid gap-5 lg:grid-cols-3">{isLoading ? [1,2,3].map(x => <div key={x} className="h-80 animate-pulse rounded-3xl bg-white/70" />) : courses.map(course => <article key={course.id} className="relative flex min-h-[370px] flex-col rounded-3xl border border-white bg-white/70 p-7 shadow-[0_16px_40px_rgba(89,70,101,.08)]"><div className="flex items-start justify-between gap-4"><Badge className="rounded-full bg-[#eee5ef] px-3 py-1 text-[10px] font-semibold uppercase tracking-[.13em] text-[#765d78] hover:bg-[#eee5ef]">{course.code}</Badge>{course.isFeatured && <span className="text-[10px] font-semibold uppercase tracking-[.16em] text-[#a17d9f]">Featured</span>}</div><h2 className="mt-12 font-serif text-3xl leading-tight text-[#51465c]">{course.title}</h2><p className="mt-4 text-sm leading-7 text-[#756e7e]">{course.summary}</p><div className="mt-auto border-t border-[#695a78]/10 pt-5"><div className="flex items-center gap-5 text-xs text-[#72697c]"><span className="flex items-center gap-1.5"><Clock3 className="h-3.5 w-3.5" />{course.durationWeeks} weeks</span><span className="flex items-center gap-1.5"><GraduationCap className="h-3.5 w-3.5" />{course.certification}</span></div><p className="mt-4 font-serif text-xl text-[#5d506a]">GHS {Number(course.tuition).toLocaleString()}</p><Link href="/apply"><Button variant="ghost" className="mt-4 h-auto p-0 text-sm font-semibold text-[#715875] hover:bg-transparent hover:text-[#4e4057]">Apply for this programme <ArrowRight className="ml-2 h-4 w-4" /></Button></Link></div></article>)}</section></main></PublicShell>;
+}
