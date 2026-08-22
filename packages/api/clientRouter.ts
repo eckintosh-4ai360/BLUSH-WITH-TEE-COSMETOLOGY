@@ -2,6 +2,7 @@ import { admissionsRouter } from "./routers/admissions";
 import { appointmentsRouter } from "./routers/appointments";
 import { authRouter } from "./routers/auth";
 import { contentRouter } from "./routers/content";
+import { certificateVerificationRouter } from "./routers/certificates";
 import { paymentsRouter } from "./routers/payments";
 import { portalRouter } from "./routers/portal";
 import { storeRouter } from "./routers/store";
@@ -18,6 +19,7 @@ export const clientAppRouter = router({
   appointments: appointmentsRouter,
   portal: portalRouter,
   payments: paymentsRouter,
+  certificates: certificateVerificationRouter,
 });
 
 export type ClientAppRouter = typeof clientAppRouter;
