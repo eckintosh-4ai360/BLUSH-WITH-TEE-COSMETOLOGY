@@ -5,6 +5,7 @@ import { cartItems, carts, inventoryItems, inventoryMovements, orderItems, store
 import { initializeFoundationData } from "@blush/db";
 import { dbOrThrow } from "../dbOrThrow";
 import { buildReference, calculateOrderTotal, checkoutStockDeductions, money } from "../platform.utils";
+import { storageGet } from "@blush/storage";
 import { publicProcedure, router } from "../trpc";
 
 export const storeRouter = router({
@@ -12,7 +13,12 @@ export const storeRouter = router({
     const db = await dbOrThrow();
     await initializeFoundationData(db);
     const rows = await db.select().from(inventoryItems).where(and(eq(inventoryItems.isSellable, true), eq(inventoryItems.isActive, true)));
-    return rows.map(item => ({ ...item, unitCost: money(item.unitCost), sellingPrice: money(item.sellingPrice) }));
+    return Promise.all(rows.map(async item => ({
+      ...item,
+      unitCost: money(item.unitCost),
+      sellingPrice: money(item.sellingPrice),
+      imageUrl: item.imageKey ? (await storageGet(item.imageKey)).url : null,
+    })));
   }),
   lookupOrder: publicProcedure.input(z.object({ orderNumber: z.string().min(6).max(40), email: z.string().email() })).query(async ({ input }) => {
     const db = await dbOrThrow();
@@ -37,7 +43,12 @@ export const storeRouter = router({
       sellingPrice: inventoryItems.sellingPrice,
       quantityOnHand: inventoryItems.quantityOnHand,
     }).from(cartItems).innerJoin(inventoryItems, eq(cartItems.inventoryItemId, inventoryItems.id)).where(eq(cartItems.cartId, cart.id));
-    const items = rows.map(row => ({ ...row, sellingPrice: money(row.sellingPrice), lineTotal: money(row.sellingPrice) * row.quantity }));
+    const items = await Promise.all(rows.map(async row => ({
+      ...row,
+      sellingPrice: money(row.sellingPrice),
+      lineTotal: money(row.sellingPrice) * row.quantity,
+      imageUrl: row.imageKey ? (await storageGet(row.imageKey)).url : null,
+    })));
     return { cartId: cart.id, items, subtotal: items.reduce((sum, item) => sum + item.lineTotal, 0) };
   }),
   addItem: publicProcedure.input(z.object({ sessionToken: z.string().min(16).max(96), inventoryItemId: z.number().int().positive(), quantity: z.number().int().min(1).max(20) })).mutation(async ({ input, ctx }) => {

@@ -10,7 +10,8 @@
     "./proxy-route": "./proxyRoute.ts"
   },
   "dependencies": {
-    "@blush/env": "workspace:*"
+    "@blush/env": "workspace:*",
+    "cloudinary": "^2.10.1"
   },
   "peerDependencies": {
     "next": "^15.0.0"

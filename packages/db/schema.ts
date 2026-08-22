@@ -208,8 +208,8 @@ export const intakes = pgTable("intakes", {
   id: serial("id").primaryKey(),
   courseId: integer("courseId").notNull(),
   title: varchar("title", { length: 120 }).notNull(),
-  startDate: date("startDate").notNull(),
-  applicationDeadline: date("applicationDeadline"),
+  startDate: date("startDate", { mode: "date" }).notNull(),
+  applicationDeadline: date("applicationDeadline", { mode: "date" }),
   capacity: integer("capacity").notNull(),
   status: intakeStatus("status").default("open").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
@@ -223,7 +223,7 @@ export const applications = pgTable("applications", {
   email: varchar("email", { length: 320 }).notNull(),
   phone: varchar("phone", { length: 40 }).notNull(),
   whatsapp: varchar("whatsapp", { length: 40 }),
-  birthDate: date("birthDate"),
+  birthDate: date("birthDate", { mode: "date" }),
   gender: varchar("gender", { length: 32 }),
   address: text("address"),
   emergencyContact: varchar("emergencyContact", { length: 180 }),
@@ -277,7 +277,7 @@ export const enrollments = pgTable("enrollments", {
   courseId: integer("courseId").notNull(),
   intakeId: integer("intakeId"),
   enrolledAt: timestamp("enrolledAt").defaultNow().notNull(),
-  expectedCompletionDate: date("expectedCompletionDate"),
+  expectedCompletionDate: date("expectedCompletionDate", { mode: "date" }),
   progressPercent: integer("progressPercent").default(0).notNull(),
   status: enrollmentStatus("status").default("active").notNull(),
 });
@@ -285,7 +285,7 @@ export const enrollments = pgTable("enrollments", {
 export const attendanceRecords = pgTable("attendanceRecords", {
   id: serial("id").primaryKey(),
   enrollmentId: integer("enrollmentId").notNull(),
-  classDate: date("classDate").notNull(),
+  classDate: date("classDate", { mode: "date" }).notNull(),
   status: attendanceStatus("status").notNull(),
   recordedByUserId: integer("recordedByUserId"),
   note: varchar("note", { length: 255 }),
@@ -298,7 +298,7 @@ export const assessments = pgTable("assessments", {
   title: varchar("title", { length: 180 }).notNull(),
   assessmentType: assessmentTypeEnum("assessmentType").notNull(),
   totalScore: integer("totalScore").notNull(),
-  dueDate: date("dueDate"),
+  dueDate: date("dueDate", { mode: "date" }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
@@ -318,7 +318,7 @@ export const staffProfiles = pgTable("staffProfiles", {
   userId: integer("userId").notNull().unique(),
   position: varchar("position", { length: 120 }).notNull(),
   phone: varchar("phone", { length: 40 }),
-  employmentDate: date("employmentDate"),
+  employmentDate: date("employmentDate", { mode: "date" }),
   status: staffStatus("status").default("active").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
@@ -415,7 +415,7 @@ export const feeCharges = pgTable("feeCharges", {
   feeType: feeTypeEnum("feeType").notNull(),
   description: varchar("description", { length: 255 }).notNull(),
   amountDue: numeric("amountDue", { precision: 10, scale: 2 }).notNull(),
-  dueDate: date("dueDate"),
+  dueDate: date("dueDate", { mode: "date" }),
   status: feeChargeStatus("status").default("open").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
@@ -440,7 +440,7 @@ export const paymentPlans = pgTable("paymentPlans", {
   title: varchar("title", { length: 180 }).notNull(),
   totalAmount: numeric("totalAmount", { precision: 10, scale: 2 }).notNull(),
   installmentAmount: numeric("installmentAmount", { precision: 10, scale: 2 }).notNull(),
-  nextDueDate: date("nextDueDate"),
+  nextDueDate: date("nextDueDate", { mode: "date" }),
   status: paymentPlanStatus("status").default("active").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt")
@@ -454,7 +454,7 @@ export const expenses = pgTable("expenses", {
   title: varchar("title", { length: 180 }).notNull(),
   category: expenseCategory("category").notNull(),
   amount: numeric("amount", { precision: 10, scale: 2 }).notNull(),
-  expenseDate: date("expenseDate").notNull(),
+  expenseDate: date("expenseDate", { mode: "date" }).notNull(),
   vendor: varchar("vendor", { length: 160 }),
   paymentMethod: paymentMethodEnum("paymentMethod").notNull(),
   receiptKey: varchar("receiptKey", { length: 512 }),

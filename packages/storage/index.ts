@@ -1,31 +1,98 @@
-// Storage helpers backed by the Forge presign API.
-// Uploads via a Forge-issued presigned URL to S3 (PUT direct).
-// Downloads return /manus-storage/{key} paths served via 307 redirect.
+// Storage helpers backed by Cloudinary.
+//
+// Every asset is uploaded as an `authenticated` Cloudinary resource, so the
+// raw delivery URL is useless without a signature. Nothing hands a Cloudinary
+// URL straight to the browser: `storageGet` returns an app-relative
+// `/api/manus-storage/{key}` path, and that route handler (see ./proxyRoute)
+// applies the app's own access rules before redirecting to a signed URL. That
+// keeps admissions documents — transcripts, government IDs — behind the same
+// authorization as the rest of the API.
+//
+// A storage key is `{resourceType}/{publicId}`, e.g.
+// `image/blush-with-tee/media/product/1712-serum`. The resource type has to
+// travel with the key because Cloudinary needs it to build a delivery URL and
+// it is not recoverable from the public id alone.
 
+import { v2 as cloudinary, type UploadApiResponse } from "cloudinary";
 import { ENV } from "@blush/env";
 
-function getForgeConfig() {
-  const forgeUrl = ENV.forgeApiUrl;
-  const forgeKey = ENV.forgeApiKey;
+export type StorageResourceType = "image" | "video" | "raw";
 
-  if (!forgeUrl || !forgeKey) {
+const RESOURCE_TYPES: readonly StorageResourceType[] = ["image", "video", "raw"];
+
+let configured = false;
+
+function getCloudinary() {
+  const { cloudinaryCloudName, cloudinaryApiKey, cloudinaryApiSecret } = ENV;
+
+  if (!cloudinaryCloudName || !cloudinaryApiKey || !cloudinaryApiSecret) {
     throw new Error(
-      "Storage config missing: set BUILT_IN_FORGE_API_URL and BUILT_IN_FORGE_API_KEY",
+      "Storage config missing: set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET",
     );
   }
 
-  return { forgeUrl: forgeUrl.replace(/\/+$/, ""), forgeKey };
+  if (!configured) {
+    cloudinary.config({
+      cloud_name: cloudinaryCloudName,
+      api_key: cloudinaryApiKey,
+      api_secret: cloudinaryApiSecret,
+      secure: true,
+    });
+    configured = true;
+  }
+
+  return cloudinary;
+}
+
+export function isStorageConfigured(): boolean {
+  return Boolean(ENV.cloudinaryCloudName && ENV.cloudinaryApiKey && ENV.cloudinaryApiSecret);
 }
 
 function normalizeKey(relKey: string): string {
   return relKey.replace(/^\/+/, "");
 }
 
-function appendHashSuffix(relKey: string): string {
+/**
+ * Turns a caller-supplied path into a Cloudinary public id: strips the file
+ * extension (Cloudinary derives its own from the format), drops characters
+ * Cloudinary treats specially, and scopes it under the configured folder.
+ */
+function buildPublicId(relKey: string): string {
+  const cleaned = normalizeKey(relKey)
+    .replace(/\.[^./]+$/, "")
+    .replace(/[?#%<>]/g, "-")
+    .replace(/\s+/g, "-")
+    .replace(/\/{2,}/g, "/");
+
   const hash = crypto.randomUUID().replace(/-/g, "").slice(0, 8);
-  const lastDot = relKey.lastIndexOf(".");
-  if (lastDot === -1) return `${relKey}_${hash}`;
-  return `${relKey.slice(0, lastDot)}_${hash}${relKey.slice(lastDot)}`;
+  const folder = ENV.cloudinaryFolder.replace(/^\/+|\/+$/g, "");
+
+  return folder ? `${folder}/${cleaned}_${hash}` : `${cleaned}_${hash}`;
+}
+
+/** Cloudinary calls PDFs and office documents `image` and `raw` respectively. */
+function toResourceType(value: string | undefined): StorageResourceType {
+  if (value === "image" || value === "video" || value === "raw") return value;
+  return "raw";
+}
+
+/** Splits `{resourceType}/{publicId}` back into its parts. */
+export function parseStorageKey(key: string): {
+  resourceType: StorageResourceType;
+  publicId: string;
+} {
+  const normalized = normalizeKey(key);
+  const slash = normalized.indexOf("/");
+
+  if (slash > 0) {
+    const prefix = normalized.slice(0, slash);
+    if ((RESOURCE_TYPES as readonly string[]).includes(prefix)) {
+      return { resourceType: prefix as StorageResourceType, publicId: normalized.slice(slash + 1) };
+    }
+  }
+
+  // Keys written before the resource type was encoded, and hand-entered keys.
+  return { resourceType: "image", publicId: normalized };
 }
 
 export async function storagePut(
@@ -33,65 +100,63 @@ export async function storagePut(
   data: Buffer | Uint8Array | string,
   contentType = "application/octet-stream",
 ): Promise<{ key: string; url: string }> {
-  const { forgeUrl, forgeKey } = getForgeConfig();
-  const key = appendHashSuffix(normalizeKey(relKey));
+  const client = getCloudinary();
+  const publicId = buildPublicId(relKey);
 
-  // 1. Get presigned PUT URL from Forge
-  const presignUrl = new URL("v1/storage/presign/put", forgeUrl + "/");
-  presignUrl.searchParams.set("path", key);
+  // Cloudinary's Node uploader takes a path, a remote URL, or a data URI; an
+  // in-memory buffer has to go up as the last of those.
+  const payload = `data:${contentType};base64,${Buffer.from(data).toString("base64")}`;
 
-  const presignResp = await fetch(presignUrl, {
-    headers: { Authorization: `Bearer ${forgeKey}` },
-  });
-
-  if (!presignResp.ok) {
-    const msg = await presignResp.text().catch(() => presignResp.statusText);
-    throw new Error(`Storage presign failed (${presignResp.status}): ${msg}`);
+  let uploaded: UploadApiResponse;
+  try {
+    uploaded = await client.uploader.upload(payload, {
+      public_id: publicId,
+      resource_type: "auto",
+      type: "authenticated",
+      overwrite: false,
+      unique_filename: false,
+      use_filename: false,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Storage upload failed: ${message}`);
   }
 
-  const { url: s3Url } = (await presignResp.json()) as { url: string };
-  if (!s3Url) throw new Error("Forge returned empty presign URL");
-
-  // 2. PUT file directly to S3
-  const blob =
-    typeof data === "string"
-      ? new Blob([data], { type: contentType })
-      : new Blob([data as any], { type: contentType });
-
-  const uploadResp = await fetch(s3Url, {
-    method: "PUT",
-    headers: { "Content-Type": contentType },
-    body: blob,
-  });
-
-  if (!uploadResp.ok) {
-    throw new Error(`Storage upload to S3 failed (${uploadResp.status})`);
-  }
-
-  return { key, url: `/manus-storage/${key}` };
+  const key = `${toResourceType(uploaded.resource_type)}/${uploaded.public_id}`;
+  return { key, url: `/api/manus-storage/${key}` };
 }
 
+/**
+ * Resolves the app-relative URL for a stored object. The returned path is
+ * served by the storage proxy route, never by Cloudinary directly.
+ */
 export async function storageGet(relKey: string): Promise<{ key: string; url: string }> {
   const key = normalizeKey(relKey);
-  return { key, url: `/manus-storage/${key}` };
+  return { key, url: `/api/manus-storage/${key}` };
 }
 
+/**
+ * Builds a signed Cloudinary delivery URL. Only the storage proxy should call
+ * this — handing the result to a browser bypasses the app's access rules.
+ */
 export async function storageGetSignedUrl(relKey: string): Promise<string> {
-  const { forgeUrl, forgeKey } = getForgeConfig();
-  const key = normalizeKey(relKey);
+  const client = getCloudinary();
+  const { resourceType, publicId } = parseStorageKey(relKey);
 
-  const getUrl = new URL("v1/storage/presign/get", forgeUrl + "/");
-  getUrl.searchParams.set("path", key);
-
-  const resp = await fetch(getUrl, {
-    headers: { Authorization: `Bearer ${forgeKey}` },
+  return client.url(publicId, {
+    resource_type: resourceType,
+    type: "authenticated",
+    sign_url: true,
+    secure: true,
   });
+}
 
-  if (!resp.ok) {
-    const msg = await resp.text().catch(() => resp.statusText);
-    throw new Error(`Storage signed URL failed (${resp.status}): ${msg}`);
-  }
+export async function storageDelete(relKey: string): Promise<void> {
+  const client = getCloudinary();
+  const { resourceType, publicId } = parseStorageKey(relKey);
 
-  const { url } = (await resp.json()) as { url: string };
-  return url;
+  await client.uploader.destroy(publicId, {
+    resource_type: resourceType,
+    type: "authenticated",
+  });
 }
