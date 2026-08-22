@@ -47,7 +47,7 @@ export const storeRouter = router({
     if (product.quantityOnHand < input.quantity) throw new TRPCError({ code: "BAD_REQUEST", message: "Insufficient stock is available." });
 
     const [activeCart] = await db.select().from(carts).where(and(eq(carts.sessionToken, input.sessionToken), eq(carts.status, "active"))).limit(1);
-    const cartId = activeCart?.id ?? (await db.insert(carts).values({ sessionToken: input.sessionToken, userId: ctx.user?.id }).$returningId())[0]?.id;
+    const cartId = activeCart?.id ?? (await db.insert(carts).values({ sessionToken: input.sessionToken, userId: ctx.user?.id }).returning({ id: carts.id }))[0]?.id;
     if (!cartId) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Cart could not be created." });
     const [existing] = await db.select().from(cartItems).where(and(eq(cartItems.cartId, cartId), eq(cartItems.inventoryItemId, input.inventoryItemId))).limit(1);
     if (existing) {
@@ -105,7 +105,7 @@ export const storeRouter = router({
         total: total.toFixed(2),
         paymentStatus: "pending",
         fulfillmentStatus: "new",
-      }).$returningId();
+      }).returning({ id: storeOrders.id });
       if (!order?.id) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Order could not be created." });
 
       await tx.insert(orderItems).values(items.map(item => ({

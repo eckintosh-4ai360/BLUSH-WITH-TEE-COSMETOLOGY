@@ -15,9 +15,10 @@
   "dependencies": {
     "@blush/env": "workspace:*",
     "drizzle-orm": "^0.44.5",
-    "mysql2": "^3.15.0"
+    "pg": "^8.23.0"
   },
   "devDependencies": {
+    "@types/pg": "^8.23.1",
     "drizzle-kit": "^0.31.4"
   }
 }

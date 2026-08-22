@@ -85,7 +85,7 @@ export const staffRouter = router({
   }),
   recordResult: staffProcedure.input(z.object({ assessmentId: z.number().int().positive(), studentId: z.number().int().positive(), score: z.number().min(0), grade: z.string().max(8).optional(), instructorComment: z.string().max(2000).optional() })).mutation(async ({ input, ctx }) => {
     const db = await dbOrThrow();
-    const [result] = await db.insert(assessmentResults).values({ assessmentId: input.assessmentId, studentId: input.studentId, score: input.score.toFixed(2), grade: input.grade, instructorComment: input.instructorComment, gradedByUserId: ctx.user.id }).$returningId();
+    const [result] = await db.insert(assessmentResults).values({ assessmentId: input.assessmentId, studentId: input.studentId, score: input.score.toFixed(2), grade: input.grade, instructorComment: input.instructorComment, gradedByUserId: ctx.user.id }).returning({ id: assessmentResults.id });
     return { id: result?.id };
   }),
   appointments: staffProcedure.query(async () => {

@@ -1,17 +1,38 @@
 import { eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/mysql2";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
 import { ENV } from "@blush/env";
 import { clinicServices, courses, InsertUser, inventoryItems, users } from "./schema";
+import * as schema from "./schema";
 
 export * from "./schema";
 
-let _db: ReturnType<typeof drizzle> | null = null;
+type Database = ReturnType<typeof createDb>;
+
+let _db: Database | null = null;
+let _pool: Pool | null = null;
+
+function createDb(connectionString: string) {
+  // Neon terminates TLS with a publicly trusted certificate, so the chain is
+  // verified in full rather than trusting whatever the connection string says.
+  _pool = new Pool({
+    connectionString,
+    ssl: { rejectUnauthorized: true },
+    max: 10,
+  });
+
+  _pool.on("error", error => {
+    console.error("[Database] Idle client error:", error);
+  });
+
+  return drizzle(_pool, { schema });
+}
 
 // Lazily create the drizzle instance so local tooling can run without a DB.
 export async function getDb() {
-  if (!_db && process.env.DATABASE_URL) {
+  if (!_db && ENV.databaseUrl) {
     try {
-      _db = drizzle(process.env.DATABASE_URL);
+      _db = createDb(ENV.databaseUrl);
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;
@@ -58,8 +79,8 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       values.role = user.role;
       updateSet.role = user.role;
     } else if (user.openId === ENV.ownerOpenId) {
-      values.role = 'admin';
-      updateSet.role = 'admin';
+      values.role = "admin";
+      updateSet.role = "admin";
     }
 
     if (!values.lastSignedIn) {
@@ -70,7 +91,8 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       updateSet.lastSignedIn = new Date();
     }
 
-    await db.insert(users).values(values).onDuplicateKeyUpdate({
+    await db.insert(users).values(values).onConflictDoUpdate({
+      target: users.openId,
       set: updateSet,
     });
   } catch (error) {
@@ -91,6 +113,14 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
+export async function closeDb(): Promise<void> {
+  if (_pool) {
+    await _pool.end();
+    _pool = null;
+    _db = null;
+  }
+}
+
 export async function initializeFoundationData(db: NonNullable<Awaited<ReturnType<typeof getDb>>>) {
   const [existingCourse] = await db.select({ id: courses.id }).from(courses).limit(1);
   if (!existingCourse) {
@@ -104,8 +134,8 @@ export async function initializeFoundationData(db: NonNullable<Awaited<ReturnTyp
   const [existingInventory] = await db.select({ id: inventoryItems.id }).from(inventoryItems).limit(1);
   if (!existingInventory) {
     await db.insert(inventoryItems).values([
-      { sku: "GC-SERUM-01", name: "Lumina Renewal Serum", description: "A lightweight finishing serum for shine, softness, and a polished professional finish.", category: "Hair Care", imageKey: "/manus-storage/lumina-serum_f9bc3627.png", quantityOnHand: 24, reorderLevel: 6, unitCost: "12.00", sellingPrice: "32.00", isSellable: true },
-      { sku: "GC-KIT-01", name: "Glow Student Essentials Kit", description: "A curated beauty-tools kit for practical sessions and personal artistry.", category: "Training Materials", imageKey: "/manus-storage/glow-kit_6e09e927.png", quantityOnHand: 18, reorderLevel: 5, unitCost: "18.00", sellingPrice: "48.00", isSellable: true },
+      { sku: "GC-SERUM-01", name: "Lumina Renewal Serum", description: "A lightweight finishing serum for shine, softness, and a polished professional finish.", category: "Hair Care", quantityOnHand: 24, reorderLevel: 6, unitCost: "12.00", sellingPrice: "32.00", isSellable: true },
+      { sku: "GC-KIT-01", name: "Glow Student Essentials Kit", description: "A curated beauty-tools kit for practical sessions and personal artistry.", category: "Training Materials", quantityOnHand: 18, reorderLevel: 5, unitCost: "18.00", sellingPrice: "48.00", isSellable: true },
       { sku: "GC-GLOVES-01", name: "Professional Nitrile Gloves", description: "Salon disposable gloves supplied for hygiene-led practical learning.", category: "Classroom Supplies", quantityOnHand: 100, reorderLevel: 25, unitCost: "0.20", sellingPrice: "0.00", isSellable: false },
     ]);
   }

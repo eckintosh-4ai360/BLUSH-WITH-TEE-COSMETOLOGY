@@ -1,59 +1,224 @@
 import {
   boolean,
   date,
-  decimal,
-  int,
-  mysqlEnum,
-  mysqlTable,
+  integer,
+  numeric,
+  pgEnum,
+  pgTable,
+  serial,
   text,
   timestamp,
   varchar,
-} from "drizzle-orm/mysql-core";
+} from "drizzle-orm/pg-core";
 
-export const users = mysqlTable("users", {
-  id: int("id").autoincrement().primaryKey(),
+/* -------------------------------------------------------------------------- */
+/* Enums                                                                       */
+/* -------------------------------------------------------------------------- */
+
+export const userRole = pgEnum("user_role", ["user", "student", "staff", "admin"]);
+
+export const intakeStatus = pgEnum("intake_status", ["open", "closed", "completed"]);
+
+export const applicationStatus = pgEnum("application_status", [
+  "draft",
+  "submitted",
+  "under_review",
+  "more_information",
+  "approved",
+  "rejected",
+]);
+
+export const applicationDocumentType = pgEnum("application_document_type", [
+  "transcript",
+  "government_id",
+  "passport_photo",
+  "certificate",
+  "other",
+]);
+
+export const studentStatus = pgEnum("student_status", [
+  "active",
+  "suspended",
+  "completed",
+  "graduated",
+  "withdrawn",
+]);
+
+export const enrollmentStatus = pgEnum("enrollment_status", [
+  "active",
+  "paused",
+  "completed",
+  "withdrawn",
+]);
+
+export const attendanceStatus = pgEnum("attendance_status", [
+  "present",
+  "late",
+  "absent",
+  "excused",
+]);
+
+export const assessmentTypeEnum = pgEnum("assessment_type", [
+  "theory",
+  "practical",
+  "project",
+  "exam",
+]);
+
+export const staffStatus = pgEnum("staff_status", ["active", "inactive", "on_leave"]);
+
+export const inventoryMovementType = pgEnum("inventory_movement_type", [
+  "received",
+  "retail_sale",
+  "classroom_use",
+  "adjustment",
+  "damaged",
+  "return",
+]);
+
+export const cartStatus = pgEnum("cart_status", ["active", "converted", "abandoned"]);
+
+export const orderPaymentStatus = pgEnum("order_payment_status", [
+  "pending",
+  "paid",
+  "refunded",
+  "failed",
+]);
+
+export const orderFulfillmentStatus = pgEnum("order_fulfillment_status", [
+  "new",
+  "confirmed",
+  "processing",
+  "ready",
+  "shipped",
+  "delivered",
+  "cancelled",
+]);
+
+export const feeTypeEnum = pgEnum("fee_type", [
+  "tuition",
+  "registration",
+  "materials",
+  "exam",
+  "certification",
+  "other",
+]);
+
+export const feeChargeStatus = pgEnum("fee_charge_status", [
+  "open",
+  "partially_paid",
+  "paid",
+  "waived",
+]);
+
+export const paymentMethodEnum = pgEnum("payment_method", [
+  "cash",
+  "mobile_money",
+  "bank",
+  "card",
+  "online",
+]);
+
+export const paymentStatusEnum = pgEnum("payment_status", [
+  "pending",
+  "completed",
+  "failed",
+  "refunded",
+]);
+
+export const paymentPlanStatus = pgEnum("payment_plan_status", [
+  "active",
+  "completed",
+  "paused",
+  "cancelled",
+]);
+
+export const expenseCategory = pgEnum("expense_category", [
+  "rent",
+  "utilities",
+  "salaries",
+  "transport",
+  "equipment",
+  "beauty_products",
+  "maintenance",
+  "marketing",
+  "stationery",
+  "cleaning",
+  "other",
+]);
+
+export const appointmentStatus = pgEnum("appointment_status", [
+  "requested",
+  "confirmed",
+  "completed",
+  "cancelled",
+  "no_show",
+]);
+
+export const mediaPurpose = pgEnum("media_purpose", [
+  "brochure",
+  "gallery",
+  "product",
+  "application",
+  "receipt",
+  "profile",
+  "other",
+]);
+
+/* -------------------------------------------------------------------------- */
+/* Tables                                                                      */
+/* -------------------------------------------------------------------------- */
+
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
   openId: varchar("openId", { length: 64 }).notNull().unique(),
   name: text("name"),
   email: varchar("email", { length: 320 }),
   loginMethod: varchar("loginMethod", { length: 64 }),
-  role: mysqlEnum("role", ["user", "student", "staff", "admin"]).default("user").notNull(),
+  role: userRole("role").default("user").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt")
+    .defaultNow()
+    .notNull()
+    .$onUpdate(() => new Date()),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
 });
 
-export const courses = mysqlTable("courses", {
-  id: int("id").autoincrement().primaryKey(),
+export const courses = pgTable("courses", {
+  id: serial("id").primaryKey(),
   code: varchar("code", { length: 32 }).notNull().unique(),
   title: varchar("title", { length: 160 }).notNull(),
   summary: text("summary").notNull(),
   description: text("description").notNull(),
-  durationWeeks: int("durationWeeks").notNull(),
-  tuition: decimal("tuition", { precision: 10, scale: 2 }).notNull(),
+  durationWeeks: integer("durationWeeks").notNull(),
+  tuition: numeric("tuition", { precision: 10, scale: 2 }).notNull(),
   schedule: varchar("schedule", { length: 160 }),
   certification: varchar("certification", { length: 160 }),
   requirements: text("requirements"),
   isFeatured: boolean("isFeatured").default(false).notNull(),
   isActive: boolean("isActive").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt")
+    .defaultNow()
+    .notNull()
+    .$onUpdate(() => new Date()),
 });
 
-export const intakes = mysqlTable("intakes", {
-  id: int("id").autoincrement().primaryKey(),
-  courseId: int("courseId").notNull(),
+export const intakes = pgTable("intakes", {
+  id: serial("id").primaryKey(),
+  courseId: integer("courseId").notNull(),
   title: varchar("title", { length: 120 }).notNull(),
   startDate: date("startDate").notNull(),
   applicationDeadline: date("applicationDeadline"),
-  capacity: int("capacity").notNull(),
-  status: mysqlEnum("status", ["open", "closed", "completed"]).default("open").notNull(),
+  capacity: integer("capacity").notNull(),
+  status: intakeStatus("status").default("open").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
-export const applications = mysqlTable("applications", {
-  id: int("id").autoincrement().primaryKey(),
+export const applications = pgTable("applications", {
+  id: serial("id").primaryKey(),
   reference: varchar("reference", { length: 32 }).notNull().unique(),
-  userId: int("userId"),
+  userId: integer("userId"),
   fullName: varchar("fullName", { length: 160 }).notNull(),
   email: varchar("email", { length: 320 }).notNull(),
   phone: varchar("phone", { length: 40 }).notNull(),
@@ -63,253 +228,277 @@ export const applications = mysqlTable("applications", {
   address: text("address"),
   emergencyContact: varchar("emergencyContact", { length: 180 }),
   education: text("education"),
-  courseId: int("courseId").notNull(),
-  intakeId: int("intakeId"),
+  courseId: integer("courseId").notNull(),
+  intakeId: integer("intakeId"),
   statement: text("statement"),
-  status: mysqlEnum("status", ["draft", "submitted", "under_review", "more_information", "approved", "rejected"]).default("draft").notNull(),
+  status: applicationStatus("status").default("draft").notNull(),
   decisionNote: text("decisionNote"),
-  reviewedByUserId: int("reviewedByUserId"),
+  reviewedByUserId: integer("reviewedByUserId"),
   submittedAt: timestamp("submittedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt")
+    .defaultNow()
+    .notNull()
+    .$onUpdate(() => new Date()),
 });
 
-export const applicationDocuments = mysqlTable("applicationDocuments", {
-  id: int("id").autoincrement().primaryKey(),
-  applicationId: int("applicationId").notNull(),
-  documentType: mysqlEnum("documentType", ["transcript", "government_id", "passport_photo", "certificate", "other"]).notNull(),
+export const applicationDocuments = pgTable("applicationDocuments", {
+  id: serial("id").primaryKey(),
+  applicationId: integer("applicationId").notNull(),
+  documentType: applicationDocumentType("documentType").notNull(),
   storageKey: varchar("storageKey", { length: 512 }).notNull(),
   fileName: varchar("fileName", { length: 255 }).notNull(),
   mimeType: varchar("mimeType", { length: 120 }).notNull(),
-  sizeBytes: int("sizeBytes").notNull(),
-  uploadedByUserId: int("uploadedByUserId"),
+  sizeBytes: integer("sizeBytes").notNull(),
+  uploadedByUserId: integer("uploadedByUserId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
-export const studentProfiles = mysqlTable("studentProfiles", {
-  id: int("id").autoincrement().primaryKey(),
-  userId: int("userId").unique(),
-  applicationId: int("applicationId").unique(),
+export const studentProfiles = pgTable("studentProfiles", {
+  id: serial("id").primaryKey(),
+  userId: integer("userId").unique(),
+  applicationId: integer("applicationId").unique(),
   studentNumber: varchar("studentNumber", { length: 40 }).notNull().unique(),
   fullName: varchar("fullName", { length: 160 }).notNull(),
   email: varchar("email", { length: 320 }).notNull(),
   phone: varchar("phone", { length: 40 }).notNull(),
   profileImageKey: varchar("profileImageKey", { length: 512 }),
-  status: mysqlEnum("status", ["active", "suspended", "completed", "graduated", "withdrawn"]).default("active").notNull(),
+  status: studentStatus("status").default("active").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt")
+    .defaultNow()
+    .notNull()
+    .$onUpdate(() => new Date()),
 });
 
-export const enrollments = mysqlTable("enrollments", {
-  id: int("id").autoincrement().primaryKey(),
-  studentId: int("studentId").notNull(),
-  courseId: int("courseId").notNull(),
-  intakeId: int("intakeId"),
+export const enrollments = pgTable("enrollments", {
+  id: serial("id").primaryKey(),
+  studentId: integer("studentId").notNull(),
+  courseId: integer("courseId").notNull(),
+  intakeId: integer("intakeId"),
   enrolledAt: timestamp("enrolledAt").defaultNow().notNull(),
   expectedCompletionDate: date("expectedCompletionDate"),
-  progressPercent: int("progressPercent").default(0).notNull(),
-  status: mysqlEnum("status", ["active", "paused", "completed", "withdrawn"]).default("active").notNull(),
+  progressPercent: integer("progressPercent").default(0).notNull(),
+  status: enrollmentStatus("status").default("active").notNull(),
 });
 
-export const attendanceRecords = mysqlTable("attendanceRecords", {
-  id: int("id").autoincrement().primaryKey(),
-  enrollmentId: int("enrollmentId").notNull(),
+export const attendanceRecords = pgTable("attendanceRecords", {
+  id: serial("id").primaryKey(),
+  enrollmentId: integer("enrollmentId").notNull(),
   classDate: date("classDate").notNull(),
-  status: mysqlEnum("status", ["present", "late", "absent", "excused"]).notNull(),
-  recordedByUserId: int("recordedByUserId"),
+  status: attendanceStatus("status").notNull(),
+  recordedByUserId: integer("recordedByUserId"),
   note: varchar("note", { length: 255 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
-export const assessments = mysqlTable("assessments", {
-  id: int("id").autoincrement().primaryKey(),
-  courseId: int("courseId").notNull(),
+export const assessments = pgTable("assessments", {
+  id: serial("id").primaryKey(),
+  courseId: integer("courseId").notNull(),
   title: varchar("title", { length: 180 }).notNull(),
-  assessmentType: mysqlEnum("assessmentType", ["theory", "practical", "project", "exam"]).notNull(),
-  totalScore: int("totalScore").notNull(),
+  assessmentType: assessmentTypeEnum("assessmentType").notNull(),
+  totalScore: integer("totalScore").notNull(),
   dueDate: date("dueDate"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
-export const assessmentResults = mysqlTable("assessmentResults", {
-  id: int("id").autoincrement().primaryKey(),
-  assessmentId: int("assessmentId").notNull(),
-  studentId: int("studentId").notNull(),
-  score: decimal("score", { precision: 6, scale: 2 }).notNull(),
+export const assessmentResults = pgTable("assessmentResults", {
+  id: serial("id").primaryKey(),
+  assessmentId: integer("assessmentId").notNull(),
+  studentId: integer("studentId").notNull(),
+  score: numeric("score", { precision: 6, scale: 2 }).notNull(),
   grade: varchar("grade", { length: 8 }),
   instructorComment: text("instructorComment"),
-  gradedByUserId: int("gradedByUserId"),
+  gradedByUserId: integer("gradedByUserId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
-export const staffProfiles = mysqlTable("staffProfiles", {
-  id: int("id").autoincrement().primaryKey(),
-  userId: int("userId").notNull().unique(),
+export const staffProfiles = pgTable("staffProfiles", {
+  id: serial("id").primaryKey(),
+  userId: integer("userId").notNull().unique(),
   position: varchar("position", { length: 120 }).notNull(),
   phone: varchar("phone", { length: 40 }),
   employmentDate: date("employmentDate"),
-  status: mysqlEnum("status", ["active", "inactive", "on_leave"]).default("active").notNull(),
+  status: staffStatus("status").default("active").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
-export const inventoryItems = mysqlTable("inventoryItems", {
-  id: int("id").autoincrement().primaryKey(),
+export const inventoryItems = pgTable("inventoryItems", {
+  id: serial("id").primaryKey(),
   sku: varchar("sku", { length: 64 }).notNull().unique(),
   name: varchar("name", { length: 180 }).notNull(),
   description: text("description"),
   category: varchar("category", { length: 80 }).notNull(),
   imageKey: varchar("imageKey", { length: 512 }),
-  quantityOnHand: int("quantityOnHand").default(0).notNull(),
-  reorderLevel: int("reorderLevel").default(0).notNull(),
-  unitCost: decimal("unitCost", { precision: 10, scale: 2 }).default("0.00").notNull(),
-  sellingPrice: decimal("sellingPrice", { precision: 10, scale: 2 }).default("0.00").notNull(),
+  quantityOnHand: integer("quantityOnHand").default(0).notNull(),
+  reorderLevel: integer("reorderLevel").default(0).notNull(),
+  unitCost: numeric("unitCost", { precision: 10, scale: 2 }).default("0.00").notNull(),
+  sellingPrice: numeric("sellingPrice", { precision: 10, scale: 2 }).default("0.00").notNull(),
   isSellable: boolean("isSellable").default(false).notNull(),
   isActive: boolean("isActive").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt")
+    .defaultNow()
+    .notNull()
+    .$onUpdate(() => new Date()),
 });
 
-export const inventoryMovements = mysqlTable("inventoryMovements", {
-  id: int("id").autoincrement().primaryKey(),
-  inventoryItemId: int("inventoryItemId").notNull(),
-  movementType: mysqlEnum("movementType", ["received", "retail_sale", "classroom_use", "adjustment", "damaged", "return"]).notNull(),
-  quantityDelta: int("quantityDelta").notNull(),
+export const inventoryMovements = pgTable("inventoryMovements", {
+  id: serial("id").primaryKey(),
+  inventoryItemId: integer("inventoryItemId").notNull(),
+  movementType: inventoryMovementType("movementType").notNull(),
+  quantityDelta: integer("quantityDelta").notNull(),
   referenceType: varchar("referenceType", { length: 64 }),
-  referenceId: int("referenceId"),
+  referenceId: integer("referenceId"),
   note: text("note"),
-  performedByUserId: int("performedByUserId"),
+  performedByUserId: integer("performedByUserId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
-export const carts = mysqlTable("carts", {
-  id: int("id").autoincrement().primaryKey(),
-  userId: int("userId"),
+export const carts = pgTable("carts", {
+  id: serial("id").primaryKey(),
+  userId: integer("userId"),
   sessionToken: varchar("sessionToken", { length: 96 }).unique(),
-  status: mysqlEnum("status", ["active", "converted", "abandoned"]).default("active").notNull(),
+  status: cartStatus("status").default("active").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt")
+    .defaultNow()
+    .notNull()
+    .$onUpdate(() => new Date()),
 });
 
-export const cartItems = mysqlTable("cartItems", {
-  id: int("id").autoincrement().primaryKey(),
-  cartId: int("cartId").notNull(),
-  inventoryItemId: int("inventoryItemId").notNull(),
-  quantity: int("quantity").notNull(),
+export const cartItems = pgTable("cartItems", {
+  id: serial("id").primaryKey(),
+  cartId: integer("cartId").notNull(),
+  inventoryItemId: integer("inventoryItemId").notNull(),
+  quantity: integer("quantity").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt")
+    .defaultNow()
+    .notNull()
+    .$onUpdate(() => new Date()),
 });
 
-export const storeOrders = mysqlTable("storeOrders", {
-  id: int("id").autoincrement().primaryKey(),
+export const storeOrders = pgTable("storeOrders", {
+  id: serial("id").primaryKey(),
   orderNumber: varchar("orderNumber", { length: 40 }).notNull().unique(),
-  userId: int("userId"),
+  userId: integer("userId"),
   customerName: varchar("customerName", { length: 160 }).notNull(),
   customerEmail: varchar("customerEmail", { length: 320 }).notNull(),
   customerPhone: varchar("customerPhone", { length: 40 }).notNull(),
   deliveryAddress: text("deliveryAddress"),
-  subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(),
-  total: decimal("total", { precision: 10, scale: 2 }).notNull(),
-  paymentStatus: mysqlEnum("paymentStatus", ["pending", "paid", "refunded", "failed"]).default("pending").notNull(),
-  fulfillmentStatus: mysqlEnum("fulfillmentStatus", ["new", "confirmed", "processing", "ready", "shipped", "delivered", "cancelled"]).default("new").notNull(),
+  subtotal: numeric("subtotal", { precision: 10, scale: 2 }).notNull(),
+  total: numeric("total", { precision: 10, scale: 2 }).notNull(),
+  paymentStatus: orderPaymentStatus("paymentStatus").default("pending").notNull(),
+  fulfillmentStatus: orderFulfillmentStatus("fulfillmentStatus").default("new").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt")
+    .defaultNow()
+    .notNull()
+    .$onUpdate(() => new Date()),
 });
 
-export const orderItems = mysqlTable("orderItems", {
-  id: int("id").autoincrement().primaryKey(),
-  orderId: int("orderId").notNull(),
-  inventoryItemId: int("inventoryItemId").notNull(),
+export const orderItems = pgTable("orderItems", {
+  id: serial("id").primaryKey(),
+  orderId: integer("orderId").notNull(),
+  inventoryItemId: integer("inventoryItemId").notNull(),
   itemName: varchar("itemName", { length: 180 }).notNull(),
-  unitPrice: decimal("unitPrice", { precision: 10, scale: 2 }).notNull(),
-  quantity: int("quantity").notNull(),
-  lineTotal: decimal("lineTotal", { precision: 10, scale: 2 }).notNull(),
+  unitPrice: numeric("unitPrice", { precision: 10, scale: 2 }).notNull(),
+  quantity: integer("quantity").notNull(),
+  lineTotal: numeric("lineTotal", { precision: 10, scale: 2 }).notNull(),
 });
 
-export const feeCharges = mysqlTable("feeCharges", {
-  id: int("id").autoincrement().primaryKey(),
-  studentId: int("studentId").notNull(),
-  enrollmentId: int("enrollmentId"),
-  feeType: mysqlEnum("feeType", ["tuition", "registration", "materials", "exam", "certification", "other"]).notNull(),
+export const feeCharges = pgTable("feeCharges", {
+  id: serial("id").primaryKey(),
+  studentId: integer("studentId").notNull(),
+  enrollmentId: integer("enrollmentId"),
+  feeType: feeTypeEnum("feeType").notNull(),
   description: varchar("description", { length: 255 }).notNull(),
-  amountDue: decimal("amountDue", { precision: 10, scale: 2 }).notNull(),
+  amountDue: numeric("amountDue", { precision: 10, scale: 2 }).notNull(),
   dueDate: date("dueDate"),
-  status: mysqlEnum("status", ["open", "partially_paid", "paid", "waived"]).default("open").notNull(),
+  status: feeChargeStatus("status").default("open").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
-export const payments = mysqlTable("payments", {
-  id: int("id").autoincrement().primaryKey(),
+export const payments = pgTable("payments", {
+  id: serial("id").primaryKey(),
   reference: varchar("reference", { length: 64 }).notNull().unique(),
-  studentId: int("studentId"),
-  feeChargeId: int("feeChargeId"),
-  storeOrderId: int("storeOrderId"),
-  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
-  paymentMethod: mysqlEnum("paymentMethod", ["cash", "mobile_money", "bank", "card", "online"]).notNull(),
-  status: mysqlEnum("status", ["pending", "completed", "failed", "refunded"]).default("completed").notNull(),
+  studentId: integer("studentId"),
+  feeChargeId: integer("feeChargeId"),
+  storeOrderId: integer("storeOrderId"),
+  amount: numeric("amount", { precision: 10, scale: 2 }).notNull(),
+  paymentMethod: paymentMethodEnum("paymentMethod").notNull(),
+  status: paymentStatusEnum("status").default("completed").notNull(),
   transactionReference: varchar("transactionReference", { length: 120 }),
-  recordedByUserId: int("recordedByUserId"),
+  recordedByUserId: integer("recordedByUserId"),
   paidAt: timestamp("paidAt").defaultNow().notNull(),
 });
 
-export const paymentPlans = mysqlTable("paymentPlans", {
-  id: int("id").autoincrement().primaryKey(),
-  studentId: int("studentId").notNull(),
+export const paymentPlans = pgTable("paymentPlans", {
+  id: serial("id").primaryKey(),
+  studentId: integer("studentId").notNull(),
   title: varchar("title", { length: 180 }).notNull(),
-  totalAmount: decimal("totalAmount", { precision: 10, scale: 2 }).notNull(),
-  installmentAmount: decimal("installmentAmount", { precision: 10, scale: 2 }).notNull(),
+  totalAmount: numeric("totalAmount", { precision: 10, scale: 2 }).notNull(),
+  installmentAmount: numeric("installmentAmount", { precision: 10, scale: 2 }).notNull(),
   nextDueDate: date("nextDueDate"),
-  status: mysqlEnum("status", ["active", "completed", "paused", "cancelled"]).default("active").notNull(),
+  status: paymentPlanStatus("status").default("active").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt")
+    .defaultNow()
+    .notNull()
+    .$onUpdate(() => new Date()),
 });
 
-export const expenses = mysqlTable("expenses", {
-  id: int("id").autoincrement().primaryKey(),
+export const expenses = pgTable("expenses", {
+  id: serial("id").primaryKey(),
   title: varchar("title", { length: 180 }).notNull(),
-  category: mysqlEnum("category", ["rent", "utilities", "salaries", "transport", "equipment", "beauty_products", "maintenance", "marketing", "stationery", "cleaning", "other"]).notNull(),
-  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  category: expenseCategory("category").notNull(),
+  amount: numeric("amount", { precision: 10, scale: 2 }).notNull(),
   expenseDate: date("expenseDate").notNull(),
   vendor: varchar("vendor", { length: 160 }),
-  paymentMethod: mysqlEnum("paymentMethod", ["cash", "mobile_money", "bank", "card", "online"]).notNull(),
+  paymentMethod: paymentMethodEnum("paymentMethod").notNull(),
   receiptKey: varchar("receiptKey", { length: 512 }),
   note: text("note"),
-  recordedByUserId: int("recordedByUserId"),
+  recordedByUserId: integer("recordedByUserId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
-export const clinicServices = mysqlTable("clinicServices", {
-  id: int("id").autoincrement().primaryKey(),
+export const clinicServices = pgTable("clinicServices", {
+  id: serial("id").primaryKey(),
   name: varchar("name", { length: 160 }).notNull(),
   description: text("description"),
-  durationMinutes: int("durationMinutes").notNull(),
-  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+  durationMinutes: integer("durationMinutes").notNull(),
+  price: numeric("price", { precision: 10, scale: 2 }).notNull(),
   isActive: boolean("isActive").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
-export const appointments = mysqlTable("appointments", {
-  id: int("id").autoincrement().primaryKey(),
+export const appointments = pgTable("appointments", {
+  id: serial("id").primaryKey(),
   reference: varchar("reference", { length: 40 }).notNull().unique(),
-  serviceId: int("serviceId").notNull(),
+  serviceId: integer("serviceId").notNull(),
   customerName: varchar("customerName", { length: 160 }).notNull(),
   customerEmail: varchar("customerEmail", { length: 320 }).notNull(),
   customerPhone: varchar("customerPhone", { length: 40 }).notNull(),
   startsAt: timestamp("startsAt").notNull(),
   note: text("note"),
-  status: mysqlEnum("status", ["requested", "confirmed", "completed", "cancelled", "no_show"]).default("requested").notNull(),
-  assignedStaffUserId: int("assignedStaffUserId"),
+  status: appointmentStatus("status").default("requested").notNull(),
+  assignedStaffUserId: integer("assignedStaffUserId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt")
+    .defaultNow()
+    .notNull()
+    .$onUpdate(() => new Date()),
 });
 
-export const mediaFiles = mysqlTable("mediaFiles", {
-  id: int("id").autoincrement().primaryKey(),
-  ownerUserId: int("ownerUserId"),
-  purpose: mysqlEnum("purpose", ["brochure", "gallery", "product", "application", "receipt", "profile", "other"]).notNull(),
+export const mediaFiles = pgTable("mediaFiles", {
+  id: serial("id").primaryKey(),
+  ownerUserId: integer("ownerUserId"),
+  purpose: mediaPurpose("purpose").notNull(),
   storageKey: varchar("storageKey", { length: 512 }).notNull(),
   fileName: varchar("fileName", { length: 255 }).notNull(),
   mimeType: varchar("mimeType", { length: 120 }).notNull(),
-  sizeBytes: int("sizeBytes").notNull(),
+  sizeBytes: integer("sizeBytes").notNull(),
   altText: varchar("altText", { length: 255 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });

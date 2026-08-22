@@ -44,7 +44,7 @@ export const admissionsRouter = router({
       statement: input.statement,
       status: "submitted",
       submittedAt: new Date(),
-    }).$returningId();
+    }).returning({ id: applications.id });
 
     return { applicationId: inserted[0]?.id, reference };
   }),
@@ -80,7 +80,7 @@ export const admissionsRouter = router({
       mimeType: input.mimeType,
       sizeBytes: buffer.length,
       uploadedByUserId: ctx.user?.id,
-    }).$returningId();
+    }).returning({ id: applicationDocuments.id });
     return { documentId: inserted[0]?.id, url: stored.url };
   }),
   lookup: publicProcedure.input(z.object({ reference: z.string().min(6), email: z.string().email() })).query(async ({ input }) => {
