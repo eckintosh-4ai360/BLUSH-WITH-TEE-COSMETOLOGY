@@ -1,0 +1,18 @@
+{
+  "name": "@blush/storage",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./proxy-route": "./proxyRoute.ts"
+  },
+  "dependencies": {
+    "@blush/env": "workspace:*"
+  },
+  "peerDependencies": {
+    "next": "^15.0.0"
+  }
+}

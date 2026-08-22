@@ -1,0 +1,11 @@
+{
+  "name": "@blush/env",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "main": "./env.ts",
+  "types": "./env.ts",
+  "exports": {
+    ".": "./env.ts"
+  }
+}

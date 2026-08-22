@@ -1,0 +1,15 @@
+{
+  "name": "@blush/shared",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./const": "./const.ts"
+  },
+  "dependencies": {
+    "@blush/db": "workspace:*"
+  }
+}
