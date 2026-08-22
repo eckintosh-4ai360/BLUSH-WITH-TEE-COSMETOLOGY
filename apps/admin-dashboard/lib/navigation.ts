@@ -1,38 +1,20 @@
 import {
   BadgeCheck,
-  Bell,
-  BookOpen,
   Boxes,
   CalendarClock,
-  CalendarDays,
   ClipboardList,
-  Contact,
   CreditCard,
-  FileBarChart,
-  FileText,
-  GalleryVerticalEnd,
   GraduationCap,
-  Images,
   LayoutDashboard,
-  ListChecks,
-  Newspaper,
-  Package,
   PackageSearch,
-  Quote,
-  Receipt,
   ScrollText,
   Settings,
   ShieldCheck,
   ShoppingBag,
-  ShoppingCart,
-  Sparkles,
-  Store,
-  Tags,
   TrendingDown,
   TrendingUp,
   Truck,
   UserCog,
-  UserRoundPlus,
   Users,
   Wallet,
   type LucideIcon,
@@ -53,9 +35,12 @@ export type NavSection = {
 };
 
 /**
- * The admin navigation from §52. Every entry is gated by the permission its
- * page needs, so the sidebar a storekeeper sees differs from an accountant.
- * The gate here is cosmetic - each page and procedure enforces it again.
+ * The admin navigation (§52).
+ *
+ * Every entry here points at a route that exists, and is gated by the
+ * permission that route needs - so the sidebar a storekeeper sees differs from
+ * an accountant's, and nothing in it leads to a dead end. The gate is
+ * cosmetic; each page and procedure enforces the same permission again.
  */
 export const NAV_SECTIONS: NavSection[] = [
   {
@@ -76,80 +61,34 @@ export const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    label: "Admissions",
+    label: "School",
     items: [
       {
-        label: "Applications",
+        label: "Admissions",
         path: "/admissions",
         icon: ClipboardList,
         permissions: ["admissions.read"],
       },
+      { label: "Students", path: "/students", icon: Users, permissions: ["students.read"] },
       {
-        label: "Intakes",
-        path: "/admissions/intakes",
-        icon: CalendarClock,
-        permissions: ["admissions.read", "academics.read"],
-      },
-    ],
-  },
-  {
-    label: "Students",
-    items: [
-      { label: "All students", path: "/students", icon: Users, permissions: ["students.read"] },
-      {
-        label: "Enrolments",
-        path: "/students/enrollments",
-        icon: UserRoundPlus,
-        permissions: ["students.read"],
-      },
-      {
-        label: "Attendance",
-        path: "/students/attendance",
-        icon: ListChecks,
-        permissions: ["attendance.read"],
-      },
-      {
-        label: "Results",
-        path: "/students/results",
-        icon: BadgeCheck,
-        permissions: ["results.read"],
+        label: "Academics",
+        path: "/academics",
+        icon: GraduationCap,
+        permissions: ["academics.read"],
       },
       {
         label: "Certificates",
         path: "/students/certificates",
-        icon: ScrollText,
+        icon: BadgeCheck,
         permissions: ["certificates.read"],
-      },
-    ],
-  },
-  {
-    label: "Academics",
-    items: [
-      { label: "Courses", path: "/academics", icon: GraduationCap, permissions: ["academics.read"] },
-      {
-        label: "Modules",
-        path: "/academics/modules",
-        icon: BookOpen,
-        permissions: ["academics.read"],
-      },
-      {
-        label: "Classes",
-        path: "/academics/classes",
-        icon: Sparkles,
-        permissions: ["academics.read"],
-      },
-      {
-        label: "Timetable",
-        path: "/academics/timetable",
-        icon: CalendarDays,
-        permissions: ["academics.read"],
       },
     ],
   },
   {
     label: "Finance",
     items: [
-      { label: "Fees", path: "/finance/fees", icon: Wallet, permissions: ["fees.read"] },
+      { label: "Overview", path: "/finance", icon: TrendingUp, permissions: ["finance.read"] },
+      { label: "Fees owed", path: "/finance/fees", icon: Wallet, permissions: ["fees.read"] },
       {
         label: "Payments",
         path: "/finance/payments",
@@ -162,33 +101,12 @@ export const NAV_SECTIONS: NavSection[] = [
         icon: TrendingDown,
         permissions: ["expenses.read"],
       },
-      { label: "Revenue", path: "/finance", icon: TrendingUp, permissions: ["finance.read"] },
-      {
-        label: "Financial reports",
-        path: "/reports/finance",
-        icon: FileBarChart,
-        permissions: ["reports.read", "finance.read"],
-      },
     ],
   },
   {
-    label: "E-commerce",
+    label: "Commerce",
     items: [
-      { label: "Products", path: "/products", icon: Store, permissions: ["products.read"] },
-      {
-        label: "Categories",
-        path: "/products/categories",
-        icon: Tags,
-        permissions: ["products.read"],
-      },
       { label: "Orders", path: "/orders", icon: ShoppingBag, permissions: ["orders.read"] },
-      { label: "Customers", path: "/customers", icon: Contact, permissions: ["customers.read"] },
-      { label: "Coupons", path: "/products/coupons", icon: Receipt, permissions: ["products.write"] },
-    ],
-  },
-  {
-    label: "Inventory",
-    items: [
       { label: "Stock", path: "/inventory", icon: Boxes, permissions: ["inventory.read"] },
       {
         label: "Stock movements",
@@ -196,74 +114,21 @@ export const NAV_SECTIONS: NavSection[] = [
         icon: PackageSearch,
         permissions: ["inventory.read"],
       },
-      {
-        label: "Purchases",
-        path: "/inventory/purchases",
-        icon: ShoppingCart,
-        permissions: ["purchases.read"],
-      },
       { label: "Suppliers", path: "/suppliers", icon: Truck, permissions: ["suppliers.read"] },
-      {
-        label: "Low stock",
-        path: "/inventory?filter=low",
-        icon: Package,
-        permissions: ["inventory.read"],
-      },
-    ],
-  },
-  {
-    label: "Staff",
-    items: [
-      { label: "Staff", path: "/staff", icon: UserCog, permissions: ["staff.read"] },
-      { label: "Roles", path: "/staff/roles", icon: ShieldCheck, permissions: ["roles.read"] },
-      {
-        label: "Permissions",
-        path: "/staff/permissions",
-        icon: ShieldCheck,
-        permissions: ["roles.read"],
-      },
-    ],
-  },
-  {
-    label: "Website",
-    items: [
-      { label: "Pages", path: "/website/pages", icon: FileText, permissions: ["cms.read"] },
-      {
-        label: "Banners",
-        path: "/website/banners",
-        icon: GalleryVerticalEnd,
-        permissions: ["cms.read"],
-      },
-      { label: "Services", path: "/website/services", icon: Sparkles, permissions: ["cms.read"] },
-      { label: "Gallery", path: "/website/gallery", icon: Images, permissions: ["cms.read"] },
-      { label: "Blog", path: "/website/blog", icon: Newspaper, permissions: ["cms.read"] },
-      {
-        label: "Testimonials",
-        path: "/website/testimonials",
-        icon: Quote,
-        permissions: ["cms.read"],
-      },
-      { label: "FAQs", path: "/website/faqs", icon: BookOpen, permissions: ["cms.read"] },
-      { label: "Events", path: "/website/events", icon: CalendarDays, permissions: ["cms.read"] },
     ],
   },
   {
     label: "Operations",
     items: [
+      { label: "Staff", path: "/staff", icon: UserCog, permissions: ["staff.read"] },
+      { label: "Access", path: "/staff/roles", icon: ShieldCheck, permissions: ["roles.read"] },
       {
-        label: "Appointments",
-        path: "/appointments",
+        label: "Clinic bookings",
+        path: "/operations",
         icon: CalendarClock,
         permissions: ["appointments.read"],
       },
-      { label: "Reports", path: "/reports", icon: FileBarChart, permissions: ["reports.read"] },
-      {
-        label: "Notifications",
-        path: "/notifications",
-        icon: Bell,
-        permissions: ["notifications.read"],
-      },
-      { label: "Audit logs", path: "/audit", icon: ScrollText, permissions: ["audit.read"] },
+      { label: "Audit log", path: "/audit", icon: ScrollText, permissions: ["audit.read"] },
       { label: "Settings", path: "/settings", icon: Settings, permissions: ["settings.read"] },
     ],
   },

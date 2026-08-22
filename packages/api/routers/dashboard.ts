@@ -315,12 +315,12 @@ export const dashboardRouter = router({
         })),
         customers: customerRows.map(row => ({
           ...row,
-          href: `/customers?customer=${row.id}`,
+          href: `/orders?search=${encodeURIComponent(row.fullName)}`,
           label: row.fullName,
         })),
         certificates: certificateRows.map(row => ({
           ...row,
-          href: `/certificates?certificate=${row.id}`,
+          href: `/students/certificates?search=${encodeURIComponent(row.certificateNumber)}`,
           label: `${row.certificateNumber} - ${row.studentName}`,
         })),
       };

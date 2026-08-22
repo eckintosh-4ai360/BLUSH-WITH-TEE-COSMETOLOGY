@@ -2,16 +2,16 @@
 
 import { useRouter } from "next/navigation";
 import {
-  BookPlus,
+  BadgeCheck,
   ChevronDown,
-  FileBarChart,
   PackagePlus,
   Plus,
   Receipt,
-  ShoppingCart,
   TrendingDown,
+  Truck,
   UserRoundPlus,
   Users,
+  Wallet,
 } from "lucide-react";
 import type { PermissionKey } from "@blush/shared/permissions";
 import { Button } from "@blush/ui/components/ui/button";
@@ -36,34 +36,29 @@ const ACTIONS: Array<{
   icon: typeof Plus;
   permission: PermissionKey;
 }> = [
-  { label: "New student", href: "/students?new=1", icon: Users, permission: "students.write" },
-  {
-    label: "New application",
-    href: "/admissions?new=1",
-    icon: UserRoundPlus,
-    permission: "admissions.write",
-  },
   {
     label: "Record payment",
-    href: "/finance/payments?new=1",
+    href: "/finance/payments",
     icon: Receipt,
     permission: "payments.write",
   },
   {
     label: "Add expense",
-    href: "/finance/expenses?new=1",
+    href: "/finance/expenses",
     icon: TrendingDown,
     permission: "expenses.write",
   },
-  { label: "Add product", href: "/inventory?new=1", icon: PackagePlus, permission: "inventory.write" },
+  { label: "Review admissions", href: "/admissions", icon: UserRoundPlus, permission: "admissions.review" },
+  { label: "Fees owed", href: "/finance/fees", icon: Wallet, permission: "fees.read" },
+  { label: "Adjust stock", href: "/inventory", icon: PackagePlus, permission: "inventory.write" },
   {
-    label: "Record purchase",
-    href: "/inventory/purchases?new=1",
-    icon: ShoppingCart,
-    permission: "purchases.write",
+    label: "Issue certificate",
+    href: "/students/certificates",
+    icon: BadgeCheck,
+    permission: "certificates.write",
   },
-  { label: "Add course", href: "/academics?new=1", icon: BookPlus, permission: "academics.write" },
-  { label: "Generate report", href: "/reports", icon: FileBarChart, permission: "reports.read" },
+  { label: "Suppliers", href: "/suppliers", icon: Truck, permission: "suppliers.read" },
+  { label: "Students", href: "/students", icon: Users, permission: "students.read" },
 ];
 
 export function QuickActions() {
