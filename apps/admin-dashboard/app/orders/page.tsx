@@ -1,8 +1,202 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Badge } from "@blush/ui/components/ui/badge";
-import { Button } from "@blush/ui/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@blush/ui/components/ui/select";
+import { formatMoney } from "@blush/ui/lib/viz";
 import DashboardLayout from "@/components/DashboardLayout";
+import { DataTable, type Column } from "@/components/DataTable";
+import { PermissionGate } from "@/components/PermissionGate";
+import { FULFILLMENT_TONE } from "@/lib/orderStatus";
 import { trpc } from "@/lib/trpc";
 
-export default function AdminOrdersPage() { const utils = trpc.useUtils(); const orders = trpc.admin.orders.useQuery(); const update = trpc.admin.updateOrder.useMutation({ onSuccess: () => { utils.admin.orders.invalidate(); utils.admin.dashboard.invalidate(); } }); const recordPayment = trpc.admin.recordStorePayment.useMutation({ onSuccess: () => { utils.admin.orders.invalidate(); utils.admin.financeSummary.invalidate(); } }); return <DashboardLayout><div className="mx-auto max-w-6xl"><p className="eyebrow">Store operations</p><h1 className="mt-2 font-serif text-4xl text-[#4d4458]">Every website order, in one place.</h1><div className="mt-8 grid gap-4">{orders.data?.map(order => <article key={order.id} className="rounded-3xl border border-white bg-white/70 p-6 shadow-[0_12px_28px_rgba(86,70,102,.06)]"><div className="flex flex-wrap items-start justify-between gap-5"><div><p className="font-serif text-2xl text-[#51465c]">{order.orderNumber}</p><p className="mt-2 text-sm text-[#71687a]">{order.customerName} · {order.customerPhone}</p><p className="mt-1 text-xs text-[#897f8d]">{order.customerEmail} · GHS {Number(order.total).toFixed(2)}</p></div><div className="flex flex-wrap items-center gap-2"><Badge className="bg-[#e7f1ed] text-[#54786a] hover:bg-[#e7f1ed]">{order.paymentStatus}</Badge><select value={order.fulfillmentStatus} onChange={event => update.mutate({ orderId: order.id, fulfillmentStatus: event.target.value as "new" | "confirmed" | "processing" | "ready" | "shipped" | "delivered" | "cancelled" })} className="rounded-full border border-[#6d5c78]/15 bg-white px-3 py-2 text-xs text-[#5b5367]"><option value="new">New</option><option value="confirmed">Confirmed</option><option value="processing">Processing</option><option value="ready">Ready</option><option value="shipped">Shipped</option><option value="delivered">Delivered</option><option value="cancelled">Cancelled</option></select>{order.paymentStatus !== "paid" && <Button size="sm" onClick={() => recordPayment.mutate({ orderId: order.id, amount: Number(order.total), paymentMethod: "cash" })} className="rounded-full bg-[#5f5277] text-white">Record payment</Button>}</div></div><p className="mt-5 border-t border-[#6d5c78]/10 pt-4 text-sm text-[#756d7d]">Delivery: {order.deliveryAddress || "Not provided"}</p></article>) || <p className="rounded-3xl bg-white/70 p-8 text-sm text-[#807889]">No online orders have been received.</p>}</div></div></DashboardLayout>; }
+const FULFILLMENT = [
+  "new",
+  "confirmed",
+  "processing",
+  "ready",
+  "shipped",
+  "delivered",
+  "cancelled",
+] as const;
+
+const PAYMENT = ["pending", "paid", "refunded", "failed"] as const;
+
+type OrderRow = {
+  id: number;
+  orderNumber: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  total: number;
+  paymentStatus: string;
+  fulfillmentStatus: string;
+  createdAt: Date;
+};
+
+export default function OrdersPage() {
+  return (
+    <DashboardLayout>
+      <PermissionGate anyOf={["orders.read"]}>
+        <OrdersContent />
+      </PermissionGate>
+    </DashboardLayout>
+  );
+}
+
+function OrdersContent() {
+  const router = useRouter();
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [fulfillment, setFulfillment] = useState("all");
+  const [payment, setPayment] = useState("all");
+
+  const query = trpc.orders.list.useQuery({
+    page,
+    pageSize: 25,
+    sortDir: "desc",
+    search: search || undefined,
+    fulfillmentStatus:
+      fulfillment === "all" ? undefined : (fulfillment as (typeof FULFILLMENT)[number]),
+    paymentStatus: payment === "all" ? undefined : (payment as (typeof PAYMENT)[number]),
+  });
+
+  const columns: Column<OrderRow>[] = [
+    {
+      key: "orderNumber",
+      header: "Order",
+      cell: row => <span className="font-medium text-foreground">{row.orderNumber}</span>,
+    },
+    {
+      key: "customerName",
+      header: "Customer",
+      cell: row => (
+        <span>
+          <span className="text-foreground">{row.customerName}</span>
+          <span className="block text-xs text-muted-foreground">{row.customerPhone}</span>
+        </span>
+      ),
+    },
+    { key: "customerEmail", header: "Email", optional: true },
+    {
+      key: "total",
+      header: "Total",
+      align: "right",
+      cell: row => formatMoney(row.total),
+      value: row => row.total,
+    },
+    {
+      key: "paymentStatus",
+      header: "Payment",
+      cell: row => (
+        <Badge
+          variant={row.paymentStatus === "paid" ? "secondary" : "outline"}
+          className="capitalize"
+        >
+          {row.paymentStatus}
+        </Badge>
+      ),
+    },
+    {
+      key: "fulfillmentStatus",
+      header: "Fulfilment",
+      cell: row => (
+        <Badge className={`capitalize ${FULFILLMENT_TONE[row.fulfillmentStatus] ?? ""}`}>
+          {row.fulfillmentStatus}
+        </Badge>
+      ),
+    },
+    {
+      key: "createdAt",
+      header: "Placed",
+      cell: row => new Date(row.createdAt).toLocaleDateString("en-GB"),
+      value: row => new Date(row.createdAt).toISOString().slice(0, 10),
+    },
+  ];
+
+  return (
+    <div className="mx-auto max-w-[1400px]">
+      <DataTable
+        title="Orders"
+        description="Storefront orders, from placement through to delivery."
+        columns={columns}
+        data={query.data}
+        isLoading={query.isLoading}
+        isFetching={query.isFetching}
+        error={query.error ? { message: query.error.message } : null}
+        search={search}
+        onSearchChange={value => {
+          setSearch(value);
+          setPage(1);
+        }}
+        searchPlaceholder="Search by order number, customer, email or phone..."
+        page={page}
+        onPageChange={setPage}
+        rowKey={row => row.id}
+        onRowClick={row => router.push(`/orders/${row.id}`)}
+        exportFileName="orders"
+        emptyMessage="No orders match these filters."
+        footer={
+          query.data ? (
+            <span className="mr-2 text-xs text-muted-foreground">
+              Filtered total:{" "}
+              <span className="font-semibold text-foreground">
+                {formatMoney(query.data.filteredTotal)}
+              </span>
+            </span>
+          ) : null
+        }
+        filters={
+          <>
+            <Select
+              value={fulfillment}
+              onValueChange={value => {
+                setFulfillment(value);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="w-[11rem]" aria-label="Filter by fulfilment status">
+                <SelectValue placeholder="All stages" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All stages</SelectItem>
+                {FULFILLMENT.map(item => (
+                  <SelectItem key={item} value={item} className="capitalize">
+                    {item}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select
+              value={payment}
+              onValueChange={value => {
+                setPayment(value);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="w-[10rem]" aria-label="Filter by payment status">
+                <SelectValue placeholder="All payments" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All payments</SelectItem>
+                {PAYMENT.map(item => (
+                  <SelectItem key={item} value={item} className="capitalize">
+                    {item}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </>
+        }
+      />
+    </div>
+  );
+}
