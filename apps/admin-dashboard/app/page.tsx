@@ -3,9 +3,11 @@
 import Link from "next/link";
 import {
   AlertTriangle,
+  ArrowRight,
   Ban,
   BadgeCheck,
   Boxes,
+  ChevronRight,
   CircleDollarSign,
   ClipboardList,
   Clock,
@@ -76,20 +78,74 @@ export default function AdminOverviewPage() {
   return (
     <DashboardLayout>
       <div className="mx-auto max-w-[1600px] space-y-8 pb-10">
-        <header className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
-              Blush With Tee
-            </p>
-            <h1 className="mt-1 text-3xl font-semibold tracking-tight text-foreground">
-              The school, at a glance
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Every figure below is calculated from real transactions, not stored totals.
-            </p>
+        <header className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#2d0423] via-[#54063f] to-[#8f0d6b] p-6 text-white shadow-lg sm:p-8">
+          <span
+            aria-hidden
+            className="pointer-events-none absolute -right-16 -top-24 size-72 rounded-full bg-[#fe00b6]/30 blur-3xl"
+          />
+          <span
+            aria-hidden
+            className="pointer-events-none absolute -bottom-28 left-1/3 size-64 rounded-full bg-[#ff66d4]/15 blur-3xl"
+          />
+          <div className="relative flex flex-wrap items-end justify-between gap-6">
+            <div className="min-w-0">
+              <p className="text-xs font-medium uppercase tracking-[0.18em] text-white/60">
+                Blush With Tee
+              </p>
+              <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
+                The school, at a glance
+              </h1>
+              <p className="mt-2 max-w-xl text-sm text-white/70">
+                Every figure below is calculated from real transactions, not stored totals.
+              </p>
+            </div>
+            <QuickActions onDark />
           </div>
-          <QuickActions />
         </header>
+
+        {/* The four figures the day is judged on, painted so they read first. */}
+        <section aria-label="Headline figures" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <StatTile
+            label="Total students"
+            value={compactNumber(students?.total ?? 0)}
+            hint="Enrolled to date"
+            icon={Users}
+            accent="magenta"
+            emphasis
+            href="/students"
+            isLoading={loading}
+          />
+          <StatTile
+            label="Monthly income"
+            value={formatMoney(finance?.monthlyIncome ?? 0)}
+            hint="This month"
+            icon={CircleDollarSign}
+            accent="plum"
+            emphasis
+            href="/finance"
+            isLoading={loading}
+          />
+          <StatTile
+            label="Today's orders"
+            value={compactNumber(commerce?.todayOrders ?? 0)}
+            hint="Storefront"
+            icon={ShoppingBag}
+            accent="rose"
+            emphasis
+            href="/orders"
+            isLoading={loading}
+          />
+          <StatTile
+            label="Pending admissions"
+            value={compactNumber(admissions?.pending ?? 0)}
+            hint="Awaiting review"
+            icon={ClipboardList}
+            accent="berry"
+            emphasis
+            href="/admissions?status=pending"
+            isLoading={loading}
+          />
+        </section>
 
         {students ? (
           <StatGroup title="Students" description="Enrolment health across the school.">
@@ -99,7 +155,6 @@ export default function AdminOverviewPage() {
               icon={Users}
               href="/students"
               isLoading={loading}
-              emphasis
             />
             <StatTile
               label="Active"
@@ -151,7 +206,6 @@ export default function AdminOverviewPage() {
               icon={CircleDollarSign}
               href="/finance"
               isLoading={loading}
-              emphasis
             />
             <StatTile
               label="Monthly income"
@@ -563,19 +617,23 @@ function ActivityPanel({
     <section className="rounded-3xl border border-border/60 bg-card p-5 shadow-sm sm:p-6">
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-base font-semibold tracking-tight text-foreground">{title}</h3>
-        <Link href={href} className="text-xs font-medium text-primary hover:underline">
+        <Link
+          href={href}
+          className="group flex shrink-0 items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/15"
+        >
           View all
+          <ArrowRight aria-hidden className="size-3 transition-transform group-hover:translate-x-0.5" />
         </Link>
       </div>
-      <div className="mt-4 space-y-2">
+      <div className="mt-4 space-y-1.5">
         {isLoading ? (
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             {[0, 1, 2].map(index => (
-              <div key={index} className="h-14 animate-pulse rounded-2xl bg-muted/60" />
+              <div key={index} className="h-16 animate-pulse rounded-2xl bg-muted/60" />
             ))}
           </div>
         ) : isEmpty ? (
-          <p className="rounded-2xl bg-muted/40 px-4 py-6 text-center text-sm text-muted-foreground">
+          <p className="rounded-2xl border border-dashed border-border/70 bg-muted/30 px-4 py-8 text-center text-sm text-muted-foreground">
             {emptyMessage}
           </p>
         ) : (
@@ -584,6 +642,14 @@ function ActivityPanel({
       </div>
     </section>
   );
+}
+
+/** Two letters is enough to tell one row from the next at a glance. */
+function initialsOf(value: string) {
+  const parts = value.trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "?";
+  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
+  return `${parts[0]![0]}${parts[parts.length - 1]![0]}`.toUpperCase();
 }
 
 function ActivityRow({
@@ -606,16 +672,33 @@ function ActivityRow({
         ? "bg-amber-500/12 text-amber-700 dark:text-amber-300"
         : "bg-muted text-muted-foreground";
 
+  const avatarClass =
+    tone === "critical"
+      ? "bg-rose-500/15 text-rose-700 dark:text-rose-300"
+      : tone === "warning"
+        ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+        : "bg-primary/10 text-primary";
+
   return (
     <Link
       href={href}
-      className="flex items-center justify-between gap-3 rounded-2xl bg-muted/40 px-4 py-3 transition-colors hover:bg-muted"
+      className="group flex items-center gap-3 rounded-2xl border border-transparent bg-muted/40 px-3 py-3 transition-colors hover:border-primary/20 hover:bg-muted"
     >
-      <span className="min-w-0">
+      <span
+        aria-hidden
+        className={`grid size-10 shrink-0 place-items-center rounded-xl text-xs font-semibold ${avatarClass}`}
+      >
+        {initialsOf(primary)}
+      </span>
+      <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-medium text-foreground">{primary}</span>
         <span className="mt-0.5 block truncate text-xs text-muted-foreground">{secondary}</span>
       </span>
       <Badge className={`shrink-0 capitalize hover:${toneClass} ${toneClass}`}>{badge}</Badge>
+      <ChevronRight
+        aria-hidden
+        className="size-4 shrink-0 text-muted-foreground opacity-0 transition-all group-hover:translate-x-0.5 group-hover:opacity-100"
+      />
     </Link>
   );
 }

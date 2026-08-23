@@ -61,7 +61,11 @@ const ACTIONS: Array<{
   { label: "Students", href: "/students", icon: Users, permission: "students.read" },
 ];
 
-export function QuickActions() {
+/**
+ * `onDark` is passed when the actions sit on the dashboard's painted banner,
+ * where the default button fills would disappear into the background.
+ */
+export function QuickActions({ onDark = false }: { onDark?: boolean } = {}) {
   const router = useRouter();
   const { can, isLoading } = usePermissions();
 
@@ -72,7 +76,10 @@ export function QuickActions() {
 
   return (
     <div className="flex items-center gap-2">
-      <Button onClick={() => router.push(primary.href)} className="gap-2">
+      <Button
+        onClick={() => router.push(primary.href)}
+        className={`gap-2 ${onDark ? "bg-white text-[#2d0423] shadow-sm hover:bg-white/90" : ""}`}
+      >
         <Plus className="h-4 w-4" />
         {primary.label}
       </Button>
@@ -80,7 +87,11 @@ export function QuickActions() {
       {rest.length ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="gap-1" aria-label="More quick actions">
+            <Button
+              variant="outline"
+              className={`gap-1 ${onDark ? "border-white/25 bg-white/10 text-white hover:bg-white/20 hover:text-white" : ""}`}
+              aria-label="More quick actions"
+            >
               More
               <ChevronDown className="h-4 w-4" />
             </Button>
