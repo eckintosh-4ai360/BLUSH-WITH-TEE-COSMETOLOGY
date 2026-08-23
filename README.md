@@ -36,8 +36,22 @@ pnpm db:push                 # generate + apply migrations
 pnpm db:seed                 # courses, stock, clinic services
 pnpm db:seed:demo            # a full demo school (development only)
 
+pnpm --filter @blush/auth ensure-admin   # create the owner account
+
 pnpm dev                     # admin on :3000, website on :3001
 ```
+
+Then open **<http://localhost:3000>** and sign in:
+
+| | |
+|---|---|
+| Email | `admin@bwtee.com` |
+| Password | `blush@2026` |
+
+You are sent straight to a password change. That password is published here, so
+it protects nothing until you replace it — change it before the system is
+reachable from anywhere but your machine. Every other account is created from
+**Operations → Access** inside the dashboard.
 
 | Command | What it does |
 |---|---|
@@ -63,7 +77,7 @@ apps/
 packages/
   api/                 tRPC routers + business services
   db/                  Drizzle schema, migrations, seeds
-  auth/                OAuth, sessions
+  auth/                Passwords, sessions, accounts
   ui/                  Design system, charts
   shared/              Permission catalogue, constants
   storage/             Cloudinary file storage
