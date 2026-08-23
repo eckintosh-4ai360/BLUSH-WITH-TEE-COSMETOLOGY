@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -22,31 +22,13 @@ export default function PublicShell({ children }: { children: React.ReactNode })
   const pathname = usePathname();
   const { user } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
-
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 24);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
-  // The homepage opens on a dark hero, so the header sits transparent over it
-  // and only takes on its light surface once the user scrolls past.
-  const onDark = pathname === "/" && !scrolled && !menuOpen;
 
   return (
     <div className="min-h-screen overflow-x-clip bg-[#fdf8fc] text-[#2d0423]">
-      <header
-        className={`sticky top-0 z-50 w-full border-b transition-all duration-300 ${
-          onDark
-            ? "border-white/10 bg-transparent"
-            : "border-[#8f0d6b]/10 bg-white/90 backdrop-blur-xl shadow-[0_4px_25px_rgba(143,13,107,0.06)]"
-        }`}
-      >
+      <header className="sticky top-0 z-50 w-full border-b border-[#8f0d6b]/10 bg-white shadow-[0_4px_25px_rgba(143,13,107,0.06)]">
         <div className="container flex h-20 items-center justify-between gap-4">
           <Link href="/" className="group flex items-center gap-3">
-            <div className={`relative h-11 w-11 shrink-0 overflow-hidden rounded-full border p-0.5 transition-all duration-300 group-hover:scale-105 ${onDark ? "border-[#fe00b6]/50 bg-white/10 shadow-[0_0_15px_rgba(254,0,182,0.35)]" : "border-[#fe00b6]/40 bg-white shadow-[0_6px_18px_rgba(143,13,107,0.14)]"}`}>
+            <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full border border-[#fe00b6]/40 bg-white p-0.5 shadow-[0_6px_18px_rgba(143,13,107,0.14)] transition-all duration-300 group-hover:scale-105">
               <Image
                 src="/logo.png"
                 alt="BWT School of Cosmetology Logo"
@@ -56,10 +38,10 @@ export default function PublicShell({ children }: { children: React.ReactNode })
               />
             </div>
             <div className="flex flex-col">
-              <span className={`block font-serif text-lg font-bold tracking-tight transition-colors duration-300 ${onDark ? "text-white" : "text-[#8f0d6b]"}`}>
+              <span className="block font-serif text-lg font-bold tracking-tight text-[#8f0d6b]">
                 Blush With Tee
               </span>
-              <span className={`block text-[8.5px] font-semibold uppercase tracking-[0.24em] transition-colors duration-300 ${onDark ? "text-[#ffb3ed]" : "text-[#fe00b6]"}`}>
+              <span className="block text-[8.5px] font-semibold uppercase tracking-[0.24em] text-[#fe00b6]">
                 School of Cosmetology
               </span>
             </div>
@@ -73,9 +55,7 @@ export default function PublicShell({ children }: { children: React.ReactNode })
                   key={link.path}
                   href={link.path}
                   className={`text-[11px] font-semibold uppercase tracking-[0.18em] transition-all duration-200 ${
-                    onDark
-                      ? active ? "text-[#fe00b6] drop-shadow-[0_0_8px_rgba(254,0,182,0.6)]" : "text-white/80 hover:text-white hover:drop-shadow-[0_0_6px_rgba(254,0,182,0.4)]"
-                      : active ? "text-[#fe00b6] font-bold" : "text-[#691152] hover:text-[#fe00b6]"
+                    active ? "text-[#fe00b6] font-bold" : "text-[#691152] hover:text-[#fe00b6]"
                   }`}
                 >
                   {link.label}
@@ -89,11 +69,7 @@ export default function PublicShell({ children }: { children: React.ReactNode })
               <Link href="/portal">
                 <Button
                   variant="outline"
-                  className={`rounded-full px-4 text-xs font-semibold transition-all duration-300 ${
-                    onDark
-                      ? "border-white/30 bg-white/10 text-white hover:bg-white/20 hover:text-white"
-                      : "border-[#8f0d6b]/25 bg-white text-[#8f0d6b] hover:bg-[#faeaf6]"
-                  }`}
+                  className="rounded-full border-[#8f0d6b]/25 bg-white px-4 text-xs font-semibold text-[#8f0d6b] transition-all duration-300 hover:bg-[#faeaf6]"
                 >
                   Student Portal
                 </Button>
@@ -101,9 +77,7 @@ export default function PublicShell({ children }: { children: React.ReactNode })
             ) : (
               <Button
                 variant="ghost"
-                className={`rounded-full text-xs font-medium transition-colors duration-300 ${
-                  onDark ? "text-white/85 hover:bg-white/10 hover:text-white" : "text-[#8f0d6b] hover:bg-[#faeaf6]"
-                }`}
+                className="rounded-full text-xs font-medium text-[#8f0d6b] transition-colors duration-300 hover:bg-[#faeaf6]"
                 onClick={() => startLogin()}
               >
                 Sign in
@@ -119,9 +93,7 @@ export default function PublicShell({ children }: { children: React.ReactNode })
           </div>
 
           <button
-            className={`grid h-10 w-10 place-items-center rounded-full border transition-colors duration-300 lg:hidden ${
-              onDark ? "border-white/25 bg-white/10 text-white" : "border-[#8f0d6b]/20 bg-white text-[#8f0d6b]"
-            }`}
+            className="grid h-10 w-10 place-items-center rounded-full border border-[#8f0d6b]/20 bg-white text-[#8f0d6b] transition-colors duration-300 lg:hidden"
             onClick={() => setMenuOpen(v => !v)}
             aria-label="Toggle navigation"
           >
@@ -130,7 +102,7 @@ export default function PublicShell({ children }: { children: React.ReactNode })
         </div>
 
         {menuOpen && (
-          <div className="border-t border-[#8f0d6b]/15 bg-white/95 px-5 py-6 backdrop-blur-xl lg:hidden">
+          <div className="border-t border-[#8f0d6b]/15 bg-white px-5 py-6 lg:hidden">
             <nav className="mx-auto flex max-w-xl flex-col gap-3" aria-label="Mobile navigation">
               {links.map(link => (
                 <Link

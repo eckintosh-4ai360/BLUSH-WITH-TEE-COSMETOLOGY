@@ -88,12 +88,12 @@ export default function Home() {
     <PublicShell>
       <main>
         {/* Deep Glamour Hero with Magenta & Plum accents */}
-        <section className="hero-deep relative isolate -mt-20 overflow-hidden text-white">
+        <section className="hero-deep relative isolate overflow-hidden text-white">
           <div className="hero-grain pointer-events-none absolute inset-0 -z-10 opacity-40" />
           <div className="pointer-events-none absolute -left-40 top-[-15%] -z-10 h-[36rem] w-[36rem] rounded-full bg-[#fe00b6]/25 blur-[140px]" />
           <div className="pointer-events-none absolute -right-32 bottom-[-20%] -z-10 h-[32rem] w-[32rem] rounded-full bg-[#8f0d6b]/40 blur-[140px]" />
 
-          <div className="container grid items-center gap-14 pb-24 pt-44 lg:grid-cols-[1.08fr_.92fr] lg:pb-32 lg:pt-52">
+          <div className="container grid items-center gap-14 pb-24 pt-24 lg:grid-cols-[1.08fr_.92fr] lg:pb-32 lg:pt-32">
             <div>
               <div className="inline-flex items-center gap-2 rounded-full border border-[#fe00b6]/35 bg-white/10 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.24em] text-[#ffb8ed] backdrop-blur-md shadow-[0_0_20px_rgba(254,0,182,0.25)]">
                 <Sparkles className="h-3.5 w-3.5 text-[#fe00b6]" /> Blush With Tee School of Cosmetology
