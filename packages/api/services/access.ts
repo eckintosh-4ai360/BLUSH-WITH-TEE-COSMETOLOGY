@@ -193,7 +193,7 @@ export async function revokeRole(
 }
 
 /** Which portal a granular role should be able to reach. */
-function portalRoleFor(role: RoleKey): "user" | "student" | "staff" | "admin" | null {
+export function portalRoleFor(role: RoleKey): "user" | "student" | "staff" | "admin" {
   switch (role) {
     case "super_admin":
     case "administrator":
@@ -206,6 +206,6 @@ function portalRoleFor(role: RoleKey): "user" | "student" | "staff" | "admin" | 
     case "student":
       return "student";
     default:
-      return null;
+      return "user";
   }
 }

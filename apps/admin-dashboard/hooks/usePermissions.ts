@@ -35,6 +35,7 @@ export function usePermissions() {
     permissions: granted,
     roles: session.data?.roles ?? [],
     user: session.data?.user ?? null,
+    mustChangePassword: session.data?.user.mustChangePassword ?? false,
     isLoading: session.isLoading,
   };
 }

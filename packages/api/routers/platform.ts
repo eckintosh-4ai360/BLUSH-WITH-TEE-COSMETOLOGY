@@ -6,6 +6,7 @@ import {
   ROLE_KEYS,
   PERMISSIONS,
   PERMISSION_KEYS,
+  type RoleKey,
 } from "@blush/shared/permissions";
 import {
   auditLogs,
@@ -16,8 +17,19 @@ import {
   userRoles,
   users,
 } from "@blush/db/schema";
+import {
+  MAX_PASSWORD_LENGTH,
+  MIN_PASSWORD_LENGTH,
+  createAccount,
+  setPassword,
+} from "@blush/auth";
 import { dbOrThrow } from "../dbOrThrow";
-import { assignRole, ensureAccessControlSeeded, revokeRole } from "../services/access";
+import {
+  assignRole,
+  ensureAccessControlSeeded,
+  portalRoleFor,
+  revokeRole,
+} from "../services/access";
 import { recordAudit } from "../services/audit";
 import { listInputSchema, likePattern, paginate, paginationBounds } from "../services/pagination";
 import { permissionProcedure, router } from "../trpc";
@@ -149,6 +161,7 @@ export const platformRouter = router({
             email: users.email,
             role: users.role,
             isActive: users.isActive,
+            mustChangePassword: users.mustChangePassword,
             lastSignedIn: users.lastSignedIn,
           })
           .from(users)
@@ -175,6 +188,122 @@ export const platformRouter = router({
         Number(total?.total ?? 0),
         input,
       );
+    }),
+
+  /**
+   * Creates a sign-in account (§45).
+   *
+   * The password is hashed before it is stored and is flagged for change on
+   * first use, so an administrator setting one up never leaves a shared secret
+   * in place. Granting the role is part of the same call, because an account
+   * with no role can sign in and see nothing, which reads as a broken system.
+   */
+  createUser: permissionProcedure("roles.write")
+    .input(
+      z.object({
+        name: z.string().trim().min(2).max(160),
+        email: z.string().trim().email().max(320),
+        password: z.string().min(MIN_PASSWORD_LENGTH).max(MAX_PASSWORD_LENGTH),
+        role: ROLE_KEY_ENUM,
+        mustChangePassword: z.boolean().default(true),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+
+      const created = await createAccount({
+        name: input.name,
+        email: input.email,
+        password: input.password,
+        role: portalRoleFor(input.role as RoleKey),
+        mustChangePassword: input.mustChangePassword,
+      });
+
+      if (!created.ok) throw new TRPCError({ code: "BAD_REQUEST", message: created.message });
+
+      await assignRole(db, {
+        userId: created.userId,
+        role: input.role as never,
+        assignedByUserId: ctx.user.id,
+      });
+
+      await recordAudit(db, ctx.actor, {
+        action: "create_user",
+        entity: "user",
+        entityId: created.userId,
+        entityLabel: input.email.toLowerCase(),
+        newValue: { name: input.name, role: input.role },
+        summary: `${ctx.actor.name ?? "Staff"} created an account for ${input.email.toLowerCase()} as ${input.role}`,
+      });
+
+      return { id: created.userId };
+    }),
+
+  /** Sets a new password for another account, flagged for change on first use. */
+  resetUserPassword: permissionProcedure("roles.write")
+    .input(
+      z.object({
+        userId: z.number().int().positive(),
+        password: z.string().min(MIN_PASSWORD_LENGTH).max(MAX_PASSWORD_LENGTH),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+
+      const [target] = await db
+        .select({ email: users.email })
+        .from(users)
+        .where(eq(users.id, input.userId))
+        .limit(1);
+      if (!target) throw new TRPCError({ code: "NOT_FOUND", message: "Account was not found." });
+
+      const result = await setPassword(input.userId, input.password, { mustChange: true });
+      if (!result.ok) throw new TRPCError({ code: "BAD_REQUEST", message: result.message });
+
+      await recordAudit(db, ctx.actor, {
+        action: "reset_password",
+        entity: "user",
+        entityId: input.userId,
+        entityLabel: target.email,
+        summary: `${ctx.actor.name ?? "Staff"} reset the password for ${target.email}`,
+      });
+
+      return { success: true };
+    }),
+
+  /** Deactivates or restores an account. Sessions are re-checked per request. */
+  setUserActive: permissionProcedure("roles.write")
+    .input(z.object({ userId: z.number().int().positive(), isActive: z.boolean() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+
+      if (input.userId === ctx.user.id) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "You cannot deactivate your own account.",
+        });
+      }
+
+      const [target] = await db
+        .select({ email: users.email, isActive: users.isActive })
+        .from(users)
+        .where(eq(users.id, input.userId))
+        .limit(1);
+      if (!target) throw new TRPCError({ code: "NOT_FOUND", message: "Account was not found." });
+
+      await db.update(users).set({ isActive: input.isActive }).where(eq(users.id, input.userId));
+
+      await recordAudit(db, ctx.actor, {
+        action: input.isActive ? "activate_user" : "deactivate_user",
+        entity: "user",
+        entityId: input.userId,
+        entityLabel: target.email,
+        oldValue: { isActive: target.isActive },
+        newValue: { isActive: input.isActive },
+        summary: `${ctx.actor.name ?? "Staff"} ${input.isActive ? "restored" : "deactivated"} ${target.email}`,
+      });
+
+      return { success: true };
     }),
 
   assignRole: permissionProcedure("roles.write")

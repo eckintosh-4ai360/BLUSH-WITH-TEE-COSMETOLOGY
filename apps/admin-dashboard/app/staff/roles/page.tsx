@@ -1,7 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Plus, ShieldCheck, X } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  KeyRound,
+  Plus,
+  ShieldCheck,
+  UserCheck,
+  UserX,
+  X,
+} from "lucide-react";
 import { Badge } from "@blush/ui/components/ui/badge";
 import { Button } from "@blush/ui/components/ui/button";
 import {
@@ -17,6 +26,10 @@ import { toast } from "@blush/ui/components/ui/sonner";
 import DashboardLayout from "@/components/DashboardLayout";
 import { DataTable, type Column } from "@/components/DataTable";
 import { PermissionGate } from "@/components/PermissionGate";
+import {
+  CreateUserDialog,
+  ResetPasswordDialog,
+} from "@/components/access/CreateUserDialog";
 import { usePermissions } from "@/hooks/usePermissions";
 import { trpc } from "@/lib/trpc";
 
@@ -26,6 +39,7 @@ type AccountRow = {
   email: string | null;
   role: string;
   isActive: boolean;
+  mustChangePassword: boolean;
   roles: string[];
   lastSignedIn: Date;
 };
@@ -44,6 +58,8 @@ function RolesContent() {
   const { can } = usePermissions();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [resetting, setResetting] = useState<AccountRow | null>(null);
 
   const roles = trpc.platform.roles.useQuery();
   const catalogue = trpc.platform.permissionCatalogue.useQuery();
@@ -70,6 +86,14 @@ function RolesContent() {
     onError: error => toast.error(error.message),
   });
 
+  const setActive = trpc.platform.setUserActive.useMutation({
+    onSuccess: () => {
+      toast.success("Account updated.");
+      accounts.refetch();
+    },
+    onError: error => toast.error(error.message),
+  });
+
   const roleList = roles.data ?? [];
 
   const columns: Column<AccountRow>[] = [
@@ -78,7 +102,19 @@ function RolesContent() {
       header: "Account",
       cell: row => (
         <span>
-          <span className="font-medium text-foreground">{row.name ?? "Unnamed"}</span>
+          <span className="flex flex-wrap items-center gap-2">
+            <span className="font-medium text-foreground">{row.name ?? "Unnamed"}</span>
+            {!row.isActive ? (
+              <Badge variant="outline" className="text-destructive">
+                Deactivated
+              </Badge>
+            ) : null}
+            {row.mustChangePassword ? (
+              <Badge className="bg-amber-500/15 text-amber-800 hover:bg-amber-500/15 dark:text-amber-300">
+                Temporary password
+              </Badge>
+            ) : null}
+          </span>
           <span className="block text-xs text-muted-foreground">{row.email ?? "-"}</span>
         </span>
       ),
@@ -129,8 +165,8 @@ function RolesContent() {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm" className="gap-1.5">
-                    <Plus className="h-3.5 w-3.5" />
-                    Grant role
+                    Manage
+                    <ChevronDown className="h-3.5 w-3.5" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
@@ -147,6 +183,29 @@ function RolesContent() {
                         {role.name}
                       </DropdownMenuItem>
                     ))}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="cursor-pointer" onClick={() => setResetting(row)}>
+                    <KeyRound className="mr-2 h-3.5 w-3.5" />
+                    Reset password
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className={`cursor-pointer ${row.isActive ? "text-destructive focus:text-destructive" : ""}`}
+                    onClick={() =>
+                      setActive.mutate({ userId: row.id, isActive: !row.isActive })
+                    }
+                  >
+                    {row.isActive ? (
+                      <>
+                        <UserX className="mr-2 h-3.5 w-3.5" />
+                        Deactivate
+                      </>
+                    ) : (
+                      <>
+                        <UserCheck className="mr-2 h-3.5 w-3.5" />
+                        Restore access
+                      </>
+                    )}
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             ),
@@ -176,6 +235,38 @@ function RolesContent() {
         onPageChange={setPage}
         rowKey={row => row.id}
         emptyMessage="No accounts match this search."
+        actions={
+          can("roles.write") ? (
+            <Button className="gap-2" onClick={() => setCreateOpen(true)}>
+              <Plus className="h-4 w-4" />
+              Create account
+            </Button>
+          ) : null
+        }
+      />
+
+      <CreateUserDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        roles={roleList.map(role => ({
+          key: role.key,
+          name: role.name,
+          description: role.description,
+        }))}
+        onCreated={email => {
+          toast.success(`Account created for ${email}.`);
+          accounts.refetch();
+        }}
+      />
+
+      <ResetPasswordDialog
+        account={resetting}
+        onOpenChange={open => !open && setResetting(null)}
+        onReset={() => {
+          toast.success("Password reset. They will choose a new one on next sign-in.");
+          setResetting(null);
+          accounts.refetch();
+        }}
       />
 
       <section className="space-y-4">

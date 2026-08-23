@@ -63,6 +63,17 @@ export const users = pgTable(
     name: text("name"),
     email: varchar("email", { length: 320 }),
     loginMethod: varchar("loginMethod", { length: 64 }),
+    /**
+     * scrypt digest as `scrypt$N$r$p$salt$hash`. Never a plain password, and
+     * never selected into anything that leaves the server.
+     */
+    passwordHash: varchar("passwordHash", { length: 255 }),
+    passwordUpdatedAt: timestamp("passwordUpdatedAt"),
+    /** Set on seeded and reset accounts until the holder picks their own. */
+    mustChangePassword: boolean("mustChangePassword").default(false).notNull(),
+    /** Throttling state, so a stolen email cannot be brute forced. */
+    failedLoginAttempts: integer("failedLoginAttempts").default(0).notNull(),
+    lockedUntil: timestamp("lockedUntil"),
     /** Coarse portal gate. Real authorisation is the permission set below. */
     role: userRole("role").default("user").notNull(),
     isActive: boolean("isActive").default(true).notNull(),
@@ -75,7 +86,14 @@ export const users = pgTable(
       .$onUpdate(() => new Date()),
     lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
   },
-  table => [index("users_person_idx").on(table.personId), index("users_role_idx").on(table.role)],
+  table => [
+    index("users_person_idx").on(table.personId),
+    index("users_role_idx").on(table.role),
+    // Sign-in looks accounts up by email, case-insensitively.
+    uniqueIndex("users_email_unique")
+      .on(sql`lower(${table.email})`)
+      .where(sql`${table.email} is not null`),
+  ],
 );
 
 export const roles = pgTable("roles", {

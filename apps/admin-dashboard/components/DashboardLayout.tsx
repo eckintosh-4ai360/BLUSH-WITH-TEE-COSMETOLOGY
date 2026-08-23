@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LogOut, PanelLeft, ShieldAlert } from "lucide-react";
+import { KeyRound, LogOut, PanelLeft, ShieldAlert, TriangleAlert } from "lucide-react";
 import { Avatar, AvatarFallback } from "@blush/ui/components/ui/avatar";
 import { Button } from "@blush/ui/components/ui/button";
 import {
@@ -39,23 +40,13 @@ import { startLogin } from "@/lib/auth";
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { loading, user } = useAuth();
 
-  if (loading) return <DashboardLayoutSkeleton />;
+  // A signed-out visitor is sent to the sign-in page rather than shown a dead
+  // end, and comes back to the page they were trying to reach.
+  useEffect(() => {
+    if (!loading && !user) startLogin();
+  }, [loading, user]);
 
-  if (!user) {
-    return (
-      <div className="flex min-h-screen items-center justify-center p-6">
-        <div className="w-full max-w-md space-y-6 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight">Sign in to continue</h1>
-          <p className="text-sm text-muted-foreground">
-            The management system is restricted to Blush With Tee staff accounts.
-          </p>
-          <Button onClick={() => startLogin()} size="lg" className="w-full">
-            Sign in
-          </Button>
-        </div>
-      </div>
-    );
-  }
+  if (loading || !user) return <DashboardLayoutSkeleton />;
 
   return (
     <SidebarProvider>
@@ -66,7 +57,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
 function DashboardShell({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
-  const { canAny, roles, isLoading } = usePermissions();
+  const { canAny, roles, isLoading, mustChangePassword } = usePermissions();
   const pathname = usePathname();
   const router = useRouter();
   const { toggleSidebar } = useSidebar();
@@ -178,6 +169,13 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem
+                onClick={() => router.push("/account/password")}
+                className="cursor-pointer"
+              >
+                <KeyRound className="mr-2 h-4 w-4" />
+                Change password
+              </DropdownMenuItem>
+              <DropdownMenuItem
                 onClick={logout}
                 className="cursor-pointer text-destructive focus:text-destructive"
               >
@@ -197,6 +195,18 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
           </div>
           <NotificationBell />
         </header>
+
+        {mustChangePassword ? (
+          <div className="border-b border-amber-500/30 bg-amber-500/10 px-4 py-2.5 sm:px-6">
+            <p className="flex flex-wrap items-center gap-2 text-sm text-amber-900 dark:text-amber-200">
+              <TriangleAlert className="h-4 w-4 shrink-0" aria-hidden />
+              This account is still using the password it was set up with.
+              <Link href="/account/password" className="font-semibold underline">
+                Choose your own password
+              </Link>
+            </p>
+          </div>
+        ) : null}
 
         <main className="flex-1 p-4 sm:p-6">
           <span className="sr-only">{activeLabel ?? "Dashboard"}</span>
