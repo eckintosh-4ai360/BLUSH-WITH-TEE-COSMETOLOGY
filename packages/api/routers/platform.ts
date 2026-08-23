@@ -24,6 +24,7 @@ import {
   setPassword,
 } from "@blush/auth";
 import { dbOrThrow } from "../dbOrThrow";
+import { linkStudentAccount } from "../services/people";
 import {
   assignRole,
   ensureAccessControlSeeded,
@@ -226,6 +227,11 @@ export const platformRouter = router({
         role: input.role as never,
         assignedByUserId: ctx.user.id,
       });
+
+      // A student is usually admitted before anyone sets up their sign-in, so
+      // the record is already waiting when the account is made. Claim it here
+      // rather than leaving the new account looking at an empty portal.
+      await linkStudentAccount(db, { id: created.userId, email: input.email });
 
       await recordAudit(db, ctx.actor, {
         action: "create_user",

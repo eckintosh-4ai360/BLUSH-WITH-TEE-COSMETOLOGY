@@ -12,6 +12,7 @@
  */
 
 import "dotenv/config";
+import { eq } from "drizzle-orm";
 import {
   clinicServices,
   closeDb,
@@ -19,8 +20,10 @@ import {
   getDb,
   initializeFoundationData,
   inventoryItems,
+  studentProfiles,
+  users,
 } from "../index";
-import { seedDemoData } from "./demo";
+import { DEMO_STUDENT_PASSWORD, seedDemoData } from "./demo";
 
 async function main() {
   if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is not set");
@@ -42,6 +45,20 @@ async function main() {
       console.log("Demo data is already present - nothing to do.");
     } else {
       for (const [key, value] of Object.entries(counts)) console.log(`  ${key}: ${value}`);
+    }
+
+    // The student portal is only reachable by signing in as a student, so say
+    // how rather than leaving the accounts to be discovered in the database.
+    const [student] = await db
+      .select({ email: studentProfiles.email })
+      .from(studentProfiles)
+      .innerJoin(users, eq(studentProfiles.userId, users.id))
+      .limit(1);
+
+    if (student) {
+      console.log(`\nStudent portal:  http://localhost:3001/portal`);
+      console.log(`  Email:     ${student.email}`);
+      console.log(`  Password:  ${DEMO_STUDENT_PASSWORD}`);
     }
   }
 

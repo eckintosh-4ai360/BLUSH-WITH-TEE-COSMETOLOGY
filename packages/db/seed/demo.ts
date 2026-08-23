@@ -20,7 +20,11 @@
  * the accounts below are development-only fixtures with no real credentials.
  */
 
-import { eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+// Imported by path rather than as `@blush/auth`: this package sits below auth,
+// and declaring the dependency would put a cycle in the workspace task graph.
+// `password.ts` pulls in nothing but node:crypto, so the module graph stays acyclic.
+import { hashPassword } from "../../auth/password";
 import type { getDb } from "../index";
 import {
   applications,
@@ -137,6 +141,14 @@ const MODULE_TITLES = [
 /* -------------------------------------------------------------------------- */
 /* Seeding                                                                    */
 /* -------------------------------------------------------------------------- */
+
+/**
+ * The password every seeded demo student signs in with.
+ *
+ * Safe to keep in the repository: `seedDemoData` refuses to run when NODE_ENV
+ * says production, so these accounts only ever exist in a development database.
+ */
+export const DEMO_STUDENT_PASSWORD = "blush@student2026";
 
 export type DemoSeedResult = Record<string, number>;
 
@@ -464,10 +476,67 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
     .where(inArray(people.email, plannedStudents.map(student => student.email)));
   const personIdByEmail = new Map(personRows.map(row => [row.email, row.id]));
 
+  /* --- Sign-in accounts -------------------------------------------------- */
+
+  // Demo students need real password accounts, otherwise `studentProfiles.userId`
+  // stays null and the student portal - which looks a student up by that column
+  // - only ever renders its "record is being prepared" empty state.
+  const openIdFor = (index: number) => `demo-student-${index}`;
+
+  const existingStudentUsers = await db
+    .select({ id: users.id, openId: users.openId })
+    .from(users)
+    .where(inArray(users.openId, plannedStudents.map(student => openIdFor(student.index))));
+  const studentUserByOpenId = new Map(existingStudentUsers.map(row => [row.openId, row.id]));
+
+  const missingAccounts = plannedStudents.filter(
+    student => !studentUserByOpenId.has(openIdFor(student.index)),
+  );
+
+  if (missingAccounts.length) {
+    const accountRows: Array<Record<string, unknown>> = [];
+
+    // Hashed one at a time rather than with Promise.all: scrypt is deliberately
+    // memory-hard, so running every account at once asks for about a gigabyte.
+    for (const student of missingAccounts) {
+      accountRows.push({
+        openId: openIdFor(student.index),
+        personId: personIdByEmail.get(student.email),
+        name: student.name,
+        email: student.email,
+        // Someone still waiting on a decision is an applicant, not a student.
+        // Their account is what the portal's empty state is genuinely for.
+        role: student.isPending ? ("user" as const) : ("student" as const),
+        loginMethod: "password",
+        passwordHash: await hashPassword(DEMO_STUDENT_PASSWORD),
+        passwordUpdatedAt: new Date(),
+        // Demo fixtures, so no change-password wall between you and the portal.
+        mustChangePassword: false,
+      });
+    }
+
+    await insertChunked(
+      rows => db.insert(users).values(rows as never).onConflictDoNothing(),
+      accountRows,
+    );
+
+    // Read the ids back rather than trusting `returning`, which skips the rows
+    // an existing openId conflicted away on a re-run.
+    const refreshed = await db
+      .select({ id: users.id, openId: users.openId })
+      .from(users)
+      .where(inArray(users.openId, missingAccounts.map(student => openIdFor(student.index))));
+    for (const row of refreshed) studentUserByOpenId.set(row.openId, row.id);
+  }
+
+  const studentUserId = (index: number) => studentUserByOpenId.get(openIdFor(index)) ?? null;
+  counts.studentAccounts = studentUserByOpenId.size;
+
   for (const student of plannedStudents) {
     newApplications.push({
       reference: reference("APP", student.index + 1),
       personId: personIdByEmail.get(student.email),
+      userId: studentUserId(student.index),
       fullName: student.name,
       email: student.email,
       phone: student.phone,
@@ -505,6 +574,7 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
       rows => db.insert(studentProfiles).values(rows as never).onConflictDoNothing(),
       admitted.map(student => ({
         personId: personIdByEmail.get(student.email),
+        userId: studentUserId(student.index),
         applicationId: applicationIdByRef.get(reference("APP", student.index + 1)),
         studentNumber: `STU-DEMO-${String(student.index + 1).padStart(4, "0")}`,
         fullName: student.name,
@@ -523,6 +593,77 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
     .where(sql`${studentProfiles.studentNumber} like 'STU-DEMO-%'`);
   const studentIdByNumber = new Map(studentRows.map(row => [row.studentNumber, row.id]));
   counts.students = studentRows.length;
+
+  /* --- Records left without an account ----------------------------------- */
+
+  // A re-run skips any student whose number is already present, so demo rows
+  // written before accounts were part of this script would stay unreachable
+  // forever. Claiming them here is what makes "top up rather than duplicate"
+  // actually true for the portal.
+  const unclaimed = await db
+    .select({
+      id: studentProfiles.id,
+      personId: studentProfiles.personId,
+      email: studentProfiles.email,
+      fullName: studentProfiles.fullName,
+      studentNumber: studentProfiles.studentNumber,
+    })
+    .from(studentProfiles)
+    .where(
+      and(sql`${studentProfiles.studentNumber} like 'STU-DEMO-%'`, isNull(studentProfiles.userId)),
+    );
+
+  let claimed = 0;
+
+  for (const profile of unclaimed) {
+    const index = Number(profile.studentNumber.slice("STU-DEMO-".length)) - 1;
+    const openId = openIdFor(index);
+    const email = profile.email.toLowerCase();
+
+    let userId = studentUserByOpenId.get(openId) ?? null;
+
+    if (!userId) {
+      const [existing] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(sql`lower(${users.email}) = ${email}`)
+        .limit(1);
+      userId = existing?.id ?? null;
+    }
+
+    if (!userId) {
+      const [created] = await db
+        .insert(users)
+        .values({
+          openId,
+          personId: profile.personId,
+          name: profile.fullName,
+          email,
+          role: "student",
+          loginMethod: "password",
+          passwordHash: await hashPassword(DEMO_STUDENT_PASSWORD),
+          passwordUpdatedAt: new Date(),
+          mustChangePassword: false,
+        } as never)
+        .onConflictDoNothing()
+        .returning({ id: users.id });
+      userId = created?.id ?? null;
+    }
+
+    if (!userId) continue;
+
+    await db.update(studentProfiles).set({ userId }).where(eq(studentProfiles.id, profile.id));
+    // Never demotes: an account that is already staff or admin keeps its role.
+    await db
+      .update(users)
+      .set({ role: "student" })
+      .where(and(eq(users.id, userId), eq(users.role, "user")));
+
+    studentUserByOpenId.set(openId, userId);
+    claimed += 1;
+  }
+
+  counts.studentsClaimed = claimed;
 
   /* --- Enrolments ------------------------------------------------------- */
 

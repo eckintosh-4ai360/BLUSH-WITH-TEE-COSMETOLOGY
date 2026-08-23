@@ -16,11 +16,11 @@ import {
   paymentPlans,
   storeOrders,
   studentProfiles,
-  users,
 } from "@blush/db/schema";
 import { initializeFoundationData } from "@blush/db";
 import { storageGet, storagePut } from "@blush/storage";
 import { dbOrThrow } from "../dbOrThrow";
+import { findStudentAccountForEmail, grantStudentRole } from "../services/people";
 import { buildReference, money, safeFileName, validateDocumentUpload } from "../platform.utils";
 import { adminProcedure, router } from "../trpc";
 
@@ -78,12 +78,22 @@ export const adminNamespaceRouter = router({
     if (input.status === "approved") {
       const [existing] = await db.select().from(studentProfiles).where(eq(studentProfiles.applicationId, application.id)).limit(1);
       if (!existing) {
-        const [student] = await db.insert(studentProfiles).values({ applicationId: application.id, userId: application.userId, studentNumber: buildReference("STU"), fullName: application.fullName, email: application.email, phone: application.phone }).returning({ id: studentProfiles.id });
+        // Applying does not require signing in, so an application often carries
+        // no account. Falling back to the email the applicant gave keeps the
+        // new record reachable - a profile with no userId can never be opened
+        // in the portal, and nothing in the dashboard can repair it.
+        const accountId = application.userId ?? (await findStudentAccountForEmail(db, application.email));
+        const [student] = await db.insert(studentProfiles).values({ applicationId: application.id, userId: accountId, studentNumber: buildReference("STU"), fullName: application.fullName, email: application.email, phone: application.phone }).returning({ id: studentProfiles.id });
         if (student?.id) {
           await db.insert(enrollments).values({ studentId: student.id, courseId: application.courseId, status: "active" });
           await db.insert(feeCharges).values({ studentId: student.id, feeType: "tuition", description: "Program tuition", amountDue: "0.00", status: "open" });
         }
-        if (application.userId) await db.update(users).set({ role: "student" }).where(eq(users.id, application.userId));
+        if (accountId) {
+          await grantStudentRole(db, accountId);
+          // Record the account on the application too, so the admissions trail
+          // and the student record agree on who this is.
+          if (!application.userId) await db.update(applications).set({ userId: accountId }).where(eq(applications.id, application.id));
+        }
       }
     }
     return { success: true };
