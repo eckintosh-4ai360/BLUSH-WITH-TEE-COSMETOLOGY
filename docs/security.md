@@ -137,9 +137,29 @@ readable instead of storing two full records.
 ## Secrets
 
 Never in frontend code. Only `NEXT_PUBLIC_*` reaches the browser, and that is
-limited to the app id and OAuth portal URL. Everything else — database
+limited to the app id and the public site URL. Everything else — database
 credentials, the payment secret, Cloudinary keys, the JWT secret — is read
 server-side through `packages/env`.
+
+## Passwords and sessions
+
+- **Hashed with scrypt**, per-user salt, parameters stored alongside the digest
+  so the cost can be raised later without invalidating existing hashes. A plain
+  password is never written anywhere, including logs.
+- **Comparison is timing-safe**, and an unknown email still runs a hash against
+  a dummy digest, so response time does not reveal whether an account exists.
+- **The failure message is identical** for an unknown email and a wrong
+  password, so the form cannot be used to enumerate accounts.
+- **Lockout after 8 failed attempts** for 15 minutes, tracked per account.
+- **Sessions carry only a user id.** Role, permissions and whether the account
+  is still active are re-read from the database on every request, so
+  deactivating someone takes effect on their next request rather than when a
+  token expires.
+- **`passwordHash` is stripped** from `auth.me` before it leaves the server.
+
+The seeded owner password (`blush@2026`) is public — it is in this repository.
+It exists so a fresh install can be signed into, is flagged
+`mustChangePassword`, and must be changed before the system is exposed.
 
 ## Known gaps
 
@@ -147,8 +167,12 @@ Worth stating plainly rather than leaving to be discovered:
 
 - **Two-factor authentication** is modelled (`users.twoFactorEnabled`) but not
   implemented. No secret is stored yet.
-- **Rate limiting** is not implemented. It belongs at the edge — the certificate
-  verification endpoint and the OAuth callback are the first two that need it.
+- **Rate limiting** is per-account on sign-in only. Broader limiting belongs at
+  the edge; the certificate verification endpoint is the next one that needs it,
+  since it is public and unauthenticated.
+- **Password reset by email** is not implemented. An administrator resets a
+  password under Operations → Access, which is workable for a school of this
+  size but means the owner account has no self-service recovery.
 - **Notification delivery** writes queued rows; the transport that drains them
   is not built, so email, SMS and WhatsApp are recorded rather than sent.
 - **Field-level encryption** is not applied to student documents beyond

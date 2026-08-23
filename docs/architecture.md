@@ -24,7 +24,6 @@ flowchart TB
     end
 
     GATE["Payment provider"]
-    AUTH["OAuth provider"]
 
     WEB --> CR
     ADM --> AR
@@ -33,10 +32,12 @@ flowchart TB
     SVC --> DB
     SVC --> FILES
     SVC <--> GATE
-    WEB --> AUTH
-    ADM --> AUTH
     GATE -.signed webhook.-> WEB
 ```
+
+Authentication is part of the platform rather than an external dependency:
+accounts, password hashes and roles all live in the central database, so there
+is no identity provider to configure or stay in sync with.
 
 The two routers exist so the public app cannot even name a back-office
 procedure — `clientAppRouter` does not import them. That is defence in depth;

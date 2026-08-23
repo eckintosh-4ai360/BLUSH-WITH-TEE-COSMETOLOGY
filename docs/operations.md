@@ -24,13 +24,43 @@ Each app reads its own `.env`; `packages/db/.env` is what drizzle-kit uses.
 Both need `sslmode=require`; the pool verifies the full certificate chain.
 
 ### Authentication
+Sign-in is email and password against the platform's own `users` table. There is
+no external identity provider.
+
 | Variable | Notes |
 |---|---|
-| `JWT_SECRET` | Session signing. Independent per app |
-| `OAUTH_SERVER_URL` | Identity provider |
-| `NEXT_PUBLIC_OAUTH_PORTAL_URL` | Login portal, reaches the browser |
-| `NEXT_PUBLIC_APP_ID` | Application id, reaches the browser |
-| `OWNER_OPEN_ID` | Auto-promoted to admin on first sign-in |
+| `JWT_SECRET` | Session signing. Independent per app, different per environment |
+
+Generate one with:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
+```
+
+Rotating `JWT_SECRET` invalidates every session immediately, which is the
+intended lever if a token is ever believed to have leaked.
+
+#### First sign-in
+The owner account is created on the first sign-in attempt against an empty
+system, or ahead of time with:
+
+```bash
+pnpm --filter @blush/auth ensure-admin
+```
+
+| | |
+|---|---|
+| Dashboard | <http://localhost:3000> |
+| Email | `admin@bwtee.com` |
+| Password | `blush@2026` |
+
+The account is flagged `mustChangePassword`, so the first sign-in lands on
+`/account/password` and a banner stays up until it is changed. **Change it
+before the system is reachable from anywhere but your machine** — this password
+is in the repository and is therefore public.
+
+Every other account is created under **Operations → Access**, which sets the
+password (hashed with scrypt) and grants the role in one step.
 
 ### Payments
 | Variable | Notes |
@@ -75,9 +105,10 @@ a rollout.
 All three share one backend and one database. The portals are routes on the
 client app, so `portal.` can be a rewrite rather than a fourth deployment.
 
-Production requires HTTPS. Session cookies are `Secure`, `HttpOnly`,
-`SameSite`, and the OAuth nonce uses the `__Host-` prefix, which browsers only
-accept over TLS.
+Production requires HTTPS. Session cookies are `HttpOnly` and `SameSite=Lax`,
+and carry `Secure` whenever the request arrives over TLS — so localhost works
+over plain http while production is protected. `SameSite=Lax` is sufficient
+because sign-in is same-origin: there is no cross-site redirect to accommodate.
 
 ## Backups
 

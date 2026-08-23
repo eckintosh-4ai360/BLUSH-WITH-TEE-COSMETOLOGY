@@ -4,10 +4,42 @@ Written for the people running the school, not for developers.
 
 ## Signing in
 
-Sign in with the school account. What you see depends on the role you have been
-given — an accountant sees money, a storekeeper sees stock. If a section is
+The dashboard is at **<http://localhost:3000>** in development, and at
+`admin.yourdomain.com` once deployed.
+
+Sign in with your email and password. What you see depends on the role you have
+been given — an accountant sees money, a storekeeper sees stock. If a section is
 missing, ask an administrator to grant you the role rather than looking for a
 different link.
+
+**The very first sign-in** uses the account the system ships with:
+
+| | |
+|---|---|
+| Email | `admin@bwtee.com` |
+| Password | `blush@2026` |
+
+You are taken straight to a password change, and a banner stays up until it is
+done. This password is published in the project documentation, so it protects
+nothing until you replace it.
+
+**Forgotten password.** There is no self-service reset. Ask another
+administrator to reset it under Operations → Access; you will choose your own on
+the next sign-in.
+
+## Adding people
+
+**Operations → Access → Create account.** Enter a name and email, pick a role,
+and either keep the generated password or type one. Give the password to the
+person directly — they are asked to choose their own the first time they sign
+in, so what you set is never the password in use for long.
+
+The same screen grants and removes roles, resets a forgotten password, and
+deactivates someone who has left. Deactivating takes effect immediately, on
+their very next click, rather than whenever their session would have expired.
+
+A role is not optional: an account without one can sign in and see nothing,
+which looks like a broken system rather than a permissions problem.
 
 ## The dashboard
 
