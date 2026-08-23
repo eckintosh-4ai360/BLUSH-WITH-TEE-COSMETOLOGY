@@ -1,6 +1,15 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* This stylesheet lives in the UI package, but each app imports it through the
+   workspace symlink in node_modules, which Tailwind's automatic source
+   detection skips. Naming the directories keeps the shared components' classes
+   in the generated CSS. */
+@source "./components";
+@source "./hooks";
+@source "./lib";
+@source "./theme.tsx";
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
