@@ -58,7 +58,18 @@ export const adminNamespaceRouter = router({
   }),
   students: adminProcedure.query(async () => {
     const db = await dbOrThrow();
-    return db.select({ student: studentProfiles, enrollment: enrollments, courseTitle: courses.title }).from(studentProfiles).leftJoin(enrollments, eq(studentProfiles.id, enrollments.studentId)).leftJoin(courses, eq(enrollments.courseId, courses.id)).orderBy(desc(studentProfiles.createdAt));
+    // A student may hold more than one enrollment - a second programme, or a
+    // retake in a later intake - so the join returns a row per enrollment.
+    // Collapse them, otherwise the same person is listed once per programme.
+    const rows = await db.select({ student: studentProfiles, enrollment: enrollments, courseTitle: courses.title }).from(studentProfiles).leftJoin(enrollments, eq(studentProfiles.id, enrollments.studentId)).leftJoin(courses, eq(enrollments.courseId, courses.id)).orderBy(desc(studentProfiles.createdAt), desc(enrollments.enrolledAt));
+    type Row = (typeof rows)[number];
+    const byStudent = new Map<number, { student: Row["student"]; enrollments: { enrollment: NonNullable<Row["enrollment"]>; courseTitle: Row["courseTitle"] }[] }>();
+    for (const row of rows) {
+      const entry = byStudent.get(row.student.id) ?? { student: row.student, enrollments: [] };
+      if (row.enrollment) entry.enrollments.push({ enrollment: row.enrollment, courseTitle: row.courseTitle });
+      byStudent.set(row.student.id, entry);
+    }
+    return [...byStudent.values()];
   }),
   createEnrollment: adminProcedure.input(z.object({ studentId: z.number().int().positive(), courseId: z.number().int().positive(), expectedCompletionDate: z.coerce.date().optional() })).mutation(async ({ input }) => {
     const db = await dbOrThrow();
