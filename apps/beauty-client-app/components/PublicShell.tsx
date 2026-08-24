@@ -10,6 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { startLogin } from "@/lib/auth";
 
 const links = [
+  { label: "Home", path: "/" },
   { label: "About", path: "/about" },
   { label: "Programs", path: "/programs" },
   { label: "Gallery", path: "/gallery" },

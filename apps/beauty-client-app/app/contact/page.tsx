@@ -79,7 +79,7 @@ export default function ContactPage() {
 
             <div className="mt-10 grid gap-4">
               <Link href="/apply">
-                <Button className="w-full rounded-full bg-gradient-to-r from-[#fe00b6] to-[#ffffff] py-6 font-bold text-[#8f0d6b] shadow-lg hover:scale-105 transition-transform">
+                <Button className="w-full rounded-full bg-white py-6 font-bold text-[#8f0d6b] shadow-lg hover:scale-105 hover:text-white transition-transform">
                   Apply to Blush With Tee <ArrowRight className="ml-2 h-4 w-4 text-[#8f0d6b]" />
                 </Button>
               </Link>
