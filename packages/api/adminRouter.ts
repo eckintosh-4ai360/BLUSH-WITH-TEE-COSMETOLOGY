@@ -9,6 +9,7 @@ import { notificationsRouter } from "./routers/notifications";
 import { platformRouter } from "./routers/platform";
 import { ordersRouter } from "./routers/orders";
 import { staffRouter } from "./routers/staff";
+import { studentsRouter } from "./routers/students";
 import { systemRouter } from "./routers/system";
 import { router } from "./trpc";
 
@@ -18,6 +19,7 @@ export const adminAppRouter = router({
   auth: authRouter,
   content: contentRouter,
   staff: staffRouter,
+  students: studentsRouter,
   admin: adminNamespaceRouter,
   finance: financeRouter,
   inventory: inventoryRouter,

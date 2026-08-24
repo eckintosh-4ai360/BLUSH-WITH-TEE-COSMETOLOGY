@@ -1,7 +1,254 @@
 "use client";
 
+import { useState } from "react";
 import { Badge } from "@blush/ui/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@blush/ui/components/ui/select";
 import DashboardLayout from "@/components/DashboardLayout";
+import { DataTable, type Column } from "@/components/DataTable";
+import { PermissionGate } from "@/components/PermissionGate";
 import { trpc } from "@/lib/trpc";
 
-export default function AdminStudentsPage() { const students = trpc.admin.students.useQuery(); return <DashboardLayout><div className="mx-auto max-w-6xl"><p className="eyebrow">Student management</p><h1 className="mt-2 font-serif text-4xl text-[#4d4458]">Every learning journey, visible.</h1><div className="mt-8 overflow-hidden rounded-3xl border border-white bg-white/70 shadow-[0_12px_28px_rgba(86,70,102,.06)]"><div className="grid grid-cols-[1.1fr_.8fr_.8fr_.7fr] gap-4 border-b border-[#6d5c78]/10 px-6 py-4 text-[10px] font-semibold uppercase tracking-[.16em] text-[#89808f]"><span>Student</span><span>Student number</span><span>Programme</span><span>Status</span></div>{students.data?.map(({ student, enrollments }) => <div key={student.id} className="grid grid-cols-[1.1fr_.8fr_.8fr_.7fr] items-center gap-4 border-b border-[#6d5c78]/8 px-6 py-5 last:border-0"><div><p className="font-semibold text-[#574d63]">{student.fullName}</p><p className="mt-1 text-xs text-[#82798a]">{student.email} · {student.phone}</p></div><p className="text-sm text-[#62596d]">{student.studentNumber}</p><div className="grid gap-2">{enrollments.length ? enrollments.map(({ enrollment, courseTitle }) => <div key={enrollment.id}><p className="text-sm text-[#62596d]">{courseTitle}</p><p className="mt-1 text-xs text-[#82798a]">{enrollment.progressPercent}% progress</p></div>) : <p className="text-sm text-[#62596d]">Not yet enrolled</p>}</div><Badge className="w-fit bg-[#e7f1ed] text-[#54786a] hover:bg-[#e7f1ed]">{student.status}</Badge></div>) || <p className="p-8 text-sm text-[#807889]">Approved applicants will appear here as student records.</p>}</div></div></DashboardLayout>; }
+const STATUS = [
+  "active",
+  "suspended",
+  "completed",
+  "graduated",
+  "withdrawn",
+] as const;
+
+/** Status tones: state, never reused as a chart series colour. */
+const STATUS_TONE: Record<string, string> = {
+  active:
+    "bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-500/15",
+  suspended:
+    "bg-amber-500/15 text-amber-800 dark:text-amber-300 hover:bg-amber-500/15",
+  completed: "bg-sky-500/15 text-sky-800 dark:text-sky-300 hover:bg-sky-500/15",
+  graduated:
+    "bg-violet-500/15 text-violet-800 dark:text-violet-300 hover:bg-violet-500/15",
+  withdrawn:
+    "bg-rose-500/15 text-rose-800 dark:text-rose-300 hover:bg-rose-500/15",
+};
+
+type Programme = {
+  id: number;
+  courseId: number;
+  courseTitle: string;
+  status: string;
+  progressPercent: number;
+};
+
+type StudentRow = {
+  id: number;
+  studentNumber: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  status: string;
+  createdAt: Date;
+  programmes: Programme[];
+};
+
+export default function AdminStudentsPage() {
+  return (
+    <DashboardLayout>
+      <PermissionGate anyOf={["students.read"]}>
+        <StudentsContent />
+      </PermissionGate>
+    </DashboardLayout>
+  );
+}
+
+function StudentsContent() {
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [status, setStatus] = useState("all");
+  const [course, setCourse] = useState("all");
+  const [enrolment, setEnrolment] = useState("all");
+
+  const courses = trpc.content.courses.useQuery();
+  const query = trpc.students.list.useQuery({
+    page,
+    pageSize: 25,
+    sortDir: "desc",
+    search: search || undefined,
+    status: status === "all" ? undefined : (status as (typeof STATUS)[number]),
+    courseId: course === "all" ? undefined : Number(course),
+    enrolment:
+      enrolment === "all"
+        ? undefined
+        : (enrolment as "enrolled" | "unenrolled"),
+  });
+
+  // Narrowing to one programme and asking for the unenrolled at once returns
+  // nothing, so the two controls stay mutually exclusive.
+  const onCourseChange = (value: string) => {
+    setCourse(value);
+    if (value !== "all") setEnrolment("all");
+    setPage(1);
+  };
+
+  const columns: Column<StudentRow>[] = [
+    {
+      key: "fullName",
+      header: "Student",
+      cell: row => (
+        <span>
+          <span className="font-medium text-foreground">{row.fullName}</span>
+          <span className="block text-xs text-muted-foreground">
+            {row.email}
+          </span>
+        </span>
+      ),
+    },
+    {
+      key: "studentNumber",
+      header: "Student number",
+      cell: row => (
+        <span className="whitespace-nowrap">{row.studentNumber}</span>
+      ),
+    },
+    { key: "phone", header: "Phone", optional: true },
+    {
+      key: "programmes",
+      header: "Programme",
+      cell: row =>
+        row.programmes.length ? (
+          <span className="space-y-1.5">
+            {row.programmes.map(programme => (
+              <span key={programme.id} className="block">
+                <span className="text-foreground">{programme.courseTitle}</span>
+                <span className="mt-1 flex items-center gap-2">
+                  <span className="h-1.5 w-24 overflow-hidden rounded-full bg-muted">
+                    <span
+                      className="block h-full rounded-full bg-primary"
+                      style={{
+                        width: `${Math.min(Math.max(programme.progressPercent, 0), 100)}%`,
+                      }}
+                    />
+                  </span>
+                  <span className="text-xs tabular-nums text-muted-foreground">
+                    {programme.progressPercent}%
+                  </span>
+                </span>
+              </span>
+            ))}
+          </span>
+        ) : (
+          <span className="text-muted-foreground">Not yet enrolled</span>
+        ),
+      value: row =>
+        row.programmes.map(programme => programme.courseTitle).join("; "),
+    },
+    {
+      key: "status",
+      header: "Status",
+      cell: row => (
+        <Badge className={`capitalize ${STATUS_TONE[row.status] ?? ""}`}>
+          {row.status}
+        </Badge>
+      ),
+    },
+    {
+      key: "createdAt",
+      header: "Registered",
+      optional: true,
+      cell: row => new Date(row.createdAt).toLocaleDateString("en-GB"),
+      value: row => new Date(row.createdAt).toISOString().slice(0, 10),
+    },
+  ];
+
+  return (
+    <div className="mx-auto max-w-[1400px]">
+      <DataTable
+        title="Students"
+        description="Every learning journey, visible."
+        columns={columns}
+        data={query.data}
+        isLoading={query.isLoading}
+        isFetching={query.isFetching}
+        error={query.error ? { message: query.error.message } : null}
+        search={search}
+        onSearchChange={value => {
+          setSearch(value);
+          setPage(1);
+        }}
+        searchPlaceholder="Search by name, student number, email or phone..."
+        page={page}
+        onPageChange={setPage}
+        rowKey={row => row.id}
+        exportFileName="students"
+        emptyMessage="No students match these filters."
+        filters={
+          <>
+            <Select
+              value={status}
+              onValueChange={value => {
+                setStatus(value);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger
+                className="w-[10rem]"
+                aria-label="Filter by student status"
+              >
+                <SelectValue placeholder="All statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                {STATUS.map(item => (
+                  <SelectItem key={item} value={item} className="capitalize">
+                    {item}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={course} onValueChange={onCourseChange}>
+              <SelectTrigger
+                className="w-[13rem]"
+                aria-label="Filter by programme"
+              >
+                <SelectValue placeholder="All programmes" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All programmes</SelectItem>
+                {courses.data?.map(item => (
+                  <SelectItem key={item.id} value={String(item.id)}>
+                    {item.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select
+              value={enrolment}
+              onValueChange={value => {
+                setEnrolment(value);
+                if (value !== "all") setCourse("all");
+                setPage(1);
+              }}
+            >
+              <SelectTrigger
+                className="w-[11rem]"
+                aria-label="Filter by enrolment"
+              >
+                <SelectValue placeholder="All students" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All students</SelectItem>
+                <SelectItem value="enrolled">Enrolled</SelectItem>
+                <SelectItem value="unenrolled">Not yet enrolled</SelectItem>
+              </SelectContent>
+            </Select>
+          </>
+        }
+      />
+    </div>
+  );
+}
