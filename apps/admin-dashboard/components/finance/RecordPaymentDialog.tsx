@@ -52,16 +52,17 @@ export function RecordPaymentDialog({
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
 
+  // Reset on every open/close, not just on close: the caller usually supplies
+  // `studentId` at the same moment it flips `open`, so seeding the state on
+  // mount alone would leave the form stuck on "Choose a student".
   useEffect(() => {
-    if (!open) {
-      setStudentQuery("");
-      setStudentId(fixedStudentId ?? null);
-      setAmount("");
-      setMethod("cash");
-      setTransactionReference("");
-      setNote("");
-      setError(null);
-    }
+    setStudentQuery("");
+    setStudentId(fixedStudentId ?? null);
+    setAmount("");
+    setMethod("cash");
+    setTransactionReference("");
+    setNote("");
+    setError(null);
   }, [open, fixedStudentId]);
 
   const search = trpc.dashboard.search.useQuery(
