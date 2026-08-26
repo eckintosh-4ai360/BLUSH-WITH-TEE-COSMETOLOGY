@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  MAX_UPLOAD_BASE64_LENGTH,
   buildReference,
   buildSequentialNumber,
   calculateOrderTotal,
