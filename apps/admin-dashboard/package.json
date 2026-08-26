@@ -22,6 +22,8 @@
     "@trpc/react-query": "^11.6.0",
     "@trpc/server": "^11.6.0",
     "cookie": "^1.0.2",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
     "lucide-react": "^0.453.0",
     "next": "^15.5.0",
     "react": "^19.2.1",

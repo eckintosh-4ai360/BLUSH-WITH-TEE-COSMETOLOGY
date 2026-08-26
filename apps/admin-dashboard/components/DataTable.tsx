@@ -2,10 +2,12 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Columns3,
-  Download,
+  FileDown,
+  FileText,
   Loader2,
   Search,
   X,
@@ -15,6 +17,7 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -72,8 +75,10 @@ type DataTableProps<T> = {
   onRowClick?: (row: T) => void;
   rowKey: (row: T) => string | number;
   emptyMessage?: string;
-  /** Adds a CSV download of the rows currently on screen. */
+  /** Adds CSV/PDF export of the rows currently on screen. */
   exportFileName?: string;
+  /** Heading printed on the PDF export; defaults to `title`. */
+  pdfTitle?: string;
   /** Summary line under the table, e.g. a filtered total. */
   footer?: ReactNode;
 };
@@ -104,8 +109,10 @@ export function DataTable<T>({
   rowKey,
   emptyMessage = "Nothing matches these filters yet.",
   exportFileName,
+  pdfTitle,
   footer,
 }: DataTableProps<T>) {
+  const [exporting, setExporting] = useState(false);
   const [hidden, setHidden] = useState<Set<string>>(
     () => new Set(columns.filter(column => column.optional).map(column => column.key)),
   );
@@ -198,16 +205,39 @@ export function DataTable<T>({
         </DropdownMenu>
 
         {exportFileName ? (
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-2"
-            disabled={!rows.length}
-            onClick={() => downloadCsv(exportFileName, visible, rows)}
-          >
-            <Download className="h-4 w-4" />
-            Export
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                disabled={!rows.length || exporting}
+              >
+                <FileDown className="h-4 w-4" />
+                Export
+                <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => downloadCsv(exportFileName, visible, rows)}>
+                <FileDown className="h-4 w-4" />
+                Export as CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={async () => {
+                  setExporting(true);
+                  try {
+                    await downloadPdf(exportFileName, pdfTitle ?? title, visible, rows);
+                  } finally {
+                    setExporting(false);
+                  }
+                }}
+              >
+                <FileText className="h-4 w-4" />
+                Export as PDF
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         ) : null}
       </div>
 
@@ -365,4 +395,47 @@ function downloadCsv<T>(fileName: string, columns: Column<T>[], rows: T[]) {
   link.download = `${fileName}-${new Date().toISOString().slice(0, 10)}.csv`;
   link.click();
   URL.revokeObjectURL(url);
+}
+
+/**
+ * Exports the rows currently on screen as a landscape PDF table.
+ *
+ * jsPDF is loaded on demand so pages that never export one don't ship it.
+ */
+async function downloadPdf<T>(
+  fileName: string,
+  title: string,
+  columns: Column<T>[],
+  rows: T[],
+) {
+  const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+    import("jspdf"),
+    import("jspdf-autotable"),
+  ]);
+
+  const doc = new jsPDF({ orientation: columns.length > 5 ? "landscape" : "portrait" });
+  const generatedAt = new Date();
+
+  doc.setFontSize(14);
+  doc.setTextColor(40, 35, 48);
+  doc.text(title, 14, 16);
+  doc.setFontSize(9);
+  doc.setTextColor(130, 122, 138);
+  doc.text(`Exported ${generatedAt.toLocaleString("en-GB")} · ${rows.length} row${rows.length === 1 ? "" : "s"}`, 14, 22);
+
+  autoTable(doc, {
+    startY: 27,
+    head: [columns.map(column => column.header)],
+    body: rows.map(row =>
+      columns.map(column => {
+        const raw = column.value ? column.value(row) : (row as Record<string, unknown>)[column.key];
+        return raw === null || raw === undefined ? "" : String(raw);
+      }),
+    ),
+    styles: { fontSize: 8, cellPadding: 3, textColor: [70, 62, 78] },
+    headStyles: { fillColor: [95, 82, 119], textColor: 255 },
+    alternateRowStyles: { fillColor: [247, 244, 249] },
+  });
+
+  doc.save(`${fileName}-${generatedAt.toISOString().slice(0, 10)}.pdf`);
 }

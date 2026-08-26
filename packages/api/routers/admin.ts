@@ -1,4 +1,4 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { SQL, and, count, desc, eq, ilike, or, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
@@ -47,20 +47,64 @@ export const adminNamespaceRouter = router({
       recentApplications,
     };
   }),
-  applications: adminProcedure.query(async () => {
-    const db = await dbOrThrow();
-    return db.select({ application: applications, courseTitle: courses.title }).from(applications).innerJoin(courses, eq(applications.courseId, courses.id)).orderBy(desc(applications.createdAt));
-  }),
+
+  applications: adminProcedure
+    .input(
+      z.object({
+        page: z.number().int().min(1).default(1),
+        pageSize: z.number().int().min(1).max(100).default(20),
+        search: z.string().max(200).optional(),
+        status: z
+          .enum(["draft", "submitted", "under_review", "more_information", "approved", "rejected"])
+          .optional(),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = await dbOrThrow();
+      const { page = 1, pageSize = 20, search, status } = input;
+
+      const conditions: SQL[] = [];
+      if (status) conditions.push(eq(applications.status, status));
+      if (search && search.trim()) {
+        const pattern = `%${search.trim()}%`;
+        conditions.push(
+          or(
+            ilike(applications.fullName, pattern),
+            ilike(applications.email, pattern),
+            ilike(applications.reference, pattern)
+          )!
+        );
+      }
+
+      const where = conditions.length ? and(...conditions) : undefined;
+      const offset = (page - 1) * pageSize;
+
+      const [rows, [totalRow]] = await Promise.all([
+        db
+          .select({ application: applications, courseTitle: courses.title })
+          .from(applications)
+          .innerJoin(courses, eq(applications.courseId, courses.id))
+          .where(where)
+          .orderBy(desc(applications.createdAt))
+          .limit(pageSize)
+          .offset(offset),
+        db.select({ total: count() }).from(applications).where(where),
+      ]);
+
+      const total = Number(totalRow?.total ?? 0);
+      const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+      return { rows, page, pageSize, total, totalPages, hasMore: page < totalPages };
+    }),
+
   applicationDocuments: adminProcedure.input(z.object({ applicationId: z.number().int().positive() })).query(async ({ input }) => {
     const db = await dbOrThrow();
     const documents = await db.select().from(applicationDocuments).where(eq(applicationDocuments.applicationId, input.applicationId));
     return Promise.all(documents.map(async document => ({ ...document, url: (await storageGet(document.storageKey)).url })));
   }),
+
   students: adminProcedure.query(async () => {
     const db = await dbOrThrow();
-    // A student may hold more than one enrollment - a second programme, or a
-    // retake in a later intake - so the join returns a row per enrollment.
-    // Collapse them, otherwise the same person is listed once per programme.
     const rows = await db.select({ student: studentProfiles, enrollment: enrollments, courseTitle: courses.title }).from(studentProfiles).leftJoin(enrollments, eq(studentProfiles.id, enrollments.studentId)).leftJoin(courses, eq(enrollments.courseId, courses.id)).orderBy(desc(studentProfiles.createdAt), desc(enrollments.enrolledAt));
     type Row = (typeof rows)[number];
     const byStudent = new Map<number, { student: Row["student"]; enrollments: { enrollment: NonNullable<Row["enrollment"]>; courseTitle: Row["courseTitle"] }[] }>();
@@ -71,16 +115,19 @@ export const adminNamespaceRouter = router({
     }
     return [...byStudent.values()];
   }),
+
   createEnrollment: adminProcedure.input(z.object({ studentId: z.number().int().positive(), courseId: z.number().int().positive(), expectedCompletionDate: z.coerce.date().optional() })).mutation(async ({ input }) => {
     const db = await dbOrThrow();
     const [enrollment] = await db.insert(enrollments).values({ studentId: input.studentId, courseId: input.courseId, expectedCompletionDate: input.expectedCompletionDate }).returning({ id: enrollments.id });
     return { id: enrollment?.id };
   }),
+
   createAssessment: adminProcedure.input(z.object({ courseId: z.number().int().positive(), title: z.string().min(2).max(180), assessmentType: z.enum(["theory", "practical", "project", "exam"]), totalScore: z.number().int().min(1).max(1000), dueDate: z.coerce.date().optional() })).mutation(async ({ input }) => {
     const db = await dbOrThrow();
     const [assessment] = await db.insert(assessments).values(input).returning({ id: assessments.id });
     return { id: assessment?.id };
   }),
+
   reviewApplication: adminProcedure.input(z.object({ applicationId: z.number().int().positive(), status: z.enum(["under_review", "more_information", "approved", "rejected"]), decisionNote: z.string().max(2000).optional() })).mutation(async ({ input, ctx }) => {
     const db = await dbOrThrow();
     const [application] = await db.select().from(applications).where(eq(applications.id, input.applicationId)).limit(1);
@@ -89,10 +136,6 @@ export const adminNamespaceRouter = router({
     if (input.status === "approved") {
       const [existing] = await db.select().from(studentProfiles).where(eq(studentProfiles.applicationId, application.id)).limit(1);
       if (!existing) {
-        // Applying does not require signing in, so an application often carries
-        // no account. Falling back to the email the applicant gave keeps the
-        // new record reachable - a profile with no userId can never be opened
-        // in the portal, and nothing in the dashboard can repair it.
         const accountId = application.userId ?? (await findStudentAccountForEmail(db, application.email));
         const [student] = await db.insert(studentProfiles).values({ applicationId: application.id, userId: accountId, studentNumber: buildReference("STU"), fullName: application.fullName, email: application.email, phone: application.phone }).returning({ id: studentProfiles.id });
         if (student?.id) {
@@ -101,42 +144,47 @@ export const adminNamespaceRouter = router({
         }
         if (accountId) {
           await grantStudentRole(db, accountId);
-          // Record the account on the application too, so the admissions trail
-          // and the student record agree on who this is.
           if (!application.userId) await db.update(applications).set({ userId: accountId }).where(eq(applications.id, application.id));
         }
       }
     }
     return { success: true };
   }),
+
   inventory: adminProcedure.query(async () => {
     const db = await dbOrThrow();
     return db.select().from(inventoryItems).orderBy(inventoryItems.name);
   }),
+
   addInventory: adminProcedure.input(z.object({ sku: z.string().min(2).max(64), name: z.string().min(2).max(180), description: z.string().max(1500).optional(), category: z.string().min(2).max(80), quantityOnHand: z.number().int().min(0), reorderLevel: z.number().int().min(0), unitCost: z.number().min(0), sellingPrice: z.number().min(0), isSellable: z.boolean() })).mutation(async ({ input, ctx }) => {
     const db = await dbOrThrow();
     const [item] = await db.insert(inventoryItems).values({ ...input, unitCost: input.unitCost.toFixed(2), sellingPrice: input.sellingPrice.toFixed(2) }).returning({ id: inventoryItems.id });
     if (item?.id && input.quantityOnHand) await db.insert(inventoryMovements).values({ inventoryItemId: item.id, movementType: "received", quantityDelta: input.quantityOnHand, referenceType: "opening_balance", performedByUserId: ctx.user.id });
     return { id: item?.id };
   }),
+
   orders: adminProcedure.query(async () => {
     const db = await dbOrThrow();
     return db.select().from(storeOrders).orderBy(desc(storeOrders.createdAt));
   }),
+
   updateOrder: adminProcedure.input(z.object({ orderId: z.number().int().positive(), fulfillmentStatus: z.enum(["new", "confirmed", "processing", "ready", "shipped", "delivered", "cancelled"]), paymentStatus: z.enum(["pending", "paid", "refunded", "failed"]).optional() })).mutation(async ({ input }) => {
     const db = await dbOrThrow();
     await db.update(storeOrders).set(input).where(eq(storeOrders.id, input.orderId));
     return { success: true };
   }),
+
   expenses: adminProcedure.query(async () => {
     const db = await dbOrThrow();
     return db.select().from(expenses).orderBy(desc(expenses.expenseDate));
   }),
+
   addExpense: adminProcedure.input(z.object({ title: z.string().min(2).max(180), category: z.enum(["rent", "utilities", "salaries", "transport", "equipment", "beauty_products", "maintenance", "marketing", "stationery", "cleaning", "other"]), amount: z.number().positive(), expenseDate: z.coerce.date(), vendor: z.string().max(160).optional(), paymentMethod: z.enum(["cash", "mobile_money", "bank", "card", "online"]), note: z.string().max(2000).optional() })).mutation(async ({ input, ctx }) => {
     const db = await dbOrThrow();
     const [expense] = await db.insert(expenses).values({ ...input, amount: input.amount.toFixed(2), recordedByUserId: ctx.user.id }).returning({ id: expenses.id });
     return { id: expense?.id };
   }),
+
   financeSummary: adminProcedure.query(async () => {
     const db = await dbOrThrow();
     const [[received], [spent], [outstanding], [storeRevenue]] = await Promise.all([
@@ -148,6 +196,7 @@ export const adminNamespaceRouter = router({
     const income = money(received?.total); const outgoings = money(spent?.total);
     return { income, outgoings, net: income - outgoings, outstandingFees: money(outstanding?.total), storeRevenue: money(storeRevenue?.total) };
   }),
+
   recordStudentPayment: adminProcedure.input(z.object({ studentId: z.number().int().positive(), feeChargeId: z.number().int().positive().optional(), amount: z.number().positive(), paymentMethod: z.enum(["cash", "mobile_money", "bank", "card", "online"]), transactionReference: z.string().max(120).optional() })).mutation(async ({ input, ctx }) => {
     const db = await dbOrThrow();
     const [payment] = await db.insert(payments).values({ reference: buildReference("PAY"), studentId: input.studentId, feeChargeId: input.feeChargeId, amount: input.amount.toFixed(2), paymentMethod: input.paymentMethod, transactionReference: input.transactionReference, recordedByUserId: ctx.user.id, status: "completed" }).returning({ id: payments.id });
@@ -158,17 +207,20 @@ export const adminNamespaceRouter = router({
     }
     return { id: payment?.id };
   }),
+
   recordStorePayment: adminProcedure.input(z.object({ orderId: z.number().int().positive(), amount: z.number().positive(), paymentMethod: z.enum(["cash", "mobile_money", "bank", "card", "online"]), transactionReference: z.string().max(120).optional() })).mutation(async ({ input, ctx }) => {
     const db = await dbOrThrow();
     const [payment] = await db.insert(payments).values({ reference: buildReference("SALE"), storeOrderId: input.orderId, amount: input.amount.toFixed(2), paymentMethod: input.paymentMethod, transactionReference: input.transactionReference, recordedByUserId: ctx.user.id, status: "completed" }).returning({ id: payments.id });
     await db.update(storeOrders).set({ paymentStatus: "paid" }).where(eq(storeOrders.id, input.orderId));
     return { id: payment?.id };
   }),
+
   createPaymentPlan: adminProcedure.input(z.object({ studentId: z.number().int().positive(), title: z.string().min(2).max(180), totalAmount: z.number().positive(), installmentAmount: z.number().positive(), nextDueDate: z.coerce.date().optional() })).mutation(async ({ input }) => {
     const db = await dbOrThrow();
     const [plan] = await db.insert(paymentPlans).values({ studentId: input.studentId, title: input.title, totalAmount: input.totalAmount.toFixed(2), installmentAmount: input.installmentAmount.toFixed(2), nextDueDate: input.nextDueDate }).returning({ id: paymentPlans.id });
     return { id: plan?.id };
   }),
+
   uploadMedia: adminProcedure.input(z.object({ purpose: z.enum(["brochure", "gallery", "product", "receipt", "profile", "other"]), fileName: z.string().min(1).max(255), mimeType: z.enum(["image/jpeg", "image/png", "image/webp", "application/pdf"]), base64Data: z.string().min(8), altText: z.string().max(255).optional() })).mutation(async ({ input, ctx }) => {
     const db = await dbOrThrow();
     let buffer: Buffer;
