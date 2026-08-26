@@ -18,6 +18,7 @@ import { PermissionGate } from "@/components/PermissionGate";
 import { IssueCertificateDialog } from "@/components/certificates/IssueCertificateDialog";
 import { RevokeCertificateDialog } from "@/components/certificates/RevokeCertificateDialog";
 import { usePermissions } from "@/hooks/usePermissions";
+import { collectAllPages } from "@/lib/exportAll";
 import { trpc } from "@/lib/trpc";
 
 type CertificateRow = {
@@ -54,13 +55,17 @@ function CertificatesContent() {
   const [issueOpen, setIssueOpen] = useState(false);
   const [revoking, setRevoking] = useState<CertificateRow | null>(null);
 
-  const query = trpc.certificates.list.useQuery({
-    page,
-    pageSize: 25,
-    sortDir: "desc",
+  const utils = trpc.useUtils();
+
+  // Shared by the table and by export, so a download covers exactly what the
+  // filters describe rather than the page on screen.
+  const filters = {
+    sortDir: "desc" as const,
     search: search || undefined,
     status: status === "all" ? undefined : (status as "issued" | "revoked"),
-  });
+  };
+
+  const query = trpc.certificates.list.useQuery({ ...filters, page, pageSize: 25 });
 
   const columns: Column<CertificateRow>[] = [
     {
@@ -154,6 +159,11 @@ function CertificatesContent() {
         onPageChange={setPage}
         rowKey={row => row.id}
         exportFileName="certificates"
+        fetchAllRows={() =>
+          collectAllPages((page, pageSize) =>
+            utils.certificates.list.fetch({ ...filters, page, pageSize }),
+          )
+        }
         emptyMessage="No certificates have been issued yet."
         filters={
           <Select

@@ -19,6 +19,7 @@ import { PermissionGate } from "@/components/PermissionGate";
 import { RecordPaymentDialog } from "@/components/finance/RecordPaymentDialog";
 import { RefundPaymentDialog } from "@/components/finance/RefundPaymentDialog";
 import { usePermissions } from "@/hooks/usePermissions";
+import { collectAllPages } from "@/lib/exportAll";
 import { trpc } from "@/lib/trpc";
 
 const METHODS = ["cash", "mobile_money", "bank", "card", "online"] as const;
@@ -54,13 +55,17 @@ function PaymentsContent() {
   const [recordOpen, setRecordOpen] = useState(false);
   const [refunding, setRefunding] = useState<PaymentRow | null>(null);
 
-  const query = trpc.finance.payments.useQuery({
-    page,
-    pageSize: 25,
-    sortDir: "desc",
+  const utils = trpc.useUtils();
+
+  // Shared by the table and by export, so a download covers exactly what the
+  // filters describe rather than the page on screen.
+  const filters = {
+    sortDir: "desc" as const,
     search: search || undefined,
     method: method === "all" ? undefined : (method as (typeof METHODS)[number]),
-  });
+  };
+
+  const query = trpc.finance.payments.useQuery({ ...filters, page, pageSize: 25 });
 
   const columns: Column<PaymentRow>[] = [
     {
@@ -172,6 +177,11 @@ function PaymentsContent() {
         onPageChange={setPage}
         rowKey={row => row.id}
         exportFileName="payments"
+        fetchAllRows={() =>
+          collectAllPages((page, pageSize) =>
+            utils.finance.payments.fetch({ ...filters, page, pageSize }),
+          )
+        }
         emptyMessage="No payments match these filters."
         filters={
           <Select

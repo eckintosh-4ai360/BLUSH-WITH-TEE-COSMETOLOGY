@@ -24,6 +24,7 @@ import {
 } from "@blush/ui/components/ui/dropdown-menu";
 import { Input } from "@blush/ui/components/ui/input";
 import { Skeleton } from "@blush/ui/components/ui/skeleton";
+import { toast } from "@blush/ui/components/ui/sonner";
 import {
   Table,
   TableBody,
@@ -75,10 +76,15 @@ type DataTableProps<T> = {
   onRowClick?: (row: T) => void;
   rowKey: (row: T) => string | number;
   emptyMessage?: string;
-  /** Adds CSV/PDF export of the rows currently on screen. */
+  /** Adds CSV/PDF export of every row matching the current filters. */
   exportFileName?: string;
   /** Heading printed on the PDF export; defaults to `title`. */
   pdfTitle?: string;
+  /**
+   * Fetches every row behind the current filters, so export is not limited to
+   * the page on screen. Without it, export falls back to the visible page.
+   */
+  fetchAllRows?: () => Promise<T[]>;
   /** Summary line under the table, e.g. a filtered total. */
   footer?: ReactNode;
 };
@@ -110,6 +116,7 @@ export function DataTable<T>({
   emptyMessage = "Nothing matches these filters yet.",
   exportFileName,
   pdfTitle,
+  fetchAllRows,
   footer,
 }: DataTableProps<T>) {
   const [exporting, setExporting] = useState(false);
@@ -135,6 +142,23 @@ export function DataTable<T>({
 
   const rows = data?.rows ?? [];
   const showSkeleton = isLoading && !data;
+
+  /**
+   * Runs an export over every row matching the current filters, not just the
+   * page on screen. Failure is surfaced rather than leaving a silent no-op.
+   */
+  const runExport = async (write: (rows: T[]) => void | Promise<void>) => {
+    setExporting(true);
+    try {
+      await write(fetchAllRows ? await fetchAllRows() : rows);
+    } catch (cause) {
+      toast.error(
+        cause instanceof Error ? cause.message : "That export could not be produced.",
+      );
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
     <section className="space-y-4">
@@ -213,25 +237,34 @@ export function DataTable<T>({
                 className="gap-2"
                 disabled={!rows.length || exporting}
               >
-                <FileDown className="h-4 w-4" />
-                Export
+                {exporting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <FileDown className="h-4 w-4" />
+                )}
+                {exporting ? "Exporting..." : "Export"}
                 <ChevronDown className="h-3.5 w-3.5 opacity-60" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => downloadCsv(exportFileName, visible, rows)}>
+              <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
+                {data?.total
+                  ? `All ${data.total.toLocaleString("en-GH")} matching rows`
+                  : "Matching rows"}
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() =>
+                  runExport(all => downloadCsv(exportFileName, visible, all))
+                }
+              >
                 <FileDown className="h-4 w-4" />
                 Export as CSV
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={async () => {
-                  setExporting(true);
-                  try {
-                    await downloadPdf(exportFileName, pdfTitle ?? title, visible, rows);
-                  } finally {
-                    setExporting(false);
-                  }
-                }}
+                onClick={() =>
+                  runExport(all => downloadPdf(exportFileName, pdfTitle ?? title, visible, all))
+                }
               >
                 <FileText className="h-4 w-4" />
                 Export as PDF

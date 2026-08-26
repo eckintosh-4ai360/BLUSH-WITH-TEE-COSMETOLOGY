@@ -12,6 +12,7 @@ import {
 import DashboardLayout from "@/components/DashboardLayout";
 import { DataTable, type Column } from "@/components/DataTable";
 import { PermissionGate } from "@/components/PermissionGate";
+import { collectAllPages } from "@/lib/exportAll";
 import { trpc } from "@/lib/trpc";
 
 const TYPES = [
@@ -52,13 +53,17 @@ function MovementsContent() {
   const [page, setPage] = useState(1);
   const [movementType, setMovementType] = useState("all");
 
-  const query = trpc.inventory.movements.useQuery({
-    page,
-    pageSize: 25,
-    sortDir: "desc",
+  const utils = trpc.useUtils();
+
+  // Shared by the table and by export, so a download covers exactly what the
+  // filters describe rather than the page on screen.
+  const filters = {
+    sortDir: "desc" as const,
     search: search || undefined,
     movementType: movementType === "all" ? undefined : (movementType as (typeof TYPES)[number]),
-  });
+  };
+
+  const query = trpc.inventory.movements.useQuery({ ...filters, page, pageSize: 25 });
 
   const columns: Column<MovementRow>[] = [
     {
@@ -158,6 +163,11 @@ function MovementsContent() {
         onPageChange={setPage}
         rowKey={row => row.id}
         exportFileName="stock-movements"
+        fetchAllRows={() =>
+          collectAllPages((page, pageSize) =>
+            utils.inventory.movements.fetch({ ...filters, page, pageSize }),
+          )
+        }
         emptyMessage="No movements match these filters."
         filters={
           <Select

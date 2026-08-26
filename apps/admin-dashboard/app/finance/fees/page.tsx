@@ -11,6 +11,7 @@ import { DataTable, type Column } from "@/components/DataTable";
 import { PermissionGate } from "@/components/PermissionGate";
 import { RecordPaymentDialog } from "@/components/finance/RecordPaymentDialog";
 import { usePermissions } from "@/hooks/usePermissions";
+import { collectAllPages } from "@/lib/exportAll";
 import { trpc } from "@/lib/trpc";
 
 type OwingRow = {
@@ -41,12 +42,13 @@ function OutstandingFeesContent() {
   const [page, setPage] = useState(1);
   const [payingStudentId, setPayingStudentId] = useState<number | null>(null);
 
-  const query = trpc.finance.outstanding.useQuery({
-    page,
-    pageSize: 25,
-    sortDir: "desc",
-    search: search || undefined,
-  });
+  const utils = trpc.useUtils();
+
+  // Shared by the table and by export, so a download covers exactly what the
+  // filters describe rather than the page on screen.
+  const filters = { sortDir: "desc" as const, search: search || undefined };
+
+  const query = trpc.finance.outstanding.useQuery({ ...filters, page, pageSize: 25 });
 
   const columns: Column<OwingRow>[] = [
     {
@@ -136,6 +138,11 @@ function OutstandingFeesContent() {
         onPageChange={setPage}
         rowKey={row => row.studentId}
         exportFileName="outstanding-fees"
+        fetchAllRows={() =>
+          collectAllPages((page, pageSize) =>
+            utils.finance.outstanding.fetch({ ...filters, page, pageSize }),
+          )
+        }
         emptyMessage="Every student is up to date."
       />
 

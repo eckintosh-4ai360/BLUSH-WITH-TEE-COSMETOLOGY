@@ -14,6 +14,7 @@ import { formatMoney } from "@blush/ui/lib/viz";
 import DashboardLayout from "@/components/DashboardLayout";
 import { DataTable, type Column } from "@/components/DataTable";
 import { PermissionGate } from "@/components/PermissionGate";
+import { collectAllPages } from "@/lib/exportAll";
 import { FULFILLMENT_TONE } from "@/lib/orderStatus";
 import { trpc } from "@/lib/trpc";
 
@@ -58,15 +59,19 @@ function OrdersContent() {
   const [fulfillment, setFulfillment] = useState("all");
   const [payment, setPayment] = useState("all");
 
-  const query = trpc.orders.list.useQuery({
-    page,
-    pageSize: 25,
-    sortDir: "desc",
+  const utils = trpc.useUtils();
+
+  // Shared by the table and by export, so a download covers exactly what the
+  // filters describe rather than the page on screen.
+  const filters = {
+    sortDir: "desc" as const,
     search: search || undefined,
     fulfillmentStatus:
       fulfillment === "all" ? undefined : (fulfillment as (typeof FULFILLMENT)[number]),
     paymentStatus: payment === "all" ? undefined : (payment as (typeof PAYMENT)[number]),
-  });
+  };
+
+  const query = trpc.orders.list.useQuery({ ...filters, page, pageSize: 25 });
 
   const columns: Column<OrderRow>[] = [
     {
@@ -142,6 +147,11 @@ function OrdersContent() {
         rowKey={row => row.id}
         onRowClick={row => router.push(`/orders/${row.id}`)}
         exportFileName="orders"
+        fetchAllRows={() =>
+          collectAllPages((page, pageSize) =>
+            utils.orders.list.fetch({ ...filters, page, pageSize }),
+          )
+        }
         emptyMessage="No orders match these filters."
         footer={
           query.data ? (

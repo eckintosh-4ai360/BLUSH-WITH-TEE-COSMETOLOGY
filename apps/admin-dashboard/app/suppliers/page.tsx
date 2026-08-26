@@ -6,6 +6,7 @@ import { formatMoney } from "@blush/ui/lib/viz";
 import DashboardLayout from "@/components/DashboardLayout";
 import { DataTable, type Column } from "@/components/DataTable";
 import { PermissionGate } from "@/components/PermissionGate";
+import { collectAllPages } from "@/lib/exportAll";
 import { trpc } from "@/lib/trpc";
 
 type SupplierRow = {
@@ -34,12 +35,13 @@ function SuppliersContent() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
 
-  const query = trpc.inventory.suppliers.useQuery({
-    page,
-    pageSize: 25,
-    sortDir: "asc",
-    search: search || undefined,
-  });
+  const utils = trpc.useUtils();
+
+  // Shared by the table and by export, so a download covers exactly what the
+  // filters describe rather than the page on screen.
+  const filters = { sortDir: "asc" as const, search: search || undefined };
+
+  const query = trpc.inventory.suppliers.useQuery({ ...filters, page, pageSize: 25 });
 
   const columns: Column<SupplierRow>[] = [
     {
@@ -112,6 +114,11 @@ function SuppliersContent() {
         onPageChange={setPage}
         rowKey={row => row.id}
         exportFileName="suppliers"
+        fetchAllRows={() =>
+          collectAllPages((page, pageSize) =>
+            utils.inventory.suppliers.fetch({ ...filters, page, pageSize }),
+          )
+        }
         emptyMessage="No suppliers recorded yet."
       />
     </div>

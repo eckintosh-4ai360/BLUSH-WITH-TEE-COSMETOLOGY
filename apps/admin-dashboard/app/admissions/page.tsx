@@ -16,6 +16,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { DataTable, type Column } from "@/components/DataTable";
 import { PermissionGate } from "@/components/PermissionGate";
 import { usePermissions } from "@/hooks/usePermissions";
+import { collectAllPages } from "@/lib/exportAll";
 import { trpc } from "@/lib/trpc";
 
 const STATUS = [
@@ -68,12 +69,14 @@ function AdmissionsContent() {
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState("all");
 
-  const query = trpc.admin.applications.useQuery({
-    page,
-    pageSize: 25,
+  // Shared by the table and by export, so a download covers exactly what the
+  // filters describe rather than the page on screen.
+  const filters = {
     search: search || undefined,
     status: status === "all" ? undefined : (status as (typeof STATUS)[number]),
-  });
+  };
+
+  const query = trpc.admin.applications.useQuery({ ...filters, page, pageSize: 25 });
 
   const review = trpc.admin.reviewApplication.useMutation({
     onSuccess: () => {
@@ -204,6 +207,11 @@ function AdmissionsContent() {
         rowKey={row => row.application.id}
         exportFileName="admissions"
         pdfTitle="Admissions"
+        fetchAllRows={() =>
+          collectAllPages((page, pageSize) =>
+            utils.admin.applications.fetch({ ...filters, page, pageSize }),
+          )
+        }
         emptyMessage="No applications match these filters."
         filters={
           <Select

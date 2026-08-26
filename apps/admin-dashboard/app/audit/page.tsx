@@ -12,6 +12,7 @@ import {
 import DashboardLayout from "@/components/DashboardLayout";
 import { DataTable, type Column } from "@/components/DataTable";
 import { PermissionGate } from "@/components/PermissionGate";
+import { collectAllPages } from "@/lib/exportAll";
 import { trpc } from "@/lib/trpc";
 
 type AuditRow = {
@@ -45,14 +46,18 @@ function AuditContent() {
   const [action, setAction] = useState("all");
 
   const facets = trpc.platform.auditFacets.useQuery();
-  const query = trpc.platform.auditLog.useQuery({
-    page,
-    pageSize: 25,
-    sortDir: "desc",
+  const utils = trpc.useUtils();
+
+  // Shared by the table and by export, so a download covers exactly what the
+  // filters describe rather than the page on screen.
+  const filters = {
+    sortDir: "desc" as const,
     search: search || undefined,
     entity: entity === "all" ? undefined : entity,
     action: action === "all" ? undefined : action,
-  });
+  };
+
+  const query = trpc.platform.auditLog.useQuery({ ...filters, page, pageSize: 25 });
 
   const columns: Column<AuditRow>[] = [
     {
@@ -131,6 +136,11 @@ function AuditContent() {
         onPageChange={setPage}
         rowKey={row => row.id}
         exportFileName="audit-log"
+        fetchAllRows={() =>
+          collectAllPages((page, pageSize) =>
+            utils.platform.auditLog.fetch({ ...filters, page, pageSize }),
+          )
+        }
         emptyMessage="Nothing has been recorded for these filters."
         filters={
           <>

@@ -18,6 +18,7 @@ import { DataTable, type Column } from "@/components/DataTable";
 import { PermissionGate } from "@/components/PermissionGate";
 import { AddExpenseDialog } from "@/components/finance/AddExpenseDialog";
 import { usePermissions } from "@/hooks/usePermissions";
+import { collectAllPages } from "@/lib/exportAll";
 import { trpc } from "@/lib/trpc";
 
 const CATEGORIES = [
@@ -63,15 +64,19 @@ function ExpensesContent() {
   const [status, setStatus] = useState("all");
   const [addOpen, setAddOpen] = useState(false);
 
-  const query = trpc.finance.expenses.useQuery({
-    page,
-    pageSize: 25,
-    sortDir: "desc",
+  const utils = trpc.useUtils();
+
+  // Shared by the table and by export, so a download covers exactly what the
+  // filters describe rather than the page on screen.
+  const filters = {
+    sortDir: "desc" as const,
     search: search || undefined,
     category: category === "all" ? undefined : (category as (typeof CATEGORIES)[number]),
     approvalStatus:
       status === "all" ? undefined : (status as "pending" | "approved" | "rejected"),
-  });
+  };
+
+  const query = trpc.finance.expenses.useQuery({ ...filters, page, pageSize: 25 });
 
   const review = trpc.finance.reviewExpense.useMutation({
     onSuccess: () => {
@@ -187,6 +192,11 @@ function ExpensesContent() {
         onPageChange={setPage}
         rowKey={row => row.id}
         exportFileName="expenses"
+        fetchAllRows={() =>
+          collectAllPages((page, pageSize) =>
+            utils.finance.expenses.fetch({ ...filters, page, pageSize }),
+          )
+        }
         emptyMessage="No expenses match these filters."
         footer={
           query.data ? (

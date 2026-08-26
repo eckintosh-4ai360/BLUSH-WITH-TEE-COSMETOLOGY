@@ -12,6 +12,7 @@ import {
 import DashboardLayout from "@/components/DashboardLayout";
 import { DataTable, type Column } from "@/components/DataTable";
 import { PermissionGate } from "@/components/PermissionGate";
+import { collectAllPages } from "@/lib/exportAll";
 import { trpc } from "@/lib/trpc";
 
 const STATUS = [
@@ -71,11 +72,13 @@ function StudentsContent() {
   const [course, setCourse] = useState("all");
   const [enrolment, setEnrolment] = useState("all");
 
+  const utils = trpc.useUtils();
   const courses = trpc.content.courses.useQuery();
-  const query = trpc.students.list.useQuery({
-    page,
-    pageSize: 25,
-    sortDir: "desc",
+
+  // Shared by the table and by export, so a download covers exactly what the
+  // filters describe rather than the page on screen.
+  const filters = {
+    sortDir: "desc" as const,
     search: search || undefined,
     status: status === "all" ? undefined : (status as (typeof STATUS)[number]),
     courseId: course === "all" ? undefined : Number(course),
@@ -83,7 +86,9 @@ function StudentsContent() {
       enrolment === "all"
         ? undefined
         : (enrolment as "enrolled" | "unenrolled"),
-  });
+  };
+
+  const query = trpc.students.list.useQuery({ ...filters, page, pageSize: 25 });
 
   // Narrowing to one programme and asking for the unenrolled at once returns
   // nothing, so the two controls stay mutually exclusive.
@@ -183,6 +188,11 @@ function StudentsContent() {
         onPageChange={setPage}
         rowKey={row => row.id}
         exportFileName="students"
+        fetchAllRows={() =>
+          collectAllPages((page, pageSize) =>
+            utils.students.list.fetch({ ...filters, page, pageSize }),
+          )
+        }
         emptyMessage="No students match these filters."
         filters={
           <>

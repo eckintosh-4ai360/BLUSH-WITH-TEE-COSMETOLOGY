@@ -19,6 +19,7 @@ import { DataTable, type Column } from "@/components/DataTable";
 import { PermissionGate } from "@/components/PermissionGate";
 import { StockMovementDialog } from "@/components/inventory/StockMovementDialog";
 import { usePermissions } from "@/hooks/usePermissions";
+import { collectAllPages } from "@/lib/exportAll";
 import { trpc } from "@/lib/trpc";
 
 type ItemRow = {
@@ -59,13 +60,13 @@ function InventoryContent() {
   );
   const [movingItem, setMovingItem] = useState<ItemRow | null>(null);
 
-  const query = trpc.inventory.items.useQuery({
-    page,
-    pageSize: 25,
-    sortDir: "asc",
-    search: search || undefined,
-    stockFilter,
-  });
+  const utils = trpc.useUtils();
+
+  // Shared by the table and by export, so a download covers exactly what the
+  // filters describe rather than the page on screen.
+  const filters = { sortDir: "asc" as const, search: search || undefined, stockFilter };
+
+  const query = trpc.inventory.items.useQuery({ ...filters, page, pageSize: 25 });
 
   const columns: Column<ItemRow>[] = [
     {
@@ -176,6 +177,11 @@ function InventoryContent() {
         onPageChange={setPage}
         rowKey={row => row.id}
         exportFileName="stock"
+        fetchAllRows={() =>
+          collectAllPages((page, pageSize) =>
+            utils.inventory.items.fetch({ ...filters, page, pageSize }),
+          )
+        }
         emptyMessage="No items match these filters."
         footer={
           query.data ? (
