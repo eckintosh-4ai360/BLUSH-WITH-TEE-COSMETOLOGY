@@ -48,24 +48,45 @@ const ACTIONS: Array<{
     icon: TrendingDown,
     permission: "expenses.write",
   },
-  { label: "Review admissions", href: "/admissions", icon: UserRoundPlus, permission: "admissions.review" },
-  { label: "Fees owed", href: "/finance/fees", icon: Wallet, permission: "fees.read" },
-  { label: "Adjust stock", href: "/inventory", icon: PackagePlus, permission: "inventory.write" },
+  {
+    label: "Review admissions",
+    href: "/admissions",
+    icon: UserRoundPlus,
+    permission: "admissions.review",
+  },
+  {
+    label: "Fees owed",
+    href: "/finance/fees",
+    icon: Wallet,
+    permission: "fees.read",
+  },
+  {
+    label: "Adjust stock",
+    href: "/inventory",
+    icon: PackagePlus,
+    permission: "inventory.write",
+  },
   {
     label: "Issue certificate",
     href: "/students/certificates",
     icon: BadgeCheck,
     permission: "certificates.write",
   },
-  { label: "Suppliers", href: "/suppliers", icon: Truck, permission: "suppliers.read" },
-  { label: "Students", href: "/students", icon: Users, permission: "students.read" },
+  {
+    label: "Suppliers",
+    href: "/suppliers",
+    icon: Truck,
+    permission: "suppliers.read",
+  },
+  {
+    label: "Students",
+    href: "/students",
+    icon: Users,
+    permission: "students.read",
+  },
 ];
 
-/**
- * `onDark` is passed when the actions sit on the dashboard's painted banner,
- * where the default button fills would disappear into the background.
- */
-export function QuickActions({ onDark = false }: { onDark?: boolean } = {}) {
+export function QuickActions() {
   const router = useRouter();
   const { can, isLoading } = usePermissions();
 
@@ -78,7 +99,7 @@ export function QuickActions({ onDark = false }: { onDark?: boolean } = {}) {
     <div className="flex items-center gap-2">
       <Button
         onClick={() => router.push(primary.href)}
-        className={`gap-2 ${onDark ? "bg-white text-[#2d0423] shadow-sm hover:bg-white/90" : ""}`}
+        className="gap-2 bg-[#22b8bd] text-white shadow-[0_14px_28px_rgba(34,184,189,0.22)] hover:bg-[#1ca5ad]"
       >
         <Plus className="h-4 w-4" />
         {primary.label}
@@ -89,7 +110,7 @@ export function QuickActions({ onDark = false }: { onDark?: boolean } = {}) {
           <DropdownMenuTrigger asChild>
             <Button
               variant="outline"
-              className={`gap-1 ${onDark ? "border-white/25 bg-white/10 text-white hover:bg-white/20 hover:text-white" : ""}`}
+              className="gap-1 border-white/70 bg-white/45 text-[#344b59] shadow-sm hover:bg-white/70 hover:text-[#263746]"
               aria-label="More quick actions"
             >
               More

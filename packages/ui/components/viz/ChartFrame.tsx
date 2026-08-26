@@ -56,13 +56,13 @@ export function ChartFrame({
   return (
     <section
       className={cn(
-        "rounded-3xl border border-border/60 bg-card p-5 shadow-sm sm:p-6",
-        className,
+        "admin-glass-card rounded-[1.45rem] border p-5 sm:p-6",
+        className
       )}
     >
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="text-base font-semibold tracking-tight text-foreground">{title}</h3>
+          <h3 className="text-base font-semibold text-foreground">{title}</h3>
           {subtitle ? (
             <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p>
           ) : null}
@@ -75,7 +75,7 @@ export function ChartFrame({
               onClick={() => setShowTable(value => !value)}
               aria-expanded={showTable}
               aria-controls={tableId}
-              className="rounded-full border border-border/70 px-3 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="rounded-full border border-white/70 bg-white/45 px-3 py-1 text-xs font-medium text-muted-foreground shadow-sm transition-colors hover:bg-white/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {showTable ? "Show chart" : "Show table"}
             </button>
@@ -87,7 +87,10 @@ export function ChartFrame({
       {series.length > 1 ? (
         <ul className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
           {series.map(item => (
-            <li key={item.key} className="flex items-center gap-2 text-xs text-muted-foreground">
+            <li
+              key={item.key}
+              className="flex items-center gap-2 text-xs text-muted-foreground"
+            >
               <span
                 aria-hidden
                 className="h-2.5 w-2.5 shrink-0 rounded-full"
@@ -101,9 +104,9 @@ export function ChartFrame({
 
       <div className="mt-5">
         {isLoading ? (
-          <Skeleton className="h-[260px] w-full rounded-2xl" />
+          <Skeleton className="h-[260px] w-full rounded-[1.15rem] bg-white/55" />
         ) : isEmpty ? (
-          <p className="flex h-[260px] items-center justify-center rounded-2xl bg-muted/40 px-6 text-center text-sm text-muted-foreground">
+          <p className="flex h-[260px] items-center justify-center rounded-[1.15rem] border border-white/60 bg-white/35 px-6 text-center text-sm text-muted-foreground">
             {emptyMessage}
           </p>
         ) : showTable && rows ? (
@@ -136,11 +139,17 @@ function ChartTable({
   categoryLabel: string;
 }) {
   return (
-    <div id={id} className="max-h-[260px] overflow-auto rounded-2xl border border-border/60">
+    <div
+      id={id}
+      className="max-h-[260px] overflow-auto rounded-[1.15rem] border border-white/60 bg-white/35"
+    >
       <table className="w-full border-collapse text-sm">
         <thead className="sticky top-0 bg-muted/70 backdrop-blur">
           <tr>
-            <th scope="col" className="px-3 py-2 text-left font-medium text-muted-foreground">
+            <th
+              scope="col"
+              className="px-3 py-2 text-left font-medium text-muted-foreground"
+            >
               {categoryLabel}
             </th>
             {series.map(item => (
@@ -157,7 +166,10 @@ function ChartTable({
         <tbody>
           {rows.map((row, index) => (
             <tr key={index} className="border-t border-border/50">
-              <th scope="row" className="px-3 py-2 text-left font-normal text-foreground">
+              <th
+                scope="row"
+                className="px-3 py-2 text-left font-normal text-foreground"
+              >
                 {String(row[categoryKey] ?? "-")}
               </th>
               {series.map(item => {
@@ -167,7 +179,9 @@ function ChartTable({
                     key={item.key}
                     className="px-3 py-2 text-right tabular-nums text-foreground"
                   >
-                    {item.format ? item.format(value) : value.toLocaleString("en-GH")}
+                    {item.format
+                      ? item.format(value)
+                      : value.toLocaleString("en-GH")}
                   </td>
                 );
               })}
@@ -187,16 +201,23 @@ export function VizTooltip({
   format,
 }: {
   active?: boolean;
-  payload?: Array<{ name?: string; dataKey?: string | number; value?: number; color?: string }>;
+  payload?: Array<{
+    name?: string;
+    dataKey?: string | number;
+    value?: number;
+    color?: string;
+  }>;
   label?: string | number;
   format?: (value: number) => string;
 }) {
   if (!active || !payload?.length) return null;
 
   return (
-    <div className="rounded-xl border border-border/70 bg-popover px-3 py-2 shadow-lg">
+    <div className="rounded-xl border border-white/70 bg-white/85 px-3 py-2 shadow-lg backdrop-blur-xl dark:border-border/70 dark:bg-popover/90">
       {label != null ? (
-        <p className="mb-1.5 text-xs font-medium text-foreground">{String(label)}</p>
+        <p className="mb-1.5 text-xs font-medium text-foreground">
+          {String(label)}
+        </p>
       ) : null}
       <ul className="space-y-1">
         {payload.map((entry, index) => (
@@ -211,7 +232,9 @@ export function VizTooltip({
             />
             <span className="mr-2">{entry.name}</span>
             <span className="ml-auto font-medium tabular-nums text-foreground">
-              {format ? format(Number(entry.value ?? 0)) : Number(entry.value ?? 0).toLocaleString("en-GH")}
+              {format
+                ? format(Number(entry.value ?? 0))
+                : Number(entry.value ?? 0).toLocaleString("en-GH")}
             </span>
           </li>
         ))}

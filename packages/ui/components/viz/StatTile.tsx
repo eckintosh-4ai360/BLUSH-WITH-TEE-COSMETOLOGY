@@ -12,17 +12,18 @@ export type StatTone = "default" | "good" | "warning" | "critical";
  * Each ships with a label and an icon so meaning never rests on colour alone.
  */
 const TONE_CLASS: Record<StatTone, string> = {
-  default: "text-foreground",
+  default: "text-[#263746] dark:text-foreground",
   good: "text-emerald-700 dark:text-emerald-400",
   warning: "text-amber-700 dark:text-amber-400",
   critical: "text-rose-700 dark:text-rose-400",
 };
 
 const TONE_BADGE: Record<StatTone, string> = {
-  default: "bg-primary/10 text-primary",
-  good: "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300",
-  warning: "bg-amber-500/12 text-amber-700 dark:text-amber-300",
-  critical: "bg-rose-500/12 text-rose-700 dark:text-rose-300",
+  default: "bg-[#22b8bd] text-white shadow-[0_14px_28px_rgba(34,184,189,0.26)]",
+  good: "bg-[#12ad73] text-white shadow-[0_14px_28px_rgba(18,173,115,0.24)]",
+  warning: "bg-[#ee9f45] text-white shadow-[0_14px_28px_rgba(238,159,69,0.25)]",
+  critical:
+    "bg-[#ef5c7b] text-white shadow-[0_14px_28px_rgba(239,92,123,0.24)]",
 };
 
 /**
@@ -31,20 +32,20 @@ const TONE_BADGE: Record<StatTone, string> = {
  * reading a single number.
  */
 const TONE_SURFACE: Record<StatTone, string> = {
-  default: "border-border/60 bg-card",
-  good: "border-border/60 bg-card",
-  warning: "border-amber-500/30 bg-amber-500/[0.04] dark:bg-amber-500/[0.07]",
-  critical: "border-rose-500/35 bg-rose-500/[0.05] dark:bg-rose-500/[0.09]",
+  default: "admin-glass-card",
+  good: "admin-glass-card",
+  warning: "admin-glass-card admin-glass-card-warning",
+  critical: "admin-glass-card admin-glass-card-critical",
 };
 
-/** Headline tiles are painted from the brand ramp, in a fixed order. */
+/** Headline tiles keep a fixed icon-badge order inspired by the dashboard mockup. */
 export type StatAccent = "magenta" | "plum" | "rose" | "berry";
 
-const ACCENT_GRADIENT: Record<StatAccent, string> = {
-  magenta: "from-[#fe00b6] via-[#e0009f] to-[#8f0d6b]",
-  plum: "from-[#a8107e] via-[#8f0d6b] to-[#54063f]",
-  rose: "from-[#ff66d4] via-[#f22cbb] to-[#c20f92]",
-  berry: "from-[#c20f92] via-[#8f0d6b] to-[#2d0423]",
+const ACCENT_BADGE: Record<StatAccent, string> = {
+  magenta: "bg-[#22b8bd] text-white shadow-[0_16px_30px_rgba(34,184,189,0.28)]",
+  plum: "bg-[#7567d8] text-white shadow-[0_16px_30px_rgba(117,103,216,0.28)]",
+  rose: "bg-[#ee9f45] text-white shadow-[0_16px_30px_rgba(238,159,69,0.27)]",
+  berry: "bg-[#b44ac8] text-white shadow-[0_16px_30px_rgba(180,74,200,0.27)]",
 };
 
 export type StatTileProps = {
@@ -57,7 +58,7 @@ export type StatTileProps = {
   isLoading?: boolean;
   /** Renders the figure at hero scale for the number a view leads with. */
   emphasis?: boolean;
-  /** Paints the tile from the brand ramp. Reserved for a headline row. */
+  /** Uses the headline icon-badge palette. Reserved for a headline row. */
   accent?: StatAccent;
   onClick?: () => void;
 };
@@ -79,49 +80,40 @@ export function StatTile({
   onClick,
 }: StatTileProps) {
   const interactive = Boolean(href || onClick);
-  const painted = Boolean(accent);
+  const accented = Boolean(accent);
 
   const body = (
     <>
-      {/* A soft light behind the figure, so a painted tile still has depth. */}
-      {painted ? (
-        <span
-          aria-hidden
-          className="pointer-events-none absolute -right-8 -top-10 h-32 w-32 rounded-full bg-white/15 blur-2xl"
-        />
-      ) : null}
-
       <div className="relative flex items-start justify-between gap-3">
-        <p
-          className={cn(
-            "text-xs font-medium uppercase tracking-[0.12em]",
-            painted ? "text-white/80" : "text-muted-foreground",
-          )}
-        >
-          {label}
-        </p>
         {Icon ? (
           <span
             aria-hidden
             className={cn(
-              "grid size-9 shrink-0 place-items-center rounded-xl transition-transform duration-200",
+              "grid size-11 shrink-0 place-items-center rounded-xl transition-transform duration-200",
               interactive && "group-hover/tile:scale-110",
-              painted ? "bg-white/20 text-white backdrop-blur-sm" : TONE_BADGE[tone],
+              accented ? ACCENT_BADGE[accent!] : TONE_BADGE[tone]
             )}
           >
-            <Icon className="size-4" />
+            <Icon className="size-5" />
+          </span>
+        ) : null}
+        {hint ? (
+          <span className="max-w-[60%] truncate text-right text-[10px] font-semibold uppercase text-slate-500 dark:text-muted-foreground">
+            {hint}
           </span>
         ) : null}
       </div>
 
       {isLoading ? (
-        <Skeleton className={cn("mt-4 h-9 w-24", painted && "bg-white/25")} />
+        <Skeleton className="mt-7 h-9 w-28 rounded-xl bg-white/60" />
       ) : (
         <p
           className={cn(
-            "relative mt-3 font-semibold tabular-nums tracking-tight",
-            emphasis ? "text-[2rem] leading-none sm:text-4xl" : "text-2xl leading-none",
-            painted ? "text-white" : TONE_CLASS[tone],
+            "relative mt-7 font-semibold tabular-nums",
+            emphasis
+              ? "text-[2rem] leading-none sm:text-[2.35rem]"
+              : "text-[1.55rem] leading-none",
+            TONE_CLASS[tone]
           )}
         >
           {value}
@@ -129,25 +121,13 @@ export function StatTile({
       )}
 
       <div className="relative mt-3 flex min-h-5 items-center justify-between gap-2">
-        {hint ? (
-          <span
-            className={cn(
-              "truncate rounded-full px-2 py-0.5 text-[11px] font-medium",
-              painted ? "bg-white/20 text-white" : "bg-muted text-muted-foreground",
-            )}
-          >
-            {hint}
-          </span>
-        ) : (
-          <span />
-        )}
+        <span className="truncate text-[11px] font-semibold uppercase text-muted-foreground">
+          {label}
+        </span>
         {interactive ? (
           <ArrowUpRight
             aria-hidden
-            className={cn(
-              "size-4 shrink-0 opacity-0 transition-all duration-200 group-hover/tile:translate-x-0.5 group-hover/tile:opacity-100",
-              painted ? "text-white" : "text-muted-foreground",
-            )}
+            className="size-4 shrink-0 text-muted-foreground opacity-0 transition-all duration-200 group-hover/tile:translate-x-0.5 group-hover/tile:opacity-100"
           />
         ) : null}
       </div>
@@ -155,14 +135,11 @@ export function StatTile({
   );
 
   const className = cn(
-    "group/tile relative block overflow-hidden rounded-2xl border p-4 text-left transition-all duration-200",
-    painted
-      ? cn("border-transparent bg-gradient-to-br text-white shadow-md", ACCENT_GRADIENT[accent!])
-      : cn("shadow-sm", TONE_SURFACE[tone]),
+    "group/tile relative block min-h-[136px] overflow-hidden rounded-[1.35rem] border p-4 text-left transition-all duration-200",
+    emphasis && "min-h-[164px] p-5 sm:p-6",
+    TONE_SURFACE[tone],
     interactive &&
-      (painted
-        ? "hover:-translate-y-0.5 hover:shadow-lg"
-        : "hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"),
+      "hover:-translate-y-0.5 hover:border-[#8bdde5] hover:shadow-[0_22px_48px_rgba(71,124,138,0.18)]"
   );
 
   if (href) {
@@ -175,7 +152,11 @@ export function StatTile({
 
   if (onClick) {
     return (
-      <button type="button" onClick={onClick} className={cn(className, "w-full")}>
+      <button
+        type="button"
+        onClick={onClick}
+        className={cn(className, "w-full")}
+      >
         {body}
       </button>
     );
@@ -184,7 +165,7 @@ export function StatTile({
   return <article className={className}>{body}</article>;
 }
 
-/** A titled group of stat tiles, the shape the dashboard reads in (§20). */
+/** A titled group of stat tiles, the shape the dashboard reads in. */
 export function StatGroup({
   title,
   description,
@@ -198,17 +179,21 @@ export function StatGroup({
 }) {
   return (
     <section className="space-y-3">
-      <div className="flex flex-wrap items-end justify-between gap-2">
+      <div className="flex flex-wrap items-end justify-between gap-2 px-1">
         <div className="flex items-center gap-2.5">
-          <span aria-hidden className="h-4 w-1 rounded-full bg-primary" />
+          <span aria-hidden className="h-4 w-1 rounded-full bg-[#22b8bd]" />
           <div>
-            <h2 className="text-sm font-semibold tracking-tight text-foreground">{title}</h2>
-            {description ? <p className="text-xs text-muted-foreground">{description}</p> : null}
+            <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+            {description ? (
+              <p className="text-xs text-muted-foreground">{description}</p>
+            ) : null}
           </div>
         </div>
         {action}
       </div>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">{children}</div>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {children}
+      </div>
     </section>
   );
 }

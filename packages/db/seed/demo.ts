@@ -79,10 +79,13 @@ function makeRandom(seed: number) {
 
 const random = makeRandom(20260822);
 
-const pick = <T>(items: readonly T[]): T => items[Math.floor(random() * items.length)]!;
-const between = (min: number, max: number) => Math.floor(random() * (max - min + 1)) + min;
+const pick = <T>(items: readonly T[]): T =>
+  items[Math.floor(random() * items.length)]!;
+const between = (min: number, max: number) =>
+  Math.floor(random() * (max - min + 1)) + min;
 const cash = (minor: number) => (minor / 100).toFixed(2);
-const amountBetween = (min: number, max: number) => cash(between(min * 100, max * 100));
+const amountBetween = (min: number, max: number) =>
+  cash(between(min * 100, max * 100));
 
 function daysAgo(days: number): Date {
   const date = new Date();
@@ -93,7 +96,9 @@ function daysAgo(days: number): Date {
 
 function dateOnly(days: number): Date {
   const date = daysAgo(days);
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  return new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
+  );
 }
 
 const YEAR = new Date().getFullYear();
@@ -101,13 +106,16 @@ const reference = (prefix: string, index: number) =>
   `${prefix}-${YEAR}-${String(index).padStart(5, "0")}`;
 
 const slugOf = (value: string) =>
-  value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
 
 /** Inserts in chunks so a large batch stays inside driver parameter limits. */
 async function insertChunked<T>(
   run: (rows: T[]) => Promise<unknown>,
   rows: T[],
-  size = 150,
+  size = 150
 ): Promise<number> {
   for (let index = 0; index < rows.length; index += size) {
     const chunk = rows.slice(index, index + size);
@@ -117,14 +125,57 @@ async function insertChunked<T>(
 }
 
 const FIRST_NAMES = [
-  "Ama", "Akosua", "Efua", "Abena", "Adwoa", "Yaa", "Afia", "Esi", "Nana", "Akua",
-  "Kwabena", "Kofi", "Yaw", "Kwame", "Kojo", "Kwaku", "Kwesi", "Mariam", "Zainab", "Grace",
-  "Priscilla", "Sandra", "Linda", "Gifty", "Naa", "Rita", "Doris", "Vida", "Comfort", "Patience",
+  "Ama",
+  "Akosua",
+  "Efua",
+  "Abena",
+  "Adwoa",
+  "Yaa",
+  "Afia",
+  "Esi",
+  "Nana",
+  "Akua",
+  "Kwabena",
+  "Kofi",
+  "Yaw",
+  "Kwame",
+  "Kojo",
+  "Kwaku",
+  "Kwesi",
+  "Mariam",
+  "Zainab",
+  "Grace",
+  "Priscilla",
+  "Sandra",
+  "Linda",
+  "Gifty",
+  "Naa",
+  "Rita",
+  "Doris",
+  "Vida",
+  "Comfort",
+  "Patience",
 ];
 
 const LAST_NAMES = [
-  "Mensah", "Owusu", "Boateng", "Asante", "Agyeman", "Darko", "Osei", "Appiah", "Ansah",
-  "Frimpong", "Adjei", "Amoah", "Baidoo", "Quaye", "Tetteh", "Lartey", "Nartey", "Sarpong",
+  "Mensah",
+  "Owusu",
+  "Boateng",
+  "Asante",
+  "Agyeman",
+  "Darko",
+  "Osei",
+  "Appiah",
+  "Ansah",
+  "Frimpong",
+  "Adjei",
+  "Amoah",
+  "Baidoo",
+  "Quaye",
+  "Tetteh",
+  "Lartey",
+  "Nartey",
+  "Sarpong",
 ];
 
 const personName = (index: number) =>
@@ -160,11 +211,14 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
   const counts: DemoSeedResult = {};
 
   const courseRows = await db.select().from(courses);
-  if (!courseRows.length) throw new Error("Run initializeFoundationData before seeding demo data.");
+  if (!courseRows.length)
+    throw new Error("Run initializeFoundationData before seeding demo data.");
 
   await db
     .update(courses)
-    .set({ slug: sql`lower(regexp_replace(${courses.title}, '[^a-zA-Z0-9]+', '-', 'g'))` })
+    .set({
+      slug: sql`lower(regexp_replace(${courses.title}, '[^a-zA-Z0-9]+', '-', 'g'))`,
+    })
     .where(sql`${courses.slug} is null`);
 
   /* --- Course modules --------------------------------------------------- */
@@ -179,13 +233,15 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
         description: `${title} for ${course.title}.`,
         sequence: index + 1,
         durationHours: between(8, 40),
-      })),
-    ),
+      }))
+    )
   );
 
   /* --- Intakes ---------------------------------------------------------- */
 
-  let intakeRows = await db.select({ id: intakes.id, courseId: intakes.courseId }).from(intakes);
+  let intakeRows = await db
+    .select({ id: intakes.id, courseId: intakes.courseId })
+    .from(intakes);
   if (!intakeRows.length) {
     await db.insert(intakes).values(
       courseRows.flatMap(course =>
@@ -196,28 +252,62 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
           applicationDeadline: dateOnly(offset + 21),
           capacity: between(12, 28),
           status: offset < 0 ? ("open" as const) : ("completed" as const),
-        })),
-      ),
+        }))
+      )
     );
-    intakeRows = await db.select({ id: intakes.id, courseId: intakes.courseId }).from(intakes);
+    intakeRows = await db
+      .select({ id: intakes.id, courseId: intakes.courseId })
+      .from(intakes);
   }
   counts.intakes = intakeRows.length;
 
   /* --- Staff ------------------------------------------------------------ */
 
   const staffSeed = [
-    { name: "Tee Adjei", position: "Principal", role: "admin" as const, salary: "6500.00" },
-    { name: "Naa Lartey", position: "Lead Instructor", role: "staff" as const, salary: "3800.00" },
-    { name: "Kwesi Boateng", position: "Accountant", role: "staff" as const, salary: "3200.00" },
-    { name: "Adwoa Sarpong", position: "Storekeeper", role: "staff" as const, salary: "2400.00" },
-    { name: "Efua Nartey", position: "E-commerce Manager", role: "staff" as const, salary: "2900.00" },
+    {
+      name: "Tee Adjei",
+      position: "Principal",
+      role: "admin" as const,
+      salary: "6500.00",
+    },
+    {
+      name: "Naa Lartey",
+      position: "Lead Instructor",
+      role: "staff" as const,
+      salary: "3800.00",
+    },
+    {
+      name: "Kwesi Boateng",
+      position: "Accountant",
+      role: "staff" as const,
+      salary: "3200.00",
+    },
+    {
+      name: "Adwoa Sarpong",
+      position: "Storekeeper",
+      role: "staff" as const,
+      salary: "2400.00",
+    },
+    {
+      name: "Efua Nartey",
+      position: "E-commerce Manager",
+      role: "staff" as const,
+      salary: "2900.00",
+    },
   ];
 
   const existingStaffUsers = await db
     .select({ id: users.id, openId: users.openId })
     .from(users)
-    .where(inArray(users.openId, staffSeed.map((_, index) => `demo-staff-${index}`)));
-  const staffUserByOpenId = new Map(existingStaffUsers.map(row => [row.openId, row.id]));
+    .where(
+      inArray(
+        users.openId,
+        staffSeed.map((_, index) => `demo-staff-${index}`)
+      )
+    );
+  const staffUserByOpenId = new Map(
+    existingStaffUsers.map(row => [row.openId, row.id])
+  );
 
   if (staffUserByOpenId.size < staffSeed.length) {
     const staffPeople = await db
@@ -227,7 +317,7 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
           fullName: member.name,
           email: `${slugOf(member.name)}@blushwithtee.test`,
           phone: `+23320${String(400000 + index)}`,
-        })),
+        }))
       )
       .onConflictDoNothing()
       .returning({ id: people.id, email: people.email });
@@ -239,12 +329,14 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
       .values(
         staffSeed.map((member, index) => ({
           openId: `demo-staff-${index}`,
-          personId: personByEmail.get(`${slugOf(member.name)}@blushwithtee.test`),
+          personId: personByEmail.get(
+            `${slugOf(member.name)}@blushwithtee.test`
+          ),
           name: member.name,
           email: `${slugOf(member.name)}@blushwithtee.test`,
           role: member.role,
           loginMethod: "demo",
-        })),
+        }))
       )
       .onConflictDoNothing()
       .returning({ id: users.id, openId: users.openId });
@@ -260,7 +352,9 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
             if (!userId) return null;
             return {
               userId,
-              personId: personByEmail.get(`${slugOf(member.name)}@blushwithtee.test`),
+              personId: personByEmail.get(
+                `${slugOf(member.name)}@blushwithtee.test`
+              ),
               staffNumber: `STAFF-${String(index + 1).padStart(3, "0")}`,
               position: member.position,
               email: `${slugOf(member.name)}@blushwithtee.test`,
@@ -269,7 +363,7 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
               salary: member.salary,
             };
           })
-          .filter((row): row is NonNullable<typeof row> => row !== null),
+          .filter((row): row is NonNullable<typeof row> => row !== null)
       )
       .onConflictDoNothing();
   }
@@ -285,7 +379,9 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
 
   /* --- Classes and their dated sessions --------------------------------- */
 
-  let classRows = await db.select({ id: classes.id, courseId: classes.courseId }).from(classes);
+  let classRows = await db
+    .select({ id: classes.id, courseId: classes.courseId })
+    .from(classes);
   if (!classRows.length) {
     await db.insert(classes).values(
       courseRows.map(course => ({
@@ -298,16 +394,22 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
         startsAt: "09:00:00",
         endsAt: "13:00:00",
         status: "active" as const,
-      })),
+      }))
     );
-    classRows = await db.select({ id: classes.id, courseId: classes.courseId }).from(classes);
+    classRows = await db
+      .select({ id: classes.id, courseId: classes.courseId })
+      .from(classes);
   }
   counts.classes = classRows.length;
 
   // Sessions belong to the class, not the student - create them once.
   const SESSION_COUNT = 12;
   let sessionRows = await db
-    .select({ id: classSessions.id, classId: classSessions.classId, sessionDate: classSessions.sessionDate })
+    .select({
+      id: classSessions.id,
+      classId: classSessions.classId,
+      sessionDate: classSessions.sessionDate,
+    })
     .from(classSessions);
 
   if (sessionRows.length < classRows.length * SESSION_COUNT) {
@@ -319,11 +421,15 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
           sessionDate: dateOnly(index * 7 + 3),
           topic: pick(MODULE_TITLES),
           recordedByUserId: instructorUserId,
-        })),
-      ),
+        }))
+      )
     );
     sessionRows = await db
-      .select({ id: classSessions.id, classId: classSessions.classId, sessionDate: classSessions.sessionDate })
+      .select({
+        id: classSessions.id,
+        classId: classSessions.classId,
+        sessionDate: classSessions.sessionDate,
+      })
       .from(classSessions);
   }
   counts.classSessions = sessionRows.length;
@@ -354,8 +460,8 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
           totalScore: 100,
           dueDate: dateOnly(between(10, 90)),
           createdByUserId: instructorUserId,
-        })),
-      ),
+        }))
+      )
     );
     assessmentRows = await db
       .select({ id: assessments.id, courseId: assessments.courseId })
@@ -369,11 +475,39 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
   if (!existingStructures.length) {
     await db.insert(feeStructures).values(
       courseRows.flatMap(course => [
-        { courseId: course.id, intakeId: null, feeType: "registration" as const, label: "Registration fee", amount: "150.00", dueOffsetDays: 0 },
-        { courseId: course.id, intakeId: null, feeType: "tuition" as const, label: "Course tuition", amount: Number(course.tuition).toFixed(2), dueOffsetDays: 30 },
-        { courseId: course.id, intakeId: null, feeType: "materials" as const, label: "Materials and kit", amount: "320.00", dueOffsetDays: 14 },
-        { courseId: course.id, intakeId: null, feeType: "exam" as const, label: "Examination fee", amount: "180.00", dueOffsetDays: 90 },
-      ]),
+        {
+          courseId: course.id,
+          intakeId: null,
+          feeType: "registration" as const,
+          label: "Registration fee",
+          amount: "150.00",
+          dueOffsetDays: 0,
+        },
+        {
+          courseId: course.id,
+          intakeId: null,
+          feeType: "tuition" as const,
+          label: "Course tuition",
+          amount: Number(course.tuition).toFixed(2),
+          dueOffsetDays: 30,
+        },
+        {
+          courseId: course.id,
+          intakeId: null,
+          feeType: "materials" as const,
+          label: "Materials and kit",
+          amount: "320.00",
+          dueOffsetDays: 14,
+        },
+        {
+          courseId: course.id,
+          intakeId: null,
+          feeType: "exam" as const,
+          label: "Examination fee",
+          amount: "180.00",
+          dueOffsetDays: 90,
+        },
+      ])
     );
   }
   const structureRows = await db.select().from(feeStructures);
@@ -390,25 +524,36 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
   /* --- Applications and students ---------------------------------------- */
 
   const STUDENT_COUNT = 42;
-  const STATUSES = ["active", "active", "active", "active", "graduated", "suspended", "completed", "withdrawn"] as const;
+  const STATUSES = [
+    "active",
+    "active",
+    "active",
+    "active",
+    "graduated",
+    "suspended",
+    "completed",
+    "withdrawn",
+  ] as const;
 
   const existingStudents = await db
     .select({ studentNumber: studentProfiles.studentNumber })
     .from(studentProfiles)
     .where(sql`${studentProfiles.studentNumber} like 'STU-DEMO-%'`);
-  const takenStudentNumbers = new Set(existingStudents.map(row => row.studentNumber));
+  const takenStudentNumbers = new Set(
+    existingStudents.map(row => row.studentNumber)
+  );
 
   const existingApplications = await db
     .select({ reference: applications.reference })
     .from(applications)
     .where(sql`${applications.reference} like ${`APP-${YEAR}-%`}`);
-  const takenApplicationRefs = new Set(existingApplications.map(row => row.reference));
+  const takenApplicationRefs = new Set(
+    existingApplications.map(row => row.reference)
+  );
 
-  let paymentIndex = (
-    await db
-      .select({ total: sql<number>`count(*)::int` })
-      .from(payments)
-  )[0]?.total ?? 0;
+  let paymentIndex =
+    (await db.select({ total: sql<number>`count(*)::int` }).from(payments))[0]
+      ?.total ?? 0;
 
   const pendingIndexes: number[] = [];
   const newApplications: Array<Record<string, unknown>> = [];
@@ -430,7 +575,11 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
     const applicationRef = reference("APP", index + 1);
     const isPending = index >= STUDENT_COUNT - 8;
 
-    if (takenStudentNumbers.has(studentNumber) || takenApplicationRefs.has(applicationRef)) continue;
+    if (
+      takenStudentNumbers.has(studentNumber) ||
+      takenApplicationRefs.has(applicationRef)
+    )
+      continue;
 
     const name = personName(index);
     const email = `${slugOf(name)}.${index}@example.test`;
@@ -467,13 +616,21 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
   }
 
   if (personPayloads.length) {
-    await insertChunked(rows => db.insert(people).values(rows).onConflictDoNothing(), personPayloads);
+    await insertChunked(
+      rows => db.insert(people).values(rows).onConflictDoNothing(),
+      personPayloads
+    );
   }
 
   const personRows = await db
     .select({ id: people.id, email: people.email })
     .from(people)
-    .where(inArray(people.email, plannedStudents.map(student => student.email)));
+    .where(
+      inArray(
+        people.email,
+        plannedStudents.map(student => student.email)
+      )
+    );
   const personIdByEmail = new Map(personRows.map(row => [row.email, row.id]));
 
   /* --- Sign-in accounts -------------------------------------------------- */
@@ -486,11 +643,18 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
   const existingStudentUsers = await db
     .select({ id: users.id, openId: users.openId })
     .from(users)
-    .where(inArray(users.openId, plannedStudents.map(student => openIdFor(student.index))));
-  const studentUserByOpenId = new Map(existingStudentUsers.map(row => [row.openId, row.id]));
+    .where(
+      inArray(
+        users.openId,
+        plannedStudents.map(student => openIdFor(student.index))
+      )
+    );
+  const studentUserByOpenId = new Map(
+    existingStudentUsers.map(row => [row.openId, row.id])
+  );
 
   const missingAccounts = plannedStudents.filter(
-    student => !studentUserByOpenId.has(openIdFor(student.index)),
+    student => !studentUserByOpenId.has(openIdFor(student.index))
   );
 
   if (missingAccounts.length) {
@@ -516,8 +680,12 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
     }
 
     await insertChunked(
-      rows => db.insert(users).values(rows as never).onConflictDoNothing(),
-      accountRows,
+      rows =>
+        db
+          .insert(users)
+          .values(rows as never)
+          .onConflictDoNothing(),
+      accountRows
     );
 
     // Read the ids back rather than trusting `returning`, which skips the rows
@@ -525,11 +693,17 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
     const refreshed = await db
       .select({ id: users.id, openId: users.openId })
       .from(users)
-      .where(inArray(users.openId, missingAccounts.map(student => openIdFor(student.index))));
+      .where(
+        inArray(
+          users.openId,
+          missingAccounts.map(student => openIdFor(student.index))
+        )
+      );
     for (const row of refreshed) studentUserByOpenId.set(row.openId, row.id);
   }
 
-  const studentUserId = (index: number) => studentUserByOpenId.get(openIdFor(index)) ?? null;
+  const studentUserId = (index: number) =>
+    studentUserByOpenId.get(openIdFor(index)) ?? null;
   counts.studentAccounts = studentUserByOpenId.size;
 
   for (const student of plannedStudents) {
@@ -544,19 +718,31 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
       courseId: student.courseId,
       intakeId: student.intakeId,
       status: student.isPending
-        ? pick(["submitted", "under_review", "more_information", "rejected"] as const)
+        ? pick([
+            "submitted",
+            "under_review",
+            "more_information",
+            "rejected",
+          ] as const)
         : ("approved" as const),
-      statement: "I would like to build a professional career in beauty and cosmetology.",
+      statement:
+        "I would like to build a professional career in beauty and cosmetology.",
       submittedAt: daysAgo(student.appliedDaysAgo),
       createdAt: daysAgo(student.appliedDaysAgo),
-      reviewedAt: student.isPending ? null : daysAgo(Math.max(student.appliedDaysAgo - 3, 1)),
+      reviewedAt: student.isPending
+        ? null
+        : daysAgo(Math.max(student.appliedDaysAgo - 3, 1)),
     });
   }
 
   if (newApplications.length) {
     await insertChunked(
-      rows => db.insert(applications).values(rows as never).onConflictDoNothing(),
-      newApplications,
+      rows =>
+        db
+          .insert(applications)
+          .values(rows as never)
+          .onConflictDoNothing(),
+      newApplications
     );
   }
   counts.applications = newApplications.length;
@@ -565,33 +751,47 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
     .select({ id: applications.id, reference: applications.reference })
     .from(applications)
     .where(sql`${applications.reference} like ${`APP-${YEAR}-%`}`);
-  const applicationIdByRef = new Map(applicationRows.map(row => [row.reference, row.id]));
+  const applicationIdByRef = new Map(
+    applicationRows.map(row => [row.reference, row.id])
+  );
 
   const admitted = plannedStudents.filter(student => !student.isPending);
 
   if (admitted.length) {
     await insertChunked(
-      rows => db.insert(studentProfiles).values(rows as never).onConflictDoNothing(),
+      rows =>
+        db
+          .insert(studentProfiles)
+          .values(rows as never)
+          .onConflictDoNothing(),
       admitted.map(student => ({
         personId: personIdByEmail.get(student.email),
         userId: studentUserId(student.index),
-        applicationId: applicationIdByRef.get(reference("APP", student.index + 1)),
+        applicationId: applicationIdByRef.get(
+          reference("APP", student.index + 1)
+        ),
         studentNumber: `STU-DEMO-${String(student.index + 1).padStart(4, "0")}`,
         fullName: student.name,
         email: student.email,
         phone: student.phone,
         status: student.status,
-        graduatedAt: student.status === "graduated" ? daysAgo(between(10, 120)) : null,
+        graduatedAt:
+          student.status === "graduated" ? daysAgo(between(10, 120)) : null,
         createdAt: daysAgo(Math.max(student.appliedDaysAgo - 5, 1)),
-      })),
+      }))
     );
   }
 
   const studentRows = await db
-    .select({ id: studentProfiles.id, studentNumber: studentProfiles.studentNumber })
+    .select({
+      id: studentProfiles.id,
+      studentNumber: studentProfiles.studentNumber,
+    })
     .from(studentProfiles)
     .where(sql`${studentProfiles.studentNumber} like 'STU-DEMO-%'`);
-  const studentIdByNumber = new Map(studentRows.map(row => [row.studentNumber, row.id]));
+  const studentIdByNumber = new Map(
+    studentRows.map(row => [row.studentNumber, row.id])
+  );
   counts.students = studentRows.length;
 
   /* --- Records left without an account ----------------------------------- */
@@ -610,7 +810,10 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
     })
     .from(studentProfiles)
     .where(
-      and(sql`${studentProfiles.studentNumber} like 'STU-DEMO-%'`, isNull(studentProfiles.userId)),
+      and(
+        sql`${studentProfiles.studentNumber} like 'STU-DEMO-%'`,
+        isNull(studentProfiles.userId)
+      )
     );
 
   let claimed = 0;
@@ -652,7 +855,10 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
 
     if (!userId) continue;
 
-    await db.update(studentProfiles).set({ userId }).where(eq(studentProfiles.id, profile.id));
+    await db
+      .update(studentProfiles)
+      .set({ userId })
+      .where(eq(studentProfiles.id, profile.id));
     // Never demotes: an account that is already staff or admin keeps its role.
     await db
       .update(users)
@@ -670,7 +876,7 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
   const enrolmentPayload = admitted
     .map(student => {
       const studentId = studentIdByNumber.get(
-        `STU-DEMO-${String(student.index + 1).padStart(4, "0")}`,
+        `STU-DEMO-${String(student.index + 1).padStart(4, "0")}`
       );
       if (!studentId) return null;
       const course = courseRows.find(row => row.id === student.courseId);
@@ -680,10 +886,15 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
         intakeId: student.intakeId,
         enrolledAt: daysAgo(Math.max(student.appliedDaysAgo - 5, 1)),
         expectedCompletionDate: dateOnly(
-          Math.max(student.appliedDaysAgo - (course?.durationWeeks ?? 12) * 7, 0),
+          Math.max(
+            student.appliedDaysAgo - (course?.durationWeeks ?? 12) * 7,
+            0
+          )
         ),
         progressPercent:
-          student.status === "graduated" || student.status === "completed" ? 100 : between(15, 90),
+          student.status === "graduated" || student.status === "completed"
+            ? 100
+            : between(15, 90),
         status:
           student.status === "graduated" || student.status === "completed"
             ? ("completed" as const)
@@ -697,14 +908,20 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
   if (enrolmentPayload.length) {
     await insertChunked(
       rows => db.insert(enrollments).values(rows).onConflictDoNothing(),
-      enrolmentPayload,
+      enrolmentPayload
     );
   }
 
   const enrolmentRows = await db
-    .select({ id: enrollments.id, studentId: enrollments.studentId, courseId: enrollments.courseId })
+    .select({
+      id: enrollments.id,
+      studentId: enrollments.studentId,
+      courseId: enrollments.courseId,
+    })
     .from(enrollments);
-  const enrolmentByStudent = new Map(enrolmentRows.map(row => [row.studentId, row]));
+  const enrolmentByStudent = new Map(
+    enrolmentRows.map(row => [row.studentId, row])
+  );
   counts.enrollments = enrolmentRows.length;
 
   /* --- Fee charges, payments and the revenue ledger --------------------- */
@@ -737,7 +954,10 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
       paidMinor: 0,
     }));
 
-    const billedMinor = charges.reduce((sum, charge) => sum + charge.dueMinor, 0);
+    const billedMinor = charges.reduce(
+      (sum, charge) => sum + charge.dueMinor,
+      0
+    );
     const settledFraction =
       student.status === "graduated" || student.status === "completed"
         ? 1
@@ -757,7 +977,12 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
         reference: paymentReference,
         studentId,
         amount: cash(thisPaymentMinor),
-        paymentMethod: pick(["cash", "mobile_money", "bank", "online"] as const),
+        paymentMethod: pick([
+          "cash",
+          "mobile_money",
+          "bank",
+          "online",
+        ] as const),
         status: "completed" as const,
         transactionReference: `MOMO-${paymentIndex}-${between(100000, 999999)}`,
         receivedByUserId: accountantUserId,
@@ -804,7 +1029,9 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
         description: `${charge.structure.label} [${charge.key}]`,
         amountDue: cash(charge.dueMinor),
         amountPaid: cash(charge.paidMinor),
-        dueDate: dateOnly(Math.max(student.appliedDaysAgo - charge.structure.dueOffsetDays, 0)),
+        dueDate: dateOnly(
+          Math.max(student.appliedDaysAgo - charge.structure.dueOffsetDays, 0)
+        ),
         status:
           charge.paidMinor >= charge.dueMinor
             ? ("paid" as const)
@@ -820,16 +1047,22 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
       rows =>
         db
           .insert(feeCharges)
-          .values(rows.map(({ chargeKey: _chargeKey, ...row }) => row) as never),
-      chargePayload,
+          .values(
+            rows.map(({ chargeKey: _chargeKey, ...row }) => row) as never
+          ),
+      chargePayload
     );
   }
   counts.feeCharges = chargePayload.length;
 
   if (paymentPayload.length) {
     await insertChunked(
-      rows => db.insert(payments).values(rows as never).onConflictDoNothing(),
-      paymentPayload,
+      rows =>
+        db
+          .insert(payments)
+          .values(rows as never)
+          .onConflictDoNothing(),
+      paymentPayload
     );
   }
   counts.studentPayments = paymentPayload.length;
@@ -853,7 +1086,9 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
     const rows = await db
       .select({ id: payments.id, reference: payments.reference })
       .from(payments)
-      .where(inArray(payments.reference, paymentRefs.slice(index, index + 150)));
+      .where(
+        inArray(payments.reference, paymentRefs.slice(index, index + 150))
+      );
     for (const row of rows) paymentIdByRef.set(row.reference, row.id);
   }
 
@@ -869,7 +1104,7 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
   if (allocationRows.length) {
     await insertChunked(
       rows => db.insert(paymentAllocations).values(rows).onConflictDoNothing(),
-      allocationRows,
+      allocationRows
     );
   }
   counts.paymentAllocations = allocationRows.length;
@@ -886,7 +1121,7 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
   if (revenueRows.length) {
     await insertChunked(
       rows => db.insert(revenueTransactions).values(rows as never),
-      revenueRows,
+      revenueRows
     );
   }
   counts.revenueFromFees = revenueRows.length;
@@ -894,7 +1129,9 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
   // Tidy the key marker back out of the human-facing description.
   await db
     .update(feeCharges)
-    .set({ description: sql`regexp_replace(${feeCharges.description}, '\\s*\\[[^\\]]+\\]$', '')` })
+    .set({
+      description: sql`regexp_replace(${feeCharges.description}, '\\s*\\[[^\\]]+\\]$', '')`,
+    })
     .where(sql`${feeCharges.description} like '%[STU-DEMO-%'`);
 
   /* --- Attendance and results ------------------------------------------- */
@@ -904,7 +1141,7 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
 
   for (const student of admitted) {
     const studentId = studentIdByNumber.get(
-      `STU-DEMO-${String(student.index + 1).padStart(4, "0")}`,
+      `STU-DEMO-${String(student.index + 1).padStart(4, "0")}`
     );
     if (!studentId) continue;
 
@@ -920,35 +1157,62 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
           classSessionId: session.id,
           classDate: session.sessionDate,
           status:
-            roll > 0.16 ? "present" : roll > 0.09 ? "late" : roll > 0.04 ? "absent" : "excused",
+            roll > 0.16
+              ? "present"
+              : roll > 0.09
+                ? "late"
+                : roll > 0.04
+                  ? "absent"
+                  : "excused",
           recordedByUserId: instructorUserId,
         });
       }
     }
 
-    for (const assessment of assessmentRows.filter(row => row.courseId === student.courseId)) {
+    for (const assessment of assessmentRows.filter(
+      row => row.courseId === student.courseId
+    )) {
       const score = between(48, 96);
       resultPayload.push({
         assessmentId: assessment.id,
         studentId,
         score: score.toFixed(2),
-        grade: score >= 80 ? "A" : score >= 70 ? "B" : score >= 60 ? "C" : score >= 50 ? "D" : "F",
+        grade:
+          score >= 80
+            ? "A"
+            : score >= 70
+              ? "B"
+              : score >= 60
+                ? "C"
+                : score >= 50
+                  ? "D"
+                  : "F",
         instructorComment:
-          score >= 70 ? "Confident, consistent practical work." : "Needs more supervised practice.",
+          score >= 70
+            ? "Confident, consistent practical work."
+            : "Needs more supervised practice.",
         gradedByUserId: instructorUserId,
       });
     }
   }
 
   counts.attendance = await insertChunked(
-    rows => db.insert(attendanceRecords).values(rows as never).onConflictDoNothing(),
+    rows =>
+      db
+        .insert(attendanceRecords)
+        .values(rows as never)
+        .onConflictDoNothing(),
     attendancePayload,
-    300,
+    300
   );
   counts.results = await insertChunked(
-    rows => db.insert(assessmentResults).values(rows as never).onConflictDoNothing(),
+    rows =>
+      db
+        .insert(assessmentResults)
+        .values(rows as never)
+        .onConflictDoNothing(),
     resultPayload,
-    300,
+    300
   );
 
   /* --- Catalogue, suppliers, purchasing --------------------------------- */
@@ -963,7 +1227,9 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
 
   await db
     .insert(productCategories)
-    .values(categorySeed.map((category, index) => ({ ...category, sortOrder: index })))
+    .values(
+      categorySeed.map((category, index) => ({ ...category, sortOrder: index }))
+    )
     .onConflictDoNothing();
 
   const categoryRows = await db.select().from(productCategories);
@@ -971,12 +1237,26 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
   counts.productCategories = categoryRows.length;
 
   const supplierSeed = [
-    { name: "Accra Beauty Supplies", company: "Accra Beauty Supplies Ltd", products: "Shampoo, conditioner, treatments" },
-    { name: "Golden Nails Import", company: "Golden Nails Ghana", products: "Gels, tips, nail tools" },
-    { name: "Tema Salon Equipment", company: "Tema Salon Equipment Co", products: "Dryers, chairs, steamers" },
+    {
+      name: "Accra Beauty Supplies",
+      company: "Accra Beauty Supplies Ltd",
+      products: "Shampoo, conditioner, treatments",
+    },
+    {
+      name: "Golden Nails Import",
+      company: "Golden Nails Ghana",
+      products: "Gels, tips, nail tools",
+    },
+    {
+      name: "Tema Salon Equipment",
+      company: "Tema Salon Equipment Co",
+      products: "Dryers, chairs, steamers",
+    },
   ];
 
-  let supplierRows = await db.select({ id: suppliers.id, name: suppliers.name }).from(suppliers);
+  let supplierRows = await db
+    .select({ id: suppliers.id, name: suppliers.name })
+    .from(suppliers);
   if (!supplierRows.length) {
     await db.insert(suppliers).values(
       supplierSeed.map((supplier, index) => ({
@@ -986,42 +1266,141 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
         email: `${slugOf(supplier.name)}@suppliers.test`,
         address: "Accra, Ghana",
         productsSupplied: supplier.products,
-      })),
+      }))
     );
-    supplierRows = await db.select({ id: suppliers.id, name: suppliers.name }).from(suppliers);
+    supplierRows = await db
+      .select({ id: suppliers.id, name: suppliers.name })
+      .from(suppliers);
   }
   counts.suppliers = supplierRows.length;
 
   const productSeed = [
-    { sku: "BWT-SHMP-01", name: "Hydrating Shampoo 500ml", category: "hair-care", cost: 18, price: 45, qty: 60 },
-    { sku: "BWT-COND-01", name: "Repair Conditioner 500ml", category: "hair-care", cost: 20, price: 48, qty: 45 },
-    { sku: "BWT-SERUM-01", name: "Lumina Renewal Serum", category: "skin-care", cost: 26, price: 68, qty: 32 },
-    { sku: "BWT-CLNS-01", name: "Gentle Facial Cleanser", category: "skin-care", cost: 15, price: 38, qty: 28 },
-    { sku: "BWT-GEL-01", name: "Builder Gel Kit", category: "nail-care", cost: 40, price: 95, qty: 18 },
-    { sku: "BWT-POLISH-01", name: "Gel Polish Set (12)", category: "nail-care", cost: 55, price: 130, qty: 12 },
-    { sku: "BWT-KIT-01", name: "Student Essentials Kit", category: "tools-and-kits", cost: 90, price: 210, qty: 22 },
-    { sku: "BWT-BRUSH-01", name: "Professional Brush Set", category: "tools-and-kits", cost: 48, price: 115, qty: 6 },
-    { sku: "BWT-DRYER-01", name: "Salon Hood Dryer", category: "tools-and-kits", cost: 420, price: 890, qty: 3 },
-    { sku: "BWT-GLOVE-01", name: "Nitrile Gloves (100)", category: "classroom-supplies", cost: 22, price: 0, qty: 0, sellable: false },
-    { sku: "BWT-TOWEL-01", name: "Salon Towels (12)", category: "classroom-supplies", cost: 35, price: 0, qty: 4, sellable: false },
+    {
+      sku: "BWT-SHMP-01",
+      name: "Hydrating Shampoo 500ml",
+      category: "hair-care",
+      cost: 18,
+      price: 45,
+      qty: 60,
+    },
+    {
+      sku: "BWT-COND-01",
+      name: "Repair Conditioner 500ml",
+      category: "hair-care",
+      cost: 20,
+      price: 48,
+      qty: 45,
+    },
+    {
+      sku: "BWT-SERUM-01",
+      name: "Lumina Renewal Serum",
+      category: "skin-care",
+      cost: 26,
+      price: 68,
+      qty: 32,
+    },
+    {
+      sku: "BWT-CLNS-01",
+      name: "Gentle Facial Cleanser",
+      category: "skin-care",
+      cost: 15,
+      price: 38,
+      qty: 28,
+    },
+    {
+      sku: "BWT-GEL-01",
+      name: "Builder Gel Kit",
+      category: "nail-care",
+      cost: 40,
+      price: 95,
+      qty: 18,
+    },
+    {
+      sku: "BWT-POLISH-01",
+      name: "Gel Polish Set (12)",
+      category: "nail-care",
+      cost: 55,
+      price: 130,
+      qty: 12,
+    },
+    {
+      sku: "BWT-KIT-01",
+      name: "Student Essentials Kit",
+      category: "tools-and-kits",
+      cost: 90,
+      price: 210,
+      qty: 22,
+    },
+    {
+      sku: "BWT-BRUSH-01",
+      name: "Professional Brush Set",
+      category: "tools-and-kits",
+      cost: 48,
+      price: 115,
+      qty: 6,
+    },
+    {
+      sku: "BWT-DRYER-01",
+      name: "Salon Hood Dryer",
+      category: "tools-and-kits",
+      cost: 420,
+      price: 890,
+      qty: 3,
+    },
+    {
+      sku: "BWT-GLOVE-01",
+      name: "Nitrile Gloves (100)",
+      category: "classroom-supplies",
+      cost: 22,
+      price: 0,
+      qty: 0,
+      sellable: false,
+    },
+    {
+      sku: "BWT-TOWEL-01",
+      name: "Salon Towels (12)",
+      category: "classroom-supplies",
+      cost: 35,
+      price: 0,
+      qty: 4,
+      sellable: false,
+    },
   ];
 
+  const productImagesBySku: Record<string, string> = {
+    "BWT-SERUM-01": "/products/lumina-serum.jpg",
+    "BWT-KIT-01": "/products/student-essentials-kit.jpg",
+    "BWT-SHMP-01": "/products/hydrating-shampoo-mask.jpg",
+    "BWT-COND-01": "/products/hydrating-shampoo-mask.jpg",
+    "BWT-GEL-01": "/products/builder-gel-kit.jpg",
+    "BWT-POLISH-01": "/products/builder-gel-kit.jpg",
+    "BWT-CLNS-01": "/products/facial-cleanser.jpg",
+    "BWT-BRUSH-01": "/products/makeup-brush-set.jpg",
+  };
+
   await insertChunked(
-    rows => db.insert(inventoryItems).values(rows as never).onConflictDoNothing(),
+    rows =>
+      db
+        .insert(inventoryItems)
+        .values(rows as never)
+        .onConflictDoNothing(),
     productSeed.map((product, index) => ({
       sku: product.sku,
       slug: slugOf(product.name),
       name: product.name,
       description: `${product.name} used across Blush With Tee training and retail.`,
-      category: categorySeed.find(item => item.slug === product.category)?.name ?? "General",
+      category:
+        categorySeed.find(item => item.slug === product.category)?.name ??
+        "General",
       categoryId: categoryIdBySlug.get(product.category),
       supplierId: supplierRows[index % supplierRows.length]?.id,
+      imageKey: productImagesBySku[product.sku] ?? null,
       quantityOnHand: product.qty,
       reorderLevel: Math.max(5, Math.round(product.qty * 0.25)),
       unitCost: product.cost.toFixed(2),
       sellingPrice: product.price.toFixed(2),
       isSellable: product.sellable !== false,
-    })),
+    }))
   );
 
   const productRows = await db
@@ -1038,7 +1417,9 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
 
   // Running stock balance, tracked in memory so every movement can carry the
   // balance it left behind - the same invariant the API maintains.
-  const balances = new Map<number, number>(productRows.map(row => [row.id, row.qty]));
+  const balances = new Map<number, number>(
+    productRows.map(row => [row.id, row.qty])
+  );
   const movementPayload: Array<Record<string, unknown>> = [];
 
   const [{ total: existingMovements }] = await db
@@ -1064,7 +1445,10 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
 
   /* --- A received purchase order ---------------------------------------- */
 
-  const [existingPo] = await db.select({ id: purchaseOrders.id }).from(purchaseOrders).limit(1);
+  const [existingPo] = await db
+    .select({ id: purchaseOrders.id })
+    .from(purchaseOrders)
+    .limit(1);
   if (!existingPo && supplierRows[0]) {
     const poProducts = productSeed.slice(0, 3);
     const poLines = poProducts
@@ -1077,7 +1461,10 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
       })
       .filter((line): line is NonNullable<typeof line> => line !== null);
 
-    const totalMinor = poLines.reduce((sum, line) => sum + line.unitCostMinor * line.quantity, 0);
+    const totalMinor = poLines.reduce(
+      (sum, line) => sum + line.unitCostMinor * line.quantity,
+      0
+    );
 
     const [order] = await db
       .insert(purchaseOrders)
@@ -1105,7 +1492,7 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
           quantityReceived: line.quantity,
           unitCost: cash(line.unitCostMinor),
           lineTotal: cash(line.unitCostMinor * line.quantity),
-        })),
+        }))
       );
 
       for (const line of poLines) {
@@ -1143,11 +1530,22 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
     email: string;
     phone: string;
     placedDaysAgo: number;
-    lines: Array<{ productId: number; name: string; priceMinor: number; quantity: number }>;
+    lines: Array<{
+      productId: number;
+      name: string;
+      priceMinor: number;
+      quantity: number;
+    }>;
     subtotalMinor: number;
     deliveryMinor: number;
     totalMinor: number;
-    fulfillment: "new" | "confirmed" | "processing" | "shipped" | "delivered" | "cancelled";
+    fulfillment:
+      | "new"
+      | "confirmed"
+      | "processing"
+      | "shipped"
+      | "delivered"
+      | "cancelled";
     isPaid: boolean;
   }> = [];
 
@@ -1159,7 +1557,7 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
    * exact inconsistency the real checkout path is written to prevent.
    */
   const sellableRemaining = new Map<number, number>(
-    sellable.map(row => [row.id, balances.get(row.id) ?? row.qty]),
+    sellable.map(row => [row.id, balances.get(row.id) ?? row.qty])
   );
 
   for (let index = 0; index < ORDER_COUNT; index += 1) {
@@ -1170,9 +1568,16 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
     const email = `${slugOf(name)}.shop${index}@example.test`;
     const phone = `+23328${String(500000 + index)}`;
 
-    const lines: Array<{ productId: number; name: string; priceMinor: number; quantity: number }> = [];
+    const lines: Array<{
+      productId: number;
+      name: string;
+      priceMinor: number;
+      quantity: number;
+    }> = [];
     for (let line = 0; line < between(1, 3); line += 1) {
-      const inStock = sellable.filter(row => (sellableRemaining.get(row.id) ?? 0) > 0);
+      const inStock = sellable.filter(
+        row => (sellableRemaining.get(row.id) ?? 0) > 0
+      );
       if (!inStock.length) break;
 
       const product = pick(inStock);
@@ -1191,17 +1596,25 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
 
     if (!lines.length) continue;
 
-    const subtotalMinor = lines.reduce((sum, line) => sum + line.priceMinor * line.quantity, 0);
+    const subtotalMinor = lines.reduce(
+      (sum, line) => sum + line.priceMinor * line.quantity,
+      0
+    );
     const deliveryMinor = between(0, 1) ? 2500 : 0;
 
     const roll = random();
     const fulfillment =
-      roll > 0.78 ? "new"
-      : roll > 0.68 ? "confirmed"
-      : roll > 0.6 ? "processing"
-      : roll > 0.5 ? "shipped"
-      : roll > 0.06 ? "delivered"
-      : "cancelled";
+      roll > 0.78
+        ? "new"
+        : roll > 0.68
+          ? "confirmed"
+          : roll > 0.6
+            ? "processing"
+            : roll > 0.5
+              ? "shipped"
+              : roll > 0.06
+                ? "delivered"
+                : "cancelled";
 
     customerPeople.push({ fullName: name, email, phone, whatsapp: phone });
 
@@ -1221,16 +1634,34 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
   }
 
   if (customerPeople.length) {
-    await insertChunked(rows => db.insert(people).values(rows as never).onConflictDoNothing(), customerPeople);
+    await insertChunked(
+      rows =>
+        db
+          .insert(people)
+          .values(rows as never)
+          .onConflictDoNothing(),
+      customerPeople
+    );
 
     const shopperRows = await db
       .select({ id: people.id, email: people.email })
       .from(people)
-      .where(inArray(people.email, orderPlans.map(plan => plan.email)));
-    const shopperIdByEmail = new Map(shopperRows.map(row => [row.email, row.id]));
+      .where(
+        inArray(
+          people.email,
+          orderPlans.map(plan => plan.email)
+        )
+      );
+    const shopperIdByEmail = new Map(
+      shopperRows.map(row => [row.email, row.id])
+    );
 
     await insertChunked(
-      rows => db.insert(customers).values(rows as never).onConflictDoNothing(),
+      rows =>
+        db
+          .insert(customers)
+          .values(rows as never)
+          .onConflictDoNothing(),
       orderPlans
         .map(plan => {
           const personId = shopperIdByEmail.get(plan.email);
@@ -1242,17 +1673,23 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
             lastOrderAt: plan.isPaid ? daysAgo(plan.placedDaysAgo) : null,
           };
         })
-        .filter((row): row is NonNullable<typeof row> => row !== null),
+        .filter((row): row is NonNullable<typeof row> => row !== null)
     );
 
     const customerRows = await db
       .select({ id: customers.id, personId: customers.personId })
       .from(customers);
-    const customerIdByPerson = new Map(customerRows.map(row => [row.personId, row.id]));
+    const customerIdByPerson = new Map(
+      customerRows.map(row => [row.personId, row.id])
+    );
     counts.customers = customerRows.length;
 
     await insertChunked(
-      rows => db.insert(storeOrders).values(rows as never).onConflictDoNothing(),
+      rows =>
+        db
+          .insert(storeOrders)
+          .values(rows as never)
+          .onConflictDoNothing(),
       orderPlans.map(plan => {
         const personId = shopperIdByEmail.get(plan.email);
         return {
@@ -1270,14 +1707,21 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
           stockDeductedAt: plan.isPaid ? daysAgo(plan.placedDaysAgo) : null,
           createdAt: daysAgo(plan.placedDaysAgo),
         };
-      }),
+      })
     );
 
     const orderRows = await db
       .select({ id: storeOrders.id, orderNumber: storeOrders.orderNumber })
       .from(storeOrders)
-      .where(inArray(storeOrders.orderNumber, orderPlans.map(plan => plan.orderNumber)));
-    const orderIdByNumber = new Map(orderRows.map(row => [row.orderNumber, row.id]));
+      .where(
+        inArray(
+          storeOrders.orderNumber,
+          orderPlans.map(plan => plan.orderNumber)
+        )
+      );
+    const orderIdByNumber = new Map(
+      orderRows.map(row => [row.orderNumber, row.id])
+    );
     counts.orders = orderRows.length;
 
     await insertChunked(
@@ -1293,7 +1737,7 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
           quantity: line.quantity,
           lineTotal: cash(line.priceMinor * line.quantity),
         }));
-      }),
+      })
     );
 
     await insertChunked(
@@ -1309,13 +1753,18 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
             createdAt: daysAgo(plan.placedDaysAgo),
           };
         })
-        .filter((row): row is NonNullable<typeof row> => row !== null),
+        .filter((row): row is NonNullable<typeof row> => row !== null)
     );
 
     /* --- Sale payments, revenue and stock movements --------------------- */
 
     const salePayments: Array<Record<string, unknown>> = [];
-    const saleRevenue: Array<{ orderNumber: string; amount: string; occurredAt: Date; orderId: number }> = [];
+    const saleRevenue: Array<{
+      orderNumber: string;
+      amount: string;
+      occurredAt: Date;
+      orderId: number;
+    }> = [];
 
     for (const plan of orderPlans) {
       const orderId = orderIdByNumber.get(plan.orderNumber);
@@ -1362,17 +1811,25 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
 
     if (salePayments.length) {
       await insertChunked(
-        rows => db.insert(payments).values(rows as never).onConflictDoNothing(),
-        salePayments,
+        rows =>
+          db
+            .insert(payments)
+            .values(rows as never)
+            .onConflictDoNothing(),
+        salePayments
       );
 
       const saleRefs = salePayments.map(row => row.reference as string);
       const salePaymentRows = await db
-        .select({ id: payments.id, reference: payments.reference, storeOrderId: payments.storeOrderId })
+        .select({
+          id: payments.id,
+          reference: payments.reference,
+          storeOrderId: payments.storeOrderId,
+        })
         .from(payments)
         .where(inArray(payments.reference, saleRefs));
       const salePaymentByOrder = new Map(
-        salePaymentRows.map(row => [row.storeOrderId, row.id]),
+        salePaymentRows.map(row => [row.storeOrderId, row.id])
       );
 
       await insertChunked(
@@ -1386,7 +1843,7 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
           amount: entry.amount,
           description: `Store sale ${entry.orderNumber}`,
           occurredAt: entry.occurredAt,
-        })),
+        }))
       );
       counts.salePayments = salePayments.length;
     }
@@ -1398,7 +1855,7 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
     counts.inventoryMovements = await insertChunked(
       rows => db.insert(inventoryMovements).values(rows as never),
       movementPayload,
-      300,
+      300
     );
 
     for (const [inventoryItemId, quantity] of balances) {
@@ -1420,16 +1877,76 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
     // demo reads as a real, modestly profitable school rather than one that is
     // losing money every month.
     const expenseSeed = [
-      { title: "Studio rent", category: "rent" as const, min: 1800, max: 1800, monthly: true },
-      { title: "Electricity bill", category: "utilities" as const, min: 280, max: 520, monthly: true },
-      { title: "Water and internet", category: "utilities" as const, min: 160, max: 260, monthly: true },
-      { title: "Staff salaries", category: "salaries" as const, min: 3200, max: 3600, monthly: true },
-      { title: "Product restock", category: "beauty_products" as const, min: 400, max: 1100, monthly: false },
-      { title: "Social media ads", category: "marketing" as const, min: 180, max: 520, monthly: false },
-      { title: "Equipment servicing", category: "maintenance" as const, min: 120, max: 420, monthly: false },
-      { title: "Cleaning supplies", category: "cleaning" as const, min: 60, max: 180, monthly: false },
-      { title: "Transport and delivery", category: "transport" as const, min: 90, max: 320, monthly: false },
-      { title: "Printing and stationery", category: "stationery" as const, min: 50, max: 190, monthly: false },
+      {
+        title: "Studio rent",
+        category: "rent" as const,
+        min: 1800,
+        max: 1800,
+        monthly: true,
+      },
+      {
+        title: "Electricity bill",
+        category: "utilities" as const,
+        min: 280,
+        max: 520,
+        monthly: true,
+      },
+      {
+        title: "Water and internet",
+        category: "utilities" as const,
+        min: 160,
+        max: 260,
+        monthly: true,
+      },
+      {
+        title: "Staff salaries",
+        category: "salaries" as const,
+        min: 3200,
+        max: 3600,
+        monthly: true,
+      },
+      {
+        title: "Product restock",
+        category: "beauty_products" as const,
+        min: 400,
+        max: 1100,
+        monthly: false,
+      },
+      {
+        title: "Social media ads",
+        category: "marketing" as const,
+        min: 180,
+        max: 520,
+        monthly: false,
+      },
+      {
+        title: "Equipment servicing",
+        category: "maintenance" as const,
+        min: 120,
+        max: 420,
+        monthly: false,
+      },
+      {
+        title: "Cleaning supplies",
+        category: "cleaning" as const,
+        min: 60,
+        max: 180,
+        monthly: false,
+      },
+      {
+        title: "Transport and delivery",
+        category: "transport" as const,
+        min: 90,
+        max: 320,
+        monthly: false,
+      },
+      {
+        title: "Printing and stationery",
+        category: "stationery" as const,
+        min: 50,
+        max: 190,
+        monthly: false,
+      },
     ];
 
     const expensePayload: Array<Record<string, unknown>> = [];
@@ -1439,7 +1956,11 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
       for (const item of expenseSeed) {
         if (!item.monthly && random() > 0.55) continue;
         const day = new Date(
-          Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - monthsBack, between(2, 26)),
+          Date.UTC(
+            now.getUTCFullYear(),
+            now.getUTCMonth() - monthsBack,
+            between(2, 26)
+          )
         );
         if (day > now) continue;
 
@@ -1448,7 +1969,13 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
           category: item.category,
           amount: amountBetween(item.min, item.max),
           expenseDate: day,
-          vendor: pick(["Accra Properties", "ECG", "Vodafone", "Internal", "Accra Beauty Supplies"]),
+          vendor: pick([
+            "Accra Properties",
+            "ECG",
+            "Vodafone",
+            "Internal",
+            "Accra Beauty Supplies",
+          ]),
           paymentMethod: pick(["bank", "mobile_money", "cash"] as const),
           approvalStatus: "approved" as const,
           recordedByUserId: accountantUserId,
@@ -1459,7 +1986,7 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
     counts.expenses = await insertChunked(
       rows => db.insert(expenses).values(rows as never),
       expensePayload,
-      200,
+      200
     );
   }
 
@@ -1471,17 +1998,69 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
 
   if (!existingTestimonials) {
     await db.insert(testimonials).values([
-      { authorName: "Akosua Mensah", authorRole: "Graduate, Professional Hair Artistry", quote: "I walked in nervous and walked out running my own salon chair. The practical hours made the difference.", rating: 5, sortOrder: 0, status: "published" },
-      { authorName: "Efua Boateng", authorRole: "Graduate, Nail Craft & Design", quote: "The instructors correct your technique until it is right. My clients notice.", rating: 5, sortOrder: 1, status: "published" },
-      { authorName: "Gifty Owusu", authorRole: "Student, Foundations of Beauty", quote: "Small classes, real clients in the student clinic, and honest feedback every week.", rating: 5, sortOrder: 2, status: "published" },
+      {
+        authorName: "Akosua Mensah",
+        authorRole: "Graduate, Professional Hair Artistry",
+        quote:
+          "I walked in nervous and walked out running my own salon chair. The practical hours made the difference.",
+        rating: 5,
+        sortOrder: 0,
+        status: "published",
+      },
+      {
+        authorName: "Efua Boateng",
+        authorRole: "Graduate, Nail Craft & Design",
+        quote:
+          "The instructors correct your technique until it is right. My clients notice.",
+        rating: 5,
+        sortOrder: 1,
+        status: "published",
+      },
+      {
+        authorName: "Gifty Owusu",
+        authorRole: "Student, Foundations of Beauty",
+        quote:
+          "Small classes, real clients in the student clinic, and honest feedback every week.",
+        rating: 5,
+        sortOrder: 2,
+        status: "published",
+      },
     ]);
     counts.testimonials = 3;
 
     await db.insert(faqs).values([
-      { question: "What qualifications do I need to enrol?", answer: "Most programmes are open to motivated beginners. Advanced programmes ask for a foundation certificate or equivalent salon experience.", category: "Admissions", sortOrder: 0, status: "published" },
-      { question: "Can I pay my fees in instalments?", answer: "Yes. We set up a payment plan at registration and you can pay online from the student portal at any time.", category: "Fees", sortOrder: 1, status: "published" },
-      { question: "Do you provide a kit?", answer: "A student essentials kit is included in the materials fee for every practical programme.", category: "Programmes", sortOrder: 2, status: "published" },
-      { question: "Are certificates verifiable?", answer: "Every certificate carries a unique number and a QR code that links to our public verification page.", category: "Certificates", sortOrder: 3, status: "published" },
+      {
+        question: "What qualifications do I need to enrol?",
+        answer:
+          "Most programmes are open to motivated beginners. Advanced programmes ask for a foundation certificate or equivalent salon experience.",
+        category: "Admissions",
+        sortOrder: 0,
+        status: "published",
+      },
+      {
+        question: "Can I pay my fees in instalments?",
+        answer:
+          "Yes. We set up a payment plan at registration and you can pay online from the student portal at any time.",
+        category: "Fees",
+        sortOrder: 1,
+        status: "published",
+      },
+      {
+        question: "Do you provide a kit?",
+        answer:
+          "A student essentials kit is included in the materials fee for every practical programme.",
+        category: "Programmes",
+        sortOrder: 2,
+        status: "published",
+      },
+      {
+        question: "Are certificates verifiable?",
+        answer:
+          "Every certificate carries a unique number and a QR code that links to our public verification page.",
+        category: "Certificates",
+        sortOrder: 3,
+        status: "published",
+      },
     ]);
     counts.faqs = 4;
 
@@ -1500,7 +2079,7 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
         altText: item.title,
         sortOrder: index,
         status: "published" as const,
-      })),
+      }))
     );
     counts.galleryItems = 6;
   }

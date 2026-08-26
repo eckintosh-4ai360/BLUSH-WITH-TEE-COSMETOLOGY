@@ -14,14 +14,18 @@ const sora = Sora({
 
 export const metadata: Metadata = {
   title: "GlowCraft Admin Dashboard",
-  description: "Back-office workspace for admissions, students, inventory, orders, finance, and operations.",
+  description:
+    "Back-office workspace for admissions, students, inventory, orders, finance, and operations.",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="en" className={sora.variable}>
-
-      <body>
+      <body suppressHydrationWarning>
         <TrpcProvider>
           <ThemeProvider defaultTheme="light">
             <TooltipProvider>

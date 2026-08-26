@@ -35,7 +35,12 @@ import {
   SingleColumnChart,
 } from "@blush/ui/components/viz/Charts";
 import { StatGroup, StatTile } from "@blush/ui/components/viz/StatTile";
-import { SERIES, compactMoney, compactNumber, formatMoney } from "@blush/ui/lib/viz";
+import {
+  SERIES,
+  compactMoney,
+  compactNumber,
+  formatMoney,
+} from "@blush/ui/lib/viz";
 import DashboardLayout from "@/components/DashboardLayout";
 import { QuickActions } from "@/components/QuickActions";
 import { trpc } from "@/lib/trpc";
@@ -78,33 +83,33 @@ export default function AdminOverviewPage() {
   return (
     <DashboardLayout>
       <div className="mx-auto max-w-[1600px] space-y-8 pb-10">
-        <header className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#2d0423] via-[#54063f] to-[#8f0d6b] p-6 text-white shadow-lg sm:p-8">
+        <header className="admin-glass-card relative overflow-hidden rounded-[1.55rem] border p-6 sm:p-8">
           <span
             aria-hidden
-            className="pointer-events-none absolute -right-16 -top-24 size-72 rounded-full bg-[#fe00b6]/30 blur-3xl"
-          />
-          <span
-            aria-hidden
-            className="pointer-events-none absolute -bottom-28 left-1/3 size-64 rounded-full bg-[#ff66d4]/15 blur-3xl"
+            className="pointer-events-none absolute inset-0 bg-[linear-gradient(116deg,rgba(226,252,255,0.82),rgba(249,247,255,0.58)_52%,rgba(255,249,241,0.72))]"
           />
           <div className="relative flex flex-wrap items-end justify-between gap-6">
             <div className="min-w-0">
-              <p className="text-xs font-medium uppercase tracking-[0.18em] text-white/60">
+              <p className="text-xs font-semibold uppercase text-[#22aeb6]">
                 Blush With Tee
               </p>
-              <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
-                The school, at a glance
+              <h1 className="mt-2 text-2xl font-semibold text-[#263746] sm:text-3xl">
+                Admin dashboard
               </h1>
-              <p className="mt-2 max-w-xl text-sm text-white/70">
-                Every figure below is calculated from real transactions, not stored totals.
+              <p className="mt-2 max-w-xl text-sm text-muted-foreground">
+                Every figure below is calculated from real transactions, not
+                stored totals.
               </p>
             </div>
-            <QuickActions onDark />
+            <QuickActions />
           </div>
         </header>
 
         {/* The four figures the day is judged on, painted so they read first. */}
-        <section aria-label="Headline figures" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <section
+          aria-label="Headline figures"
+          className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
+        >
           <StatTile
             label="Total students"
             value={compactNumber(students?.total ?? 0)}
@@ -148,7 +153,10 @@ export default function AdminOverviewPage() {
         </section>
 
         {students ? (
-          <StatGroup title="Students" description="Enrolment health across the school.">
+          <StatGroup
+            title="Students"
+            description="Enrolment health across the school."
+          >
             <StatTile
               label="Total students"
               value={compactNumber(students.total)}
@@ -199,7 +207,10 @@ export default function AdminOverviewPage() {
         ) : null}
 
         {finance ? (
-          <StatGroup title="Finance" description="Money in, money out, and what is still owed.">
+          <StatGroup
+            title="Finance"
+            description="Money in, money out, and what is still owed."
+          >
             <StatTile
               label="Today's income"
               value={formatMoney(finance.todayIncome)}
@@ -295,7 +306,10 @@ export default function AdminOverviewPage() {
           ) : null}
 
           {commerce ? (
-            <StatGroup title="E-commerce" description="Storefront orders and revenue.">
+            <StatGroup
+              title="E-commerce"
+              description="Storefront orders and revenue."
+            >
               <StatTile
                 label="Today's orders"
                 value={compactNumber(commerce.todayOrders)}
@@ -375,24 +389,58 @@ export default function AdminOverviewPage() {
               title="Revenue and expenses"
               subtitle="Monthly, in cedis. Income streams stack; spend is the line."
               series={[
-                { key: "studentFees", label: "Student fees", color: SERIES[0], format: formatMoney },
-                { key: "productSales", label: "Product sales", color: SERIES[1], format: formatMoney },
-                { key: "otherIncome", label: "Other income", color: SERIES[2], format: formatMoney },
-                { key: "expenses", label: "Expenses", color: SERIES[3], format: formatMoney },
+                {
+                  key: "studentFees",
+                  label: "Student fees",
+                  color: SERIES[0],
+                  format: formatMoney,
+                },
+                {
+                  key: "productSales",
+                  label: "Product sales",
+                  color: SERIES[1],
+                  format: formatMoney,
+                },
+                {
+                  key: "otherIncome",
+                  label: "Other income",
+                  color: SERIES[2],
+                  format: formatMoney,
+                },
+                {
+                  key: "expenses",
+                  label: "Expenses",
+                  color: SERIES[3],
+                  format: formatMoney,
+                },
               ]}
               rows={revenueRows}
               categoryLabel="Month"
               isLoading={chartsLoading}
-              isEmpty={revenueRows.every(row => row.total === 0 && row.expenses === 0)}
+              isEmpty={revenueRows.every(
+                row => row.total === 0 && row.expenses === 0
+              )}
               emptyMessage="No revenue or expenses recorded yet."
               className="xl:col-span-2"
             >
               <MoneyTrendChart
                 data={revenueRows}
                 stacked={[
-                  { key: "studentFees", label: "Student fees", color: SERIES[0] },
-                  { key: "productSales", label: "Product sales", color: SERIES[1] },
-                  { key: "otherIncome", label: "Other income", color: SERIES[2] },
+                  {
+                    key: "studentFees",
+                    label: "Student fees",
+                    color: SERIES[0],
+                  },
+                  {
+                    key: "productSales",
+                    label: "Product sales",
+                    color: SERIES[1],
+                  },
+                  {
+                    key: "otherIncome",
+                    label: "Other income",
+                    color: SERIES[2],
+                  },
                 ]}
                 line={{ key: "expenses", label: "Expenses", color: SERIES[3] }}
                 format={compactMoney}
@@ -404,7 +452,14 @@ export default function AdminOverviewPage() {
             <ChartFrame
               title="Expenses by category"
               subtitle="Last twelve months."
-              series={[{ key: "total", label: "Spend", color: SERIES[0], format: formatMoney }]}
+              series={[
+                {
+                  key: "total",
+                  label: "Spend",
+                  color: SERIES[0],
+                  format: formatMoney,
+                },
+              ]}
               rows={expenseRows}
               categoryLabel="Category"
               isLoading={chartsLoading}
@@ -424,7 +479,9 @@ export default function AdminOverviewPage() {
             <ChartFrame
               title="New enrolments"
               subtitle="Students starting a course each month."
-              series={[{ key: "enrollments", label: "Enrolments", color: SERIES[2] }]}
+              series={[
+                { key: "enrollments", label: "Enrolments", color: SERIES[2] },
+              ]}
               rows={enrollmentRows}
               categoryLabel="Month"
               isLoading={chartsLoading}
@@ -444,7 +501,14 @@ export default function AdminOverviewPage() {
             <ChartFrame
               title="Best-selling products"
               subtitle="Revenue from paid orders."
-              series={[{ key: "revenue", label: "Revenue", color: SERIES[0], format: formatMoney }]}
+              series={[
+                {
+                  key: "revenue",
+                  label: "Revenue",
+                  color: SERIES[0],
+                  format: formatMoney,
+                },
+              ]}
               rows={productRows}
               categoryKey="name"
               categoryLabel="Product"
@@ -468,7 +532,11 @@ export default function AdminOverviewPage() {
               subtitle="Applications received against students enrolled."
               series={[
                 { key: "enrollments", label: "Enrolments", color: SERIES[2] },
-                { key: "applications", label: "Applications", color: SERIES[1] },
+                {
+                  key: "applications",
+                  label: "Applications",
+                  color: SERIES[1],
+                },
               ]}
               rows={popularityRows}
               categoryKey="title"
@@ -482,7 +550,11 @@ export default function AdminOverviewPage() {
                 categoryKey="title"
                 series={[
                   { key: "enrollments", label: "Enrolments", color: SERIES[2] },
-                  { key: "applications", label: "Applications", color: SERIES[1] },
+                  {
+                    key: "applications",
+                    label: "Applications",
+                    color: SERIES[1],
+                  },
                 ]}
                 format={countFormat}
               />
@@ -500,7 +572,9 @@ export default function AdminOverviewPage() {
               rows={movementRows}
               categoryLabel="Month"
               isLoading={chartsLoading}
-              isEmpty={movementRows.every(row => row.received === 0 && row.issued === 0)}
+              isEmpty={movementRows.every(
+                row => row.received === 0 && row.issued === 0
+              )}
               emptyMessage="No stock movements recorded yet."
             >
               <DualLineChart
@@ -532,7 +606,7 @@ export default function AdminOverviewPage() {
                 key={item.id}
                 href={`/admissions?application=${item.id}`}
                 primary={item.fullName}
-                secondary={`${item.reference} · ${item.courseTitle}`}
+                secondary={`${item.reference} - ${item.courseTitle}`}
                 badge={item.status.replaceAll("_", " ")}
               />
             ))}
@@ -550,7 +624,7 @@ export default function AdminOverviewPage() {
                 key={order.id}
                 href={`/orders/${order.id}`}
                 primary={order.orderNumber}
-                secondary={`${order.customerName} · ${formatMoney(order.total)}`}
+                secondary={`${order.customerName} - ${formatMoney(order.total)}`}
                 badge={order.fulfillmentStatus}
               />
             ))}
@@ -568,7 +642,7 @@ export default function AdminOverviewPage() {
                 key={payment.id}
                 href="/finance/payments"
                 primary={payment.studentName ?? payment.reference}
-                secondary={`${payment.reference} · ${payment.paymentMethod.replaceAll("_", " ")}`}
+                secondary={`${payment.reference} - ${payment.paymentMethod.replaceAll("_", " ")}`}
                 badge={formatMoney(payment.amount)}
               />
             ))}
@@ -586,7 +660,7 @@ export default function AdminOverviewPage() {
                 key={item.id}
                 href={`/inventory?item=${item.id}`}
                 primary={item.name}
-                secondary={`${item.sku} · reorder at ${item.reorderLevel}`}
+                secondary={`${item.sku} - reorder at ${item.reorderLevel}`}
                 badge={`${item.quantityOnHand} left`}
                 tone={item.quantityOnHand === 0 ? "critical" : "warning"}
               />
@@ -614,26 +688,32 @@ function ActivityPanel({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-3xl border border-border/60 bg-card p-5 shadow-sm sm:p-6">
+    <section className="admin-glass-card rounded-[1.45rem] border p-5 sm:p-6">
       <div className="flex items-center justify-between gap-3">
-        <h3 className="text-base font-semibold tracking-tight text-foreground">{title}</h3>
+        <h3 className="text-base font-semibold text-foreground">{title}</h3>
         <Link
           href={href}
-          className="group flex shrink-0 items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/15"
+          className="group flex shrink-0 items-center gap-1 rounded-full border border-white/70 bg-white/45 px-3 py-1 text-xs font-medium text-[#24747c] shadow-sm transition-colors hover:bg-white/70"
         >
           View all
-          <ArrowRight aria-hidden className="size-3 transition-transform group-hover:translate-x-0.5" />
+          <ArrowRight
+            aria-hidden
+            className="size-3 transition-transform group-hover:translate-x-0.5"
+          />
         </Link>
       </div>
       <div className="mt-4 space-y-1.5">
         {isLoading ? (
           <div className="space-y-1.5">
             {[0, 1, 2].map(index => (
-              <div key={index} className="h-16 animate-pulse rounded-2xl bg-muted/60" />
+              <div
+                key={index}
+                className="h-16 animate-pulse rounded-[1.05rem] bg-white/50"
+              />
             ))}
           </div>
         ) : isEmpty ? (
-          <p className="rounded-2xl border border-dashed border-border/70 bg-muted/30 px-4 py-8 text-center text-sm text-muted-foreground">
+          <p className="rounded-[1.05rem] border border-dashed border-white/70 bg-white/35 px-4 py-8 text-center text-sm text-muted-foreground">
             {emptyMessage}
           </p>
         ) : (
@@ -670,19 +750,19 @@ function ActivityRow({
       ? "bg-rose-500/12 text-rose-700 dark:text-rose-300"
       : tone === "warning"
         ? "bg-amber-500/12 text-amber-700 dark:text-amber-300"
-        : "bg-muted text-muted-foreground";
+        : "bg-white/55 text-muted-foreground";
 
   const avatarClass =
     tone === "critical"
       ? "bg-rose-500/15 text-rose-700 dark:text-rose-300"
       : tone === "warning"
         ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
-        : "bg-primary/10 text-primary";
+        : "bg-[#22b8bd] text-white shadow-[0_10px_24px_rgba(34,184,189,0.2)]";
 
   return (
     <Link
       href={href}
-      className="group flex items-center gap-3 rounded-2xl border border-transparent bg-muted/40 px-3 py-3 transition-colors hover:border-primary/20 hover:bg-muted"
+      className="group flex items-center gap-3 rounded-[1.05rem] border border-white/55 bg-white/35 px-3 py-3 transition-colors hover:border-[#8bdde5] hover:bg-white/60"
     >
       <span
         aria-hidden
@@ -691,10 +771,14 @@ function ActivityRow({
         {initialsOf(primary)}
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-medium text-foreground">{primary}</span>
-        <span className="mt-0.5 block truncate text-xs text-muted-foreground">{secondary}</span>
+        <span className="block truncate text-sm font-medium text-foreground">
+          {primary}
+        </span>
+        <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+          {secondary}
+        </span>
       </span>
-      <Badge className={`shrink-0 capitalize hover:${toneClass} ${toneClass}`}>{badge}</Badge>
+      <Badge className={`shrink-0 capitalize ${toneClass}`}>{badge}</Badge>
       <ChevronRight
         aria-hidden
         className="size-4 shrink-0 text-muted-foreground opacity-0 transition-all group-hover:translate-x-0.5 group-hover:opacity-100"

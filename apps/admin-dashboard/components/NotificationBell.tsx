@@ -28,7 +28,8 @@ function timeAgo(date: Date | string): string {
 
   let amount = seconds;
   for (const [unit, size] of units) {
-    if (Math.abs(amount) < size) return RELATIVE.format(Math.round(amount), unit);
+    if (Math.abs(amount) < size)
+      return RELATIVE.format(Math.round(amount), unit);
     amount /= size;
   }
   return RELATIVE.format(Math.round(amount), "year");
@@ -44,7 +45,7 @@ export function NotificationBell() {
 
   const notifications = trpc.notifications.list.useQuery(
     { unreadOnly: false, limit: 20 },
-    { refetchInterval: 60_000, refetchOnWindowFocus: true },
+    { refetchInterval: 60_000, refetchOnWindowFocus: true }
   );
 
   const markRead = trpc.notifications.markRead.useMutation({
@@ -67,8 +68,10 @@ export function NotificationBell() {
       <PopoverTrigger asChild>
         <button
           type="button"
-          aria-label={unread ? `Notifications, ${unread} unread` : "Notifications"}
-          className="relative grid h-9 w-9 place-items-center rounded-xl border border-border/70 bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label={
+            unread ? `Notifications, ${unread} unread` : "Notifications"
+          }
+          className="relative grid h-9 w-9 place-items-center rounded-xl border border-white/70 bg-white/45 text-muted-foreground shadow-sm backdrop-blur-xl transition-colors hover:bg-white/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <Bell className="h-4 w-4" />
           {unread > 0 ? (
@@ -82,7 +85,9 @@ export function NotificationBell() {
       <PopoverContent align="end" className="w-[22rem] p-0">
         <div className="flex items-center justify-between border-b border-border/60 px-4 py-3">
           <div>
-            <p className="text-sm font-semibold text-foreground">Notifications</p>
+            <p className="text-sm font-semibold text-foreground">
+              Notifications
+            </p>
             <p className="text-xs text-muted-foreground">
               {unread ? `${unread} unread` : "All caught up"}
             </p>
@@ -105,13 +110,16 @@ export function NotificationBell() {
           {notifications.isLoading ? (
             <div className="space-y-2 p-3">
               {[0, 1, 2].map(index => (
-                <div key={index} className="h-14 animate-pulse rounded-xl bg-muted/60" />
+                <div
+                  key={index}
+                  className="h-14 animate-pulse rounded-xl bg-muted/60"
+                />
               ))}
             </div>
           ) : !rows.length ? (
             <p className="px-4 py-10 text-center text-sm text-muted-foreground">
-              Nothing here yet. New applications, orders, payments and low-stock alerts will
-              appear as they happen.
+              Nothing here yet. New applications, orders, payments and low-stock
+              alerts will appear as they happen.
             </p>
           ) : (
             <ul className="divide-y divide-border/50">
@@ -138,7 +146,10 @@ export function NotificationBell() {
                         </span>
                       ) : null}
                       <span className="mt-1 flex items-center gap-2">
-                        <Badge variant="secondary" className="text-[10px] capitalize">
+                        <Badge
+                          variant="secondary"
+                          className="text-[10px] capitalize"
+                        >
                           {row.type.replaceAll("_", " ")}
                         </Badge>
                         <span className="text-[11px] text-muted-foreground">

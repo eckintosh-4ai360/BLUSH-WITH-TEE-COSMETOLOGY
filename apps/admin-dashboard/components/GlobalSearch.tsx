@@ -45,7 +45,7 @@ export function GlobalSearch() {
 
   const results = trpc.dashboard.search.useQuery(
     { term: debounced },
-    { enabled: debounced.length >= 2, staleTime: 30_000 },
+    { enabled: debounced.length >= 2, staleTime: 30_000 }
   );
 
   const groups = useMemo(() => {
@@ -72,10 +72,12 @@ export function GlobalSearch() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex w-full max-w-md items-center gap-2 rounded-xl border border-border/70 bg-card px-3 py-2 text-left text-sm text-muted-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex w-full max-w-md items-center gap-2 rounded-xl border border-white/70 bg-white/45 px-3 py-2 text-left text-sm text-muted-foreground shadow-sm backdrop-blur-xl transition-colors hover:bg-white/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <Search className="h-4 w-4 shrink-0" />
-        <span className="flex-1 truncate">Search students, orders, products...</span>
+        <span className="flex-1 truncate">
+          Search students, orders, products...
+        </span>
         <Kbd className="hidden sm:inline-flex">Ctrl K</Kbd>
       </button>
 
@@ -91,7 +93,9 @@ export function GlobalSearch() {
           ) : results.isLoading ? (
             <CommandEmpty>Searching...</CommandEmpty>
           ) : !groups.length ? (
-            <CommandEmpty>Nothing matched &ldquo;{debounced}&rdquo;.</CommandEmpty>
+            <CommandEmpty>
+              Nothing matched &ldquo;{debounced}&rdquo;.
+            </CommandEmpty>
           ) : (
             groups.map(group => (
               <CommandGroup key={group.heading} heading={group.heading}>
