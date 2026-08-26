@@ -45,6 +45,15 @@ const MIME_SIGNATURES: Record<AcceptedDocumentMimeType, (buffer: Buffer) => bool
 
 export const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
 
+/**
+ * Length ceiling for the base64 field itself, with slack for a `data:` prefix
+ * and padding. Checked before decoding: `Buffer.from` on an unbounded string
+ * allocates the whole thing first, and the upload endpoints are reachable
+ * without a session, so the byte-count check alone came too late to stop
+ * somebody exhausting memory with a single request.
+ */
+export const MAX_UPLOAD_BASE64_LENGTH = Math.ceil(MAX_UPLOAD_BYTES / 3) * 4 + 256;
+
 /** Human-readable reference, e.g. `PAY-2026-A7B2C4`. */
 export function buildReference(prefix: string) {
   return `${prefix}-${new Date().getFullYear()}-${referenceSuffix()}`;
@@ -85,6 +94,10 @@ export function slugify(value: string) {
 export function validateDocumentUpload(mimeType: string, base64Data: string) {
   if (!acceptedDocumentMimeTypes.includes(mimeType as AcceptedDocumentMimeType)) {
     throw new Error("Only PDF, JPEG, PNG, and WEBP documents are accepted.");
+  }
+
+  if (base64Data.length > MAX_UPLOAD_BASE64_LENGTH) {
+    throw new Error("Upload must be between 1 byte and 8 MB.");
   }
 
   const encoded = base64Data.includes(",") ? (base64Data.split(",").pop() ?? "") : base64Data;

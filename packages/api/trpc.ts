@@ -6,6 +6,7 @@ import type { TrpcContext } from "./context";
 import { dbOrThrow } from "./dbOrThrow";
 import { resolveAccess, type AccessContext } from "./services/access";
 import type { AuditActor } from "./services/audit";
+import { enforceRateLimit, type RateLimitRule } from "./services/rateLimit";
 
 const t = initTRPC.context<TrpcContext>().create({
   transformer: superjson,
@@ -24,6 +25,22 @@ const requireUser = t.middleware(async ({ ctx, next }) => {
 });
 
 export const protectedProcedure = t.procedure.use(requireUser);
+
+/**
+ * A public procedure with a per-caller budget.
+ *
+ * The caller is identified by the forwarded address, which a client behind no
+ * trusted proxy can rewrite — so this raises the cost of scraping rather than
+ * making it impossible. It belongs here anyway: the endpoints it guards are
+ * unauthenticated, and without it a single machine can walk the whole
+ * certificate register or fill the applications table overnight.
+ */
+export function throttledPublicProcedure(rule: RateLimitRule) {
+  return t.procedure.use(async ({ ctx, next }) => {
+    enforceRateLimit(ctx.ipAddress, rule);
+    return next();
+  });
+}
 
 /**
  * Loads the caller permission set once per request and exposes an audit actor

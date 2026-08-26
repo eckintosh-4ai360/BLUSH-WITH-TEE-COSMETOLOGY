@@ -4,10 +4,12 @@ import { z } from "zod";
 import { clinicServices, appointments } from "@blush/db/schema";
 import { dbOrThrow } from "../dbOrThrow";
 import { buildReference } from "../platform.utils";
-import { publicProcedure, router } from "../trpc";
+import { router, throttledPublicProcedure } from "../trpc";
+
+const bookLimit = throttledPublicProcedure({ bucket: "appointments.book", limit: 10, windowMs: 60 * 60_000 });
 
 export const appointmentsRouter = router({
-  book: publicProcedure.input(z.object({
+  book: bookLimit.input(z.object({
     serviceId: z.number().int().positive(),
     customerName: z.string().min(2).max(160),
     customerEmail: z.string().email(),

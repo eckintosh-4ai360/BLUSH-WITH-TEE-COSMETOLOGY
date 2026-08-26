@@ -21,7 +21,14 @@ import {
 } from "../services/certificates";
 import { notify } from "../services/notify";
 import { listInputSchema, likePattern, paginate, paginationBounds } from "../services/pagination";
-import { permissionProcedure, publicProcedure, router } from "../trpc";
+import { permissionProcedure, router, throttledPublicProcedure } from "../trpc";
+
+/**
+ * Certificate numbers are sequential and printed on the award, so `verify` is
+ * the one public endpoint an attacker can walk to harvest every graduate.
+ * An employer checks a handful; a scraper wants thousands.
+ */
+const verifyLimit = throttledPublicProcedure({ bucket: "certificates.verify", limit: 20, windowMs: 10 * 60_000 });
 
 const DEFAULT_BANDS = [
   { grade: "A", min: 80 },
@@ -292,7 +299,7 @@ export const certificatesRouter = router({
  * award is genuine, and nothing more about the student.
  */
 export const certificateVerificationRouter = router({
-  verify: publicProcedure
+  verify: verifyLimit
     .input(z.object({ value: z.string().trim().min(4).max(64) }))
     .query(async ({ input, ctx }) => {
       const db = await dbOrThrow();

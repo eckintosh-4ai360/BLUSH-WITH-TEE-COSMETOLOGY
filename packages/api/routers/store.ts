@@ -1,11 +1,10 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
   cartItems,
   carts,
   inventoryItems,
-  inventoryMovements,
   orderItems,
   storeOrders,
 } from "@blush/db/schema";
@@ -14,11 +13,15 @@ import { dbOrThrow } from "../dbOrThrow";
 import {
   buildReference,
   calculateOrderTotal,
-  checkoutStockDeductions,
   money,
 } from "../platform.utils";
+import { applyStockMovement } from "../services/stock";
 import { storageGet } from "@blush/storage";
-import { publicProcedure, router } from "../trpc";
+import { publicProcedure, router, throttledPublicProcedure } from "../trpc";
+
+/** Order number plus email is a guessable pair worth brute-forcing. */
+const lookupLimit = throttledPublicProcedure({ bucket: "store.lookupOrder", limit: 30, windowMs: 10 * 60_000 });
+const checkoutLimit = throttledPublicProcedure({ bucket: "store.checkout", limit: 15, windowMs: 60 * 60_000 });
 
 const LOCAL_PRODUCT_IMAGES_BY_SKU = new Map<string, string>([
   ["BWT-SERUM-01", "/products/lumina-serum.jpg"],
@@ -104,7 +107,7 @@ export const storeRouter = router({
       }))
     );
   }),
-  lookupOrder: publicProcedure
+  lookupOrder: lookupLimit
     .input(
       z.object({
         orderNumber: z.string().min(6).max(40),
@@ -325,7 +328,7 @@ export const storeRouter = router({
           .where(eq(cartItems.id, row.cartItemId));
       return { success: true };
     }),
-  checkout: publicProcedure
+  checkout: checkoutLimit
     .input(
       z.object({
         sessionToken: z.string().min(16).max(96),
@@ -373,21 +376,10 @@ export const storeRouter = router({
             code: "BAD_REQUEST",
             message: "Your cart is empty.",
           });
-        try {
-          checkoutStockDeductions(
-            items.map(item => ({
-              inventoryItemId: item.inventoryItemId,
-              quantityOnHand: item.quantityOnHand,
-              quantity: item.quantity,
-            }))
-          );
-        } catch {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message:
-              "One or more cart items no longer has sufficient shared inventory.",
-          });
-        }
+
+        // Always take the rows in the same order, so two checkouts sharing a
+        // product cannot each hold half of what the other is waiting for.
+        items.sort((a, b) => a.inventoryItemId - b.inventoryItemId);
 
         const total = calculateOrderTotal(items);
         const orderNumber = buildReference("ORD");
@@ -422,14 +414,13 @@ export const storeRouter = router({
             lineTotal: (money(item.sellingPrice) * item.quantity).toFixed(2),
           }))
         );
+        // Deducted through applyStockMovement rather than a bare UPDATE: it
+        // locks the row FOR UPDATE before reading the balance, which is what
+        // stops two checkouts both seeing the last unit and both selling it.
+        // The stock read above is unlocked and only feeds pricing, so it is
+        // not safe to decide availability from.
         for (const item of items) {
-          await tx
-            .update(inventoryItems)
-            .set({
-              quantityOnHand: sql`${inventoryItems.quantityOnHand} - ${item.quantity}`,
-            })
-            .where(eq(inventoryItems.id, item.inventoryItemId));
-          await tx.insert(inventoryMovements).values({
+          await applyStockMovement(tx, {
             inventoryItemId: item.inventoryItemId,
             movementType: "retail_sale",
             quantityDelta: -item.quantity,

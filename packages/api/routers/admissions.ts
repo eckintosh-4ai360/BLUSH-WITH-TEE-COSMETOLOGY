@@ -4,8 +4,18 @@ import { z } from "zod";
 import { applicationDocuments, applications, courses } from "@blush/db/schema";
 import { storagePut } from "@blush/storage";
 import { dbOrThrow } from "../dbOrThrow";
-import { buildReference, safeFileName, validateDocumentUpload } from "../platform.utils";
-import { publicProcedure, router } from "../trpc";
+import {
+  MAX_UPLOAD_BASE64_LENGTH,
+  buildReference,
+  safeFileName,
+  validateDocumentUpload,
+} from "../platform.utils";
+import { router, throttledPublicProcedure } from "../trpc";
+
+/** An applicant fills a form once; a script fills it as fast as it can. */
+const submitLimit = throttledPublicProcedure({ bucket: "admissions.submit", limit: 5, windowMs: 60 * 60_000 });
+const uploadLimit = throttledPublicProcedure({ bucket: "admissions.upload", limit: 20, windowMs: 60 * 60_000 });
+const lookupLimit = throttledPublicProcedure({ bucket: "admissions.lookup", limit: 30, windowMs: 10 * 60_000 });
 
 const applicationInput = z.object({
   fullName: z.string().min(2).max(160),
@@ -22,7 +32,7 @@ const applicationInput = z.object({
 });
 
 export const admissionsRouter = router({
-  submit: publicProcedure.input(applicationInput).mutation(async ({ input, ctx }) => {
+  submit: submitLimit.input(applicationInput).mutation(async ({ input, ctx }) => {
     const db = await dbOrThrow();
     const [course] = await db.select().from(courses).where(and(eq(courses.id, input.courseId), eq(courses.isActive, true))).limit(1);
     if (!course) throw new TRPCError({ code: "NOT_FOUND", message: "The selected program is unavailable." });
@@ -48,13 +58,13 @@ export const admissionsRouter = router({
 
     return { applicationId: inserted[0]?.id, reference };
   }),
-  uploadDocument: publicProcedure.input(z.object({
+  uploadDocument: uploadLimit.input(z.object({
     reference: z.string().min(6).max(32),
     email: z.string().email(),
     documentType: z.enum(["transcript", "government_id", "passport_photo", "certificate", "other"]),
     fileName: z.string().min(1).max(255),
     mimeType: z.string().min(3).max(120),
-    base64Data: z.string().min(8),
+    base64Data: z.string().min(8).max(MAX_UPLOAD_BASE64_LENGTH),
   })).mutation(async ({ input, ctx }) => {
     const db = await dbOrThrow();
     const [application] = await db.select().from(applications).where(and(
@@ -83,7 +93,7 @@ export const admissionsRouter = router({
     }).returning({ id: applicationDocuments.id });
     return { documentId: inserted[0]?.id, url: stored.url };
   }),
-  lookup: publicProcedure.input(z.object({ reference: z.string().min(6), email: z.string().email() })).query(async ({ input }) => {
+  lookup: lookupLimit.input(z.object({ reference: z.string().min(6), email: z.string().email() })).query(async ({ input }) => {
     const db = await dbOrThrow();
     const rows = await db.select({
       reference: applications.reference,

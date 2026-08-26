@@ -13,7 +13,20 @@ import {
 } from "@blush/auth";
 import { dbOrThrow } from "../dbOrThrow";
 import { recordAudit } from "../services/audit";
-import { authedProcedure, protectedProcedure, publicProcedure, router } from "../trpc";
+import {
+  authedProcedure,
+  protectedProcedure,
+  publicProcedure,
+  router,
+  throttledPublicProcedure,
+} from "../trpc";
+
+/**
+ * Per-account lockout already stops eight guesses at one inbox. This stops the
+ * other shape of the same attack: one password tried against many addresses,
+ * which never trips a per-account counter.
+ */
+const loginLimit = throttledPublicProcedure({ bucket: "auth.login", limit: 20, windowMs: 15 * 60_000 });
 
 export const authRouter = router({
   me: publicProcedure.query(({ ctx }) => {
@@ -29,7 +42,7 @@ export const authRouter = router({
    * On the first call against an empty system this also creates the owner
    * account, so a fresh install can be signed into without a console step.
    */
-  login: publicProcedure
+  login: loginLimit
     .input(
       z.object({
         email: z.string().trim().email().max(320),

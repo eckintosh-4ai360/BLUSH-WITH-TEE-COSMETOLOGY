@@ -21,7 +21,13 @@ import { initializeFoundationData } from "@blush/db";
 import { storageGet, storagePut } from "@blush/storage";
 import { dbOrThrow } from "../dbOrThrow";
 import { findStudentAccountForEmail, grantStudentRole } from "../services/people";
-import { buildReference, money, safeFileName, validateDocumentUpload } from "../platform.utils";
+import {
+  MAX_UPLOAD_BASE64_LENGTH,
+  buildReference,
+  money,
+  safeFileName,
+  validateDocumentUpload,
+} from "../platform.utils";
 import { adminProcedure, router } from "../trpc";
 
 export const adminNamespaceRouter = router({
@@ -221,7 +227,7 @@ export const adminNamespaceRouter = router({
     return { id: plan?.id };
   }),
 
-  uploadMedia: adminProcedure.input(z.object({ purpose: z.enum(["brochure", "gallery", "product", "receipt", "profile", "other"]), fileName: z.string().min(1).max(255), mimeType: z.enum(["image/jpeg", "image/png", "image/webp", "application/pdf"]), base64Data: z.string().min(8), altText: z.string().max(255).optional() })).mutation(async ({ input, ctx }) => {
+  uploadMedia: adminProcedure.input(z.object({ purpose: z.enum(["brochure", "gallery", "product", "receipt", "profile", "other"]), fileName: z.string().min(1).max(255), mimeType: z.enum(["image/jpeg", "image/png", "image/webp", "application/pdf"]), base64Data: z.string().min(8).max(MAX_UPLOAD_BASE64_LENGTH), altText: z.string().max(255).optional() })).mutation(async ({ input, ctx }) => {
     const db = await dbOrThrow();
     let buffer: Buffer;
     try { buffer = validateDocumentUpload(input.mimeType, input.base64Data); } catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Invalid upload." }); }

@@ -147,3 +147,22 @@ describe("references and slugs", () => {
     expect(slugify("!!!")).toBe("item");
   });
 });
+
+describe("upload size ceiling", () => {
+  it("refuses an oversized base64 field before decoding it", () => {
+    // One character over the ceiling: the point is that this is rejected on
+    // length, not after allocating a buffer for it.
+    const oversized = "A".repeat(MAX_UPLOAD_BASE64_LENGTH + 1);
+    expect(() => validateDocumentUpload("image/png", oversized)).toThrow(
+      /between 1 byte and 8 MB/,
+    );
+  });
+
+  it("still accepts a real file well inside the ceiling", () => {
+    const png = Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      Buffer.alloc(16),
+    ]);
+    expect(validateDocumentUpload("image/png", png.toString("base64")).length).toBe(png.length);
+  });
+});
