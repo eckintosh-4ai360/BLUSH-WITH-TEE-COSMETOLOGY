@@ -33,6 +33,7 @@
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+  --color-skeleton: var(--skeleton);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
@@ -76,6 +77,9 @@
   --muted-foreground: #7d5975;
   --accent: #fe00b6;
   --accent-foreground: #ffffff;
+  /* Loading placeholders stay neutral: a pulsing brand-pink block reads as a
+     filled value rather than an absent one. */
+  --skeleton: #e7e5ea;
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
   --border: rgba(143, 13, 107, 0.14);
@@ -108,6 +112,7 @@
   --muted-foreground: #c295ba;
   --accent: #fe00b6;
   --accent-foreground: #ffffff;
+  --skeleton: #302c33;
   --destructive: oklch(0.704 0.191 22.216);
   --destructive-foreground: oklch(0.985 0 0);
   --border: rgba(254, 0, 182, 0.18);
