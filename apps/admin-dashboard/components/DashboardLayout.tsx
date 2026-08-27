@@ -166,12 +166,17 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
             </div>
           ) : (
             sections.map((section, index) => (
+              // shrink-0 matters: SidebarContent is a flex-1 column, so once
+              // the navigation is taller than the viewport the groups would
+              // otherwise be squashed shorter than their own fixed-height
+              // buttons — and the next section label would be drawn over the
+              // overflow. The container already scrolls; let it.
               <SidebarGroup
                 key={section.label || `root-${index}`}
-                className="py-1"
+                className={`shrink-0 py-1 ${section.label ? "pt-3" : ""}`}
               >
                 {section.label ? (
-                  <SidebarGroupLabel className="text-[10px] uppercase text-sidebar-foreground/55">
+                  <SidebarGroupLabel className="h-6 text-[10px] uppercase tracking-wider text-sidebar-foreground/55">
                     {section.label}
                   </SidebarGroupLabel>
                 ) : null}
