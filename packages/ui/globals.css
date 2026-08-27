@@ -280,6 +280,74 @@
     backdrop-filter: blur(24px);
   }
 
+  /**
+   * Sidebar scrollbar.
+   *
+   * The navigation only scrolls once it outgrows the viewport, so this is the
+   * one piece of chrome the browser draws inside the glass panel. A default
+   * grey OS scrollbar sits on top of the blur looking like a seam, so it is
+   * replaced with the panel's own teal at low opacity: visible enough to say
+   * there is more below, quiet enough not to compete with the nav items.
+   *
+   * `scrollbar-gutter: stable` reserves the track whether or not the bar is
+   * showing, so items do not shift sideways by a few pixels the moment a new
+   * section makes the list overflow.
+   *
+   * Two syntaxes on purpose. `scrollbar-width`/`scrollbar-color` is the
+   * standard one Firefox implements; the `::-webkit-scrollbar` block is what
+   * Chrome, Edge and Safari read. Neither alone covers the browsers this is
+   * used in.
+   *
+   * Scoped to the slot rather than to `.admin-dashboard-shell`, because the
+   * mobile navigation renders through a portal on `body` and would otherwise
+   * keep the default scrollbar. The sidebar is only used by the dashboard, so
+   * the narrower scope bought nothing.
+   *
+   * The teal is written out rather than taken from `var(--primary)`, and that
+   * is deliberate. The dashboard sets its palette as inline custom properties
+   * on the shell element; the portalled mobile sidebar sits outside it, where
+   * `--primary` still resolves to the site-wide magenta. A token here would
+   * give the two sidebars different coloured scrollbars.
+   */
+  [data-slot="sidebar-content"] {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(34, 174, 182, 0.32) transparent;
+    scrollbar-gutter: stable;
+  }
+
+  [data-slot="sidebar-content"]::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  [data-slot="sidebar-content"]::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  [data-slot="sidebar-content"]::-webkit-scrollbar-thumb {
+    background-color: rgba(34, 174, 182, 0.32);
+    border-radius: 999px;
+    transition: background-color 150ms ease-linear;
+  }
+
+  [data-slot="sidebar-content"]:hover::-webkit-scrollbar-thumb {
+    background-color: rgba(34, 174, 182, 0.55);
+  }
+
+  [data-slot="sidebar-content"]::-webkit-scrollbar-thumb:hover,
+  [data-slot="sidebar-content"]::-webkit-scrollbar-thumb:active {
+    background-color: rgba(34, 174, 182, 0.78);
+  }
+
+  [data-slot="sidebar-content"]:hover {
+    scrollbar-color: rgba(34, 174, 182, 0.55) transparent;
+  }
+
+  /* Collapsed to icons the content no longer scrolls, so the reserved gutter
+     would only narrow the rail. */
+  [data-collapsible="icon"] [data-slot="sidebar-content"] {
+    scrollbar-gutter: auto;
+  }
+
   .admin-dashboard-shell [data-slot="sidebar-inner"] {
     border: 1px solid rgba(183, 238, 242, 0.72);
     border-radius: 1.25rem;
@@ -354,6 +422,29 @@
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.08),
       0 24px 70px rgba(0, 0, 0, 0.3);
+  }
+
+  /* Lighter teal on the dark shell: the light-mode value disappears against
+     the near-black sidebar. */
+  .dark [data-slot="sidebar-content"] {
+    scrollbar-color: rgba(130, 216, 225, 0.28) transparent;
+  }
+
+  .dark [data-slot="sidebar-content"]:hover {
+    scrollbar-color: rgba(130, 216, 225, 0.5) transparent;
+  }
+
+  .dark [data-slot="sidebar-content"]::-webkit-scrollbar-thumb {
+    background-color: rgba(130, 216, 225, 0.28);
+  }
+
+  .dark [data-slot="sidebar-content"]:hover::-webkit-scrollbar-thumb {
+    background-color: rgba(130, 216, 225, 0.5);
+  }
+
+  .dark [data-slot="sidebar-content"]::-webkit-scrollbar-thumb:hover,
+  .dark [data-slot="sidebar-content"]::-webkit-scrollbar-thumb:active {
+    background-color: rgba(130, 216, 225, 0.72);
   }
 
   .dark .admin-dashboard-shell [data-slot="sidebar-inner"] {
