@@ -12,7 +12,8 @@
   "scripts": {
     "db:push": "drizzle-kit generate && drizzle-kit migrate",
     "db:seed": "tsx seed/index.ts",
-    "db:reconcile": "tsx reconcile.cli.ts"
+    "db:reconcile": "tsx reconcile.cli.ts",
+    "db:reset": "tsx reset.ts"
   },
   "dependencies": {
     "@blush/env": "workspace:*",

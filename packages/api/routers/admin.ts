@@ -17,7 +17,6 @@ import {
   storeOrders,
   studentProfiles,
 } from "@blush/db/schema";
-import { initializeFoundationData } from "@blush/db";
 import { storageGet, storagePut } from "@blush/storage";
 import { dbOrThrow } from "../dbOrThrow";
 import { findStudentAccountForEmail, grantStudentRole } from "../services/people";
@@ -33,7 +32,6 @@ import { adminProcedure, router } from "../trpc";
 export const adminNamespaceRouter = router({
   dashboard: adminProcedure.query(async () => {
     const db = await dbOrThrow();
-    await initializeFoundationData(db);
     const [[studentCount], [applicationCount], [orderCount], [lowStockCount], recentOrders, recentApplications] = await Promise.all([
       db.select({ count: sql<number>`count(*)` }).from(studentProfiles),
       db.select({ count: sql<number>`count(*)` }).from(applications).where(eq(applications.status, "submitted")),

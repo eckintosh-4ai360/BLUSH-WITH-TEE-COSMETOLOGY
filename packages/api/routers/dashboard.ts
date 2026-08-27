@@ -11,7 +11,6 @@ import {
   storeOrders,
   studentProfiles,
 } from "@blush/db/schema";
-import { initializeFoundationData } from "@blush/db";
 import { dbOrThrow } from "../dbOrThrow";
 import {
   admissionMetrics,
@@ -47,7 +46,6 @@ export const dashboardRouter = router({
    */
   overview: overviewProcedure.query(async ({ ctx }) => {
     const db = await dbOrThrow();
-    await initializeFoundationData(db);
     await ensurePlatformBootstrapped(db);
 
     const [students, finance, inventory, commerce, admissions] = await Promise.all([

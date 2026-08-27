@@ -8,7 +8,6 @@ import {
   orderItems,
   storeOrders,
 } from "@blush/db/schema";
-import { initializeFoundationData } from "@blush/db";
 import { dbOrThrow } from "../dbOrThrow";
 import {
   buildReference,
@@ -88,7 +87,6 @@ async function resolveImageUrl(
 export const storeRouter = router({
   products: publicProcedure.query(async () => {
     const db = await dbOrThrow();
-    await initializeFoundationData(db);
     const rows = await db
       .select()
       .from(inventoryItems)
