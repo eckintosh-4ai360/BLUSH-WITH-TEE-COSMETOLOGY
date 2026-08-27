@@ -19,7 +19,12 @@ import {
 } from "@blush/db/schema";
 import { storageGet, storagePut } from "@blush/storage";
 import { dbOrThrow } from "../dbOrThrow";
-import { findStudentAccountForEmail, grantStudentRole } from "../services/people";
+import { recordAudit } from "../services/audit";
+import {
+  findStudentAccountForEmail,
+  grantStudentRole,
+  resolvePerson,
+} from "../services/people";
 import {
   MAX_UPLOAD_BASE64_LENGTH,
   buildReference,
@@ -27,7 +32,7 @@ import {
   safeFileName,
   validateDocumentUpload,
 } from "../platform.utils";
-import { adminProcedure, router } from "../trpc";
+import { adminProcedure, permissionProcedure, router } from "../trpc";
 
 export const adminNamespaceRouter = router({
   dashboard: adminProcedure.query(async () => {
@@ -132,6 +137,96 @@ export const adminNamespaceRouter = router({
     return { id: assessment?.id };
   }),
 
+  /**
+   * Records an application taken in person.
+   *
+   * The public form is the usual way one arrives, but a school also takes
+   * enquiries at the desk and over the phone, and those had nowhere to go: the
+   * only submit procedure lives on the public router, which the dashboard does
+   * not mount. This produces the same row, so a walk-in and a web applicant
+   * move through review identically.
+   *
+   * Gated on `admissions.write` rather than owner-only, because taking down an
+   * application is the admissions officer's job.
+   */
+  createApplication: permissionProcedure("admissions.write")
+    .input(
+      z.object({
+        fullName: z.string().trim().min(2).max(160),
+        email: z.string().trim().email().max(320),
+        phone: z.string().trim().min(7).max(40),
+        whatsapp: z.string().trim().max(40).optional(),
+        courseId: z.number().int().positive(),
+        birthDate: z.coerce.date().optional(),
+        gender: z.string().trim().max(32).optional(),
+        address: z.string().trim().max(1500).optional(),
+        emergencyContact: z.string().trim().max(180).optional(),
+        education: z.string().trim().max(1800).optional(),
+        statement: z.string().trim().max(3000).optional(),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+      const email = input.email.toLowerCase();
+
+      const [course] = await db
+        .select({ id: courses.id, title: courses.title })
+        .from(courses)
+        .where(and(eq(courses.id, input.courseId), eq(courses.isActive, true)))
+        .limit(1);
+      if (!course) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "That programme is unavailable." });
+      }
+
+      return db.transaction(async tx => {
+        // Same dedup as the public form, so an applicant already known to the
+        // school does not become a second person record (§34).
+        await resolvePerson(tx, {
+          fullName: input.fullName,
+          email,
+          phone: input.phone,
+          whatsapp: input.whatsapp ?? null,
+          birthDate: input.birthDate ?? null,
+          gender: input.gender ?? null,
+          address: input.address ?? null,
+        });
+
+        const reference = buildReference("APP");
+
+        const [created] = await tx
+          .insert(applications)
+          .values({
+            reference,
+            userId: await findStudentAccountForEmail(tx, email),
+            fullName: input.fullName,
+            email,
+            phone: input.phone,
+            whatsapp: input.whatsapp,
+            birthDate: input.birthDate,
+            gender: input.gender,
+            address: input.address,
+            emergencyContact: input.emergencyContact,
+            education: input.education,
+            courseId: input.courseId,
+            statement: input.statement,
+            status: "submitted",
+            submittedAt: new Date(),
+          })
+          .returning({ id: applications.id });
+
+        await recordAudit(tx, ctx.actor, {
+          action: "create",
+          entity: "application",
+          entityId: created?.id,
+          entityLabel: reference,
+          newValue: { fullName: input.fullName, email, courseId: input.courseId },
+          summary: `${ctx.actor.name ?? "Staff"} recorded application ${reference} for ${input.fullName}`,
+        });
+
+        return { id: created?.id, reference, courseTitle: course.title };
+      });
+    }),
+
   reviewApplication: adminProcedure.input(z.object({ applicationId: z.number().int().positive(), status: z.enum(["under_review", "more_information", "approved", "rejected"]), decisionNote: z.string().max(2000).optional() })).mutation(async ({ input, ctx }) => {
     const db = await dbOrThrow();
     const [application] = await db.select().from(applications).where(eq(applications.id, input.applicationId)).limit(1);
@@ -141,7 +236,20 @@ export const adminNamespaceRouter = router({
       const [existing] = await db.select().from(studentProfiles).where(eq(studentProfiles.applicationId, application.id)).limit(1);
       if (!existing) {
         const accountId = application.userId ?? (await findStudentAccountForEmail(db, application.email));
-        const [student] = await db.insert(studentProfiles).values({ applicationId: application.id, userId: accountId, studentNumber: buildReference("STU"), fullName: application.fullName, email: application.email, phone: application.phone }).returning({ id: studentProfiles.id });
+        // Linked to a person like every other route that creates a student.
+        // Without it an approved student who later shops becomes a second
+        // identity, which is the exact duplication resolvePerson exists to
+        // prevent (§34).
+        const personId = await resolvePerson(db, {
+          fullName: application.fullName,
+          email: application.email,
+          phone: application.phone,
+          whatsapp: application.whatsapp,
+          birthDate: application.birthDate,
+          gender: application.gender,
+          address: application.address,
+        });
+        const [student] = await db.insert(studentProfiles).values({ applicationId: application.id, personId, userId: accountId, studentNumber: buildReference("STU"), fullName: application.fullName, email: application.email, phone: application.phone }).returning({ id: studentProfiles.id });
         if (student?.id) {
           await db.insert(enrollments).values({ studentId: student.id, courseId: application.courseId, status: "active" });
           await db.insert(feeCharges).values({ studentId: student.id, feeType: "tuition", description: "Program tuition", amountDue: "0.00", status: "open" });

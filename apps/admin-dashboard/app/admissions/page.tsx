@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Eye, X } from "lucide-react";
+import { Check, Eye, Plus, X } from "lucide-react";
 import { Badge } from "@blush/ui/components/ui/badge";
 import { Button } from "@blush/ui/components/ui/button";
 import {
@@ -15,6 +15,7 @@ import { toast } from "@blush/ui/components/ui/sonner";
 import DashboardLayout from "@/components/DashboardLayout";
 import { DataTable, type Column } from "@/components/DataTable";
 import { PermissionGate } from "@/components/PermissionGate";
+import { RecordApplicationDialog } from "@/components/admissions/RecordApplicationDialog";
 import { usePermissions } from "@/hooks/usePermissions";
 import { collectAllPages } from "@/lib/exportAll";
 import { trpc } from "@/lib/trpc";
@@ -68,6 +69,7 @@ function AdmissionsContent() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState("all");
+  const [recordOpen, setRecordOpen] = useState(false);
 
   // Shared by the table and by export, so a download covers exactly what the
   // filters describe rather than the page on screen.
@@ -234,6 +236,23 @@ function AdmissionsContent() {
             </SelectContent>
           </Select>
         }
+        actions={
+          can("admissions.write") ? (
+            <Button className="gap-2" onClick={() => setRecordOpen(true)}>
+              <Plus className="h-4 w-4" />
+              Record application
+            </Button>
+          ) : null
+        }
+      />
+
+      <RecordApplicationDialog
+        open={recordOpen}
+        onOpenChange={setRecordOpen}
+        onRecorded={reference => {
+          toast.success(`Application ${reference} recorded.`);
+          query.refetch();
+        }}
       />
     </div>
   );

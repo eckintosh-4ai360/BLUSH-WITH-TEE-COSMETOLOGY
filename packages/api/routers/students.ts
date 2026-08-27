@@ -13,14 +13,22 @@ import {
   type SQL,
 } from "drizzle-orm";
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { courses, enrollments, studentProfiles } from "@blush/db/schema";
 import { dbOrThrow } from "../dbOrThrow";
+import { buildReference } from "../platform.utils";
+import { recordAudit } from "../services/audit";
 import {
   listInputSchema,
   likePattern,
   paginate,
   paginationBounds,
 } from "../services/pagination";
+import {
+  findStudentAccountForEmail,
+  grantStudentRole,
+  resolvePerson,
+} from "../services/people";
 import { permissionProcedure, router } from "../trpc";
 
 const STUDENT_STATUS = [
@@ -115,5 +123,137 @@ export const studentsRouter = router({
         Number(total?.total ?? 0),
         input
       );
+    }),
+
+  /**
+   * Adds a student directly, without an application.
+   *
+   * Approving an application is still the main route in (§21) and produces the
+   * same record. This exists for the students who never went through the form:
+   * a walk-in enrolled at the desk, or a register being typed up from paper.
+   *
+   * Two things it does that a bare insert would not. It goes through
+   * `resolvePerson`, so somebody already known to the school as a customer
+   * becomes the same person rather than a second one (§34). And it links an
+   * existing portal account with the same email and grants it the student
+   * role, so the student can sign in without anybody wiring it up afterwards.
+   */
+  create: permissionProcedure("students.write")
+    .input(
+      z.object({
+        fullName: z.string().trim().min(2).max(160),
+        email: z.string().trim().email().max(320),
+        phone: z.string().trim().min(7).max(40),
+        studentNumber: z.string().trim().max(40).optional(),
+        status: z.enum(STUDENT_STATUS).default("active"),
+        gender: z.string().trim().max(32).optional(),
+        birthDate: z.coerce.date().optional(),
+        address: z.string().trim().max(1500).optional(),
+        emergencyContactName: z.string().trim().max(160).optional(),
+        emergencyContactPhone: z.string().trim().max(40).optional(),
+        /** Enrols on a programme straight away. Optional. */
+        courseId: z.number().int().positive().optional(),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+      const email = input.email.toLowerCase();
+
+      const [duplicate] = await db
+        .select({ id: studentProfiles.id, studentNumber: studentProfiles.studentNumber })
+        .from(studentProfiles)
+        .where(sql`lower(${studentProfiles.email}) = ${email}`)
+        .limit(1);
+      if (duplicate) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: `A student with that email is already on file as ${duplicate.studentNumber}.`,
+        });
+      }
+
+      if (input.studentNumber) {
+        const [taken] = await db
+          .select({ id: studentProfiles.id })
+          .from(studentProfiles)
+          .where(eq(studentProfiles.studentNumber, input.studentNumber))
+          .limit(1);
+        if (taken) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: `Student number ${input.studentNumber} already belongs to another student.`,
+          });
+        }
+      }
+
+      if (input.courseId) {
+        const [course] = await db
+          .select({ id: courses.id })
+          .from(courses)
+          .where(and(eq(courses.id, input.courseId), eq(courses.isActive, true)))
+          .limit(1);
+        if (!course) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "That programme is unavailable." });
+        }
+      }
+
+      return db.transaction(async tx => {
+        const personId = await resolvePerson(tx, {
+          fullName: input.fullName,
+          email,
+          phone: input.phone,
+          birthDate: input.birthDate ?? null,
+          gender: input.gender ?? null,
+          address: input.address ?? null,
+          emergencyContactName: input.emergencyContactName ?? null,
+          emergencyContactPhone: input.emergencyContactPhone ?? null,
+        });
+
+        // Only links an account that already exists; it never creates one, so
+        // no password is invented on the student's behalf.
+        const accountId = await findStudentAccountForEmail(tx, email);
+
+        const studentNumber = input.studentNumber || buildReference("STU");
+
+        const [student] = await tx
+          .insert(studentProfiles)
+          .values({
+            personId,
+            userId: accountId,
+            studentNumber,
+            fullName: input.fullName,
+            email,
+            phone: input.phone,
+            status: input.status,
+          })
+          .returning({ id: studentProfiles.id });
+
+        if (!student?.id) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "The student could not be created.",
+          });
+        }
+
+        if (accountId) await grantStudentRole(tx, accountId);
+
+        if (input.courseId) {
+          await tx.insert(enrollments).values({
+            studentId: student.id,
+            courseId: input.courseId,
+            status: "active",
+          });
+        }
+
+        await recordAudit(tx, ctx.actor, {
+          action: "create",
+          entity: "studentProfile",
+          entityId: student.id,
+          entityLabel: studentNumber,
+          newValue: { fullName: input.fullName, email, status: input.status },
+          summary: `${ctx.actor.name ?? "Staff"} added ${input.fullName} as ${studentNumber}`,
+        });
+
+        return { id: student.id, studentNumber, linkedAccount: Boolean(accountId) };
+      });
     }),
 });

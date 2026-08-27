@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Upload } from "lucide-react";
+import { Plus, Upload } from "lucide-react";
 import { STUDENT_IMPORT_COLUMNS } from "@blush/shared/imports";
 import { Button } from "@blush/ui/components/ui/button";
 import { toast } from "@blush/ui/components/ui/sonner";
@@ -18,6 +18,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { DataTable, type Column } from "@/components/DataTable";
 import { PermissionGate } from "@/components/PermissionGate";
 import { ImportDialog } from "@/components/imports/ImportDialog";
+import { AddStudentDialog } from "@/components/students/AddStudentDialog";
 import { usePermissions } from "@/hooks/usePermissions";
 import { collectAllPages } from "@/lib/exportAll";
 import { trpc } from "@/lib/trpc";
@@ -76,6 +77,7 @@ function StudentsContent() {
   const router = useRouter();
   const { can } = usePermissions();
   const [importOpen, setImportOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
   const importStudents = trpc.imports.students.useMutation();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -210,10 +212,16 @@ function StudentsContent() {
         emptyMessage="No students match these filters."
         actions={
           can("students.write") ? (
-            <Button variant="outline" className="gap-2" onClick={() => setImportOpen(true)}>
-              <Upload className="h-4 w-4" />
-              Import
-            </Button>
+            <>
+              <Button variant="outline" className="gap-2" onClick={() => setImportOpen(true)}>
+                <Upload className="h-4 w-4" />
+                Import
+              </Button>
+              <Button className="gap-2" onClick={() => setAddOpen(true)}>
+                <Plus className="h-4 w-4" />
+                Add student
+              </Button>
+            </>
           ) : null
         }
         filters={
@@ -280,6 +288,15 @@ function StudentsContent() {
             </Select>
           </>
         }
+      />
+
+      <AddStudentDialog
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        onCreated={studentNumber => {
+          toast.success(`Student added as ${studentNumber}.`);
+          query.refetch();
+        }}
       />
 
       <ImportDialog
