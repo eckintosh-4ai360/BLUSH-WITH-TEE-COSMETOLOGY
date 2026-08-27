@@ -9,24 +9,29 @@ These have working, permission-checked, tested procedures. They need interfaces.
 
 | Area | What exists | What is missing |
 |---|---|---|
-| Purchase orders | `createPurchaseOrder`, `receivePurchaseOrder`, `paySupplier` | Raise / receive screens |
-| Suppliers | Full CRUD and detail with purchase history | Edit form, supplier detail page |
-| Fee structures | `upsertFeeStructure`, `createCharge`, `adjust` | Fee configuration screen |
-| Student accounts | `studentAccount` with the full equation | Student detail page |
-| Products | Catalogue, categories, images, variations in the schema | Product management screens |
+| Products | Catalogue, categories, images, variations in the schema | Image upload and variations; the item form covers the rest |
+
+Recently closed: purchase orders (`/purchases`, with raise, receive and pay),
+suppliers (add, edit and a detail page with purchase history), fee structures
+(`/finance/structures`), student accounts (`/students/[id]`, with charges and
+adjustments), and creating or editing a stock item.
 
 ## Not built at all
 
 ### Reports and exports (§42, §65)
-Tables export CSV today. Missing: PDF and Excel with the school logo, report
-title, filters used, who generated it, totals and page numbers; and the
-standard report set (student lists, graduates, fee collection, income vs
-expenses, profit and loss, stock valuation, attendance, course performance).
+Tables export CSV and PDF today, both covering every filtered row rather than
+the page on screen. Missing: Excel; and the standard report set (student lists,
+graduates, fee collection, income vs expenses, profit and loss, stock
+valuation, attendance, course performance).
 
 ### Printable documents (§66, §67, §68)
-Payment receipts, fee statements, admission letters, order invoices, printable
-certificates, completion letters. The data is all there; the branded templates
-and PDF rendering are not.
+Built on one branded builder (`lib/documents.ts`) with a shared letterhead,
+footer and page numbering: **payment receipts**, **fee statements**, **order
+invoices** and **printable certificates**.
+
+Still missing: admission letters and completion letters, and a school logo —
+the letterhead is set from `school.profile` but renders the name as type rather
+than an uploaded mark.
 
 ### Content management (§39, §40, §41)
 Tables exist for pages, banners, services, events, gallery, testimonials, FAQs
@@ -58,7 +63,7 @@ and scores.
 | Item | Note |
 |---|---|
 | **Two-factor authentication** (§45) | Modelled, not implemented |
-| **Rate limiting** (§57) | Belongs at the edge; verification endpoint first |
+| **Rate limiting** (§57) | In-process fixed window on the public endpoints; the durable version belongs at the edge |
 | **Notification transport** (§38) | Rows are queued; nothing drains them yet |
 | **Background jobs** (§56) | Low-stock alerts and fee reminders need a scheduler |
 | **SEO** (§55) | Slugs and meta fields exist; sitemap, robots.txt and structured data do not |

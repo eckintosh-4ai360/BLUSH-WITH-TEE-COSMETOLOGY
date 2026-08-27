@@ -104,7 +104,18 @@ Filenames are stripped of everything outside `[a-zA-Z0-9._-]`, so path
 separators cannot survive.
 
 Student documents are stored as authenticated Cloudinary resources and served
-through an authorising proxy — never a predictable public URL.
+through `/api/manus-storage/[...key]`, which is the only route to the bytes and
+so is where access is decided. `storageAccessPolicy` classifies the key:
+
+| Key | Who may fetch it |
+|---|---|
+| `media/product`, `media/gallery`, `media/brochure` | Anyone — these are on the public site |
+| `applications/…` | `admissions.read`, or the applicant themselves |
+| Anything else | Any signed-in account |
+
+Unrecognised paths fall to the private side, so an upload route added later is
+closed until somebody opens it. The `authorize` argument is required rather
+than optional: a proxy cannot be mounted without a policy.
 
 ## Audit
 
@@ -133,6 +144,19 @@ readable instead of storing two full records.
   needed uses `inArray`, not string interpolation.
 - **CSV exports prefix formula characters**, so a cell beginning `=` opens as
   text rather than executing in a spreadsheet.
+- **Base64 uploads are length-capped before decoding.** The size check alone ran
+  after `Buffer.from` had already allocated, which on an endpoint reachable
+  without a session was a way to exhaust memory in one request.
+
+## Response headers
+
+Both apps send `X-Content-Type-Options: nosniff`, `Referrer-Policy:
+strict-origin-when-cross-origin`, a `Permissions-Policy` denying camera,
+microphone, geolocation and payment, HSTS, and `frame-ancestors` — `DENY` on
+the dashboard, `SAMEORIGIN` on the public site.
+
+A full `script-src` policy is not set: Next emits inline bootstrap scripts, so
+one would need a nonce pipeline to be anything other than decorative.
 
 ## Secrets
 
@@ -167,9 +191,12 @@ Worth stating plainly rather than leaving to be discovered:
 
 - **Two-factor authentication** is modelled (`users.twoFactorEnabled`) but not
   implemented. No secret is stored yet.
-- **Rate limiting** is per-account on sign-in only. Broader limiting belongs at
-  the edge; the certificate verification endpoint is the next one that needs it,
-  since it is public and unauthenticated.
+- **Rate limiting** is a fixed window held in process memory
+  (`services/rateLimit.ts`), applied to sign-in, admissions, clinic bookings,
+  order lookup, checkout and certificate verification. It protects one instance
+  and resets on deploy, and it identifies callers by `X-Forwarded-For`, which a
+  client not behind a trusted proxy can rewrite. The durable answer is still a
+  limiter at the edge.
 - **Password reset by email** is not implemented. An administrator resets a
   password under Operations → Access, which is workable for a school of this
   size but means the owner account has no self-service recovery.
