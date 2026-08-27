@@ -2,7 +2,7 @@
 
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeftRight, Plus } from "lucide-react";
+import { ArrowLeftRight, Pencil, Plus } from "lucide-react";
 import { Badge } from "@blush/ui/components/ui/badge";
 import { Button } from "@blush/ui/components/ui/button";
 import {
@@ -17,6 +17,7 @@ import { formatMoney } from "@blush/ui/lib/viz";
 import DashboardLayout from "@/components/DashboardLayout";
 import { DataTable, type Column } from "@/components/DataTable";
 import { PermissionGate } from "@/components/PermissionGate";
+import { SaveItemDialog } from "@/components/inventory/SaveItemDialog";
 import { StockMovementDialog } from "@/components/inventory/StockMovementDialog";
 import { usePermissions } from "@/hooks/usePermissions";
 import { collectAllPages } from "@/lib/exportAll";
@@ -26,14 +27,18 @@ type ItemRow = {
   id: number;
   sku: string;
   name: string;
+  description: string | null;
   category: string;
+  categoryId: number | null;
   categoryName: string | null;
+  supplierId: number | null;
   supplierName: string | null;
   quantityOnHand: number;
   reorderLevel: number;
   unitCost: number;
   sellingPrice: number;
   isSellable: boolean;
+  isActive: boolean;
   isLowStock: boolean;
 };
 
@@ -59,6 +64,8 @@ function InventoryContent() {
     (params.get("filter") as "low" | "out" | null) ?? "all",
   );
   const [movingItem, setMovingItem] = useState<ItemRow | null>(null);
+  const [editingItem, setEditingItem] = useState<ItemRow | null>(null);
+  const [itemDialogOpen, setItemDialogOpen] = useState(false);
 
   const utils = trpc.useUtils();
 
@@ -141,15 +148,29 @@ function InventoryContent() {
             header: "",
             align: "right" as const,
             cell: (row: ItemRow) => (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="gap-1.5"
-                onClick={() => setMovingItem(row)}
-              >
-                <ArrowLeftRight className="h-3.5 w-3.5" />
-                Movement
-              </Button>
+              <span className="flex justify-end gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={() => {
+                    setEditingItem(row);
+                    setItemDialogOpen(true);
+                  }}
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  Edit
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={() => setMovingItem(row)}
+                >
+                  <ArrowLeftRight className="h-3.5 w-3.5" />
+                  Movement
+                </Button>
+              </span>
             ),
             value: () => "",
           },
@@ -214,12 +235,28 @@ function InventoryContent() {
         }
         actions={
           can("inventory.write") ? (
-            <Button className="gap-2" disabled title="Item editing arrives with the catalogue screen">
+            <Button
+              className="gap-2"
+              onClick={() => {
+                setEditingItem(null);
+                setItemDialogOpen(true);
+              }}
+            >
               <Plus className="h-4 w-4" />
               New item
             </Button>
           ) : null
         }
+      />
+
+      <SaveItemDialog
+        open={itemDialogOpen}
+        onOpenChange={setItemDialogOpen}
+        editing={editingItem}
+        onSaved={() => {
+          toast.success(editingItem ? "Item updated." : "Item created.");
+          query.refetch();
+        }}
       />
 
       <StockMovementDialog
