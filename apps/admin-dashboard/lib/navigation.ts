@@ -7,6 +7,7 @@ import {
   GraduationCap,
   LayoutDashboard,
   PackageSearch,
+  ReceiptText,
   ScrollText,
   Settings,
   ShieldCheck,
@@ -88,6 +89,12 @@ export const NAV_SECTIONS: NavSection[] = [
     label: "Finance",
     items: [
       { label: "Overview", path: "/finance", icon: TrendingUp, permissions: ["finance.read"] },
+      {
+        label: "Fee structure",
+        path: "/finance/structures",
+        icon: ReceiptText,
+        permissions: ["fees.read"],
+      },
       { label: "Fees owed", path: "/finance/fees", icon: Wallet, permissions: ["fees.read"] },
       {
         label: "Payments",

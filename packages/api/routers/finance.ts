@@ -2,6 +2,7 @@ import { and, count, desc, eq, gte, ilike, isNull, lte, or, sql } from "drizzle-
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
+  courses,
   expenseCategories,
   expenses,
   feeAdjustments,
@@ -46,10 +47,24 @@ export const financeRouter = router({
   /* Fee structures (§24)                                                   */
   /* ---------------------------------------------------------------------- */
 
+  /**
+   * The fee catalogue, with the programme each line belongs to.
+   *
+   * A structure with no course is the school-wide default — registration, say —
+   * so `courseTitle` is null rather than the row being dropped by the join.
+   */
   feeStructures: permissionProcedure("fees.read").query(async () => {
     const db = await dbOrThrow();
-    const rows = await db.select().from(feeStructures).orderBy(feeStructures.courseId);
-    return rows.map(row => ({ ...row, amount: money(row.amount) }));
+    const rows = await db
+      .select({ structure: feeStructures, courseTitle: courses.title })
+      .from(feeStructures)
+      .leftJoin(courses, eq(feeStructures.courseId, courses.id))
+      .orderBy(courses.title, feeStructures.feeType);
+    return rows.map(({ structure, courseTitle }) => ({
+      ...structure,
+      amount: money(structure.amount),
+      courseTitle,
+    }));
   }),
 
   upsertFeeStructure: permissionProcedure("fees.write")

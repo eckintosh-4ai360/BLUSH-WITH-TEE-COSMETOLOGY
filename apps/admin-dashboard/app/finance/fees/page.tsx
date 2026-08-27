@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Receipt } from "lucide-react";
 import { Badge } from "@blush/ui/components/ui/badge";
 import { Button } from "@blush/ui/components/ui/button";
@@ -37,6 +38,7 @@ export default function OutstandingFeesPage() {
 }
 
 function OutstandingFeesContent() {
+  const router = useRouter();
   const { can } = usePermissions();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -137,6 +139,7 @@ function OutstandingFeesContent() {
         page={page}
         onPageChange={setPage}
         rowKey={row => row.studentId}
+        onRowClick={row => router.push(`/students/${row.studentId}`)}
         exportFileName="outstanding-fees"
         fetchAllRows={() =>
           collectAllPages((page, pageSize) =>

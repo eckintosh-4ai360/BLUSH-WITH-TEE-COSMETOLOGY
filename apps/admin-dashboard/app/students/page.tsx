@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Badge } from "@blush/ui/components/ui/badge";
 import {
   Select,
@@ -12,6 +13,7 @@ import {
 import DashboardLayout from "@/components/DashboardLayout";
 import { DataTable, type Column } from "@/components/DataTable";
 import { PermissionGate } from "@/components/PermissionGate";
+import { usePermissions } from "@/hooks/usePermissions";
 import { collectAllPages } from "@/lib/exportAll";
 import { trpc } from "@/lib/trpc";
 
@@ -66,6 +68,8 @@ export default function AdminStudentsPage() {
 }
 
 function StudentsContent() {
+  const router = useRouter();
+  const { can } = usePermissions();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState("all");
@@ -187,6 +191,9 @@ function StudentsContent() {
         page={page}
         onPageChange={setPage}
         rowKey={row => row.id}
+        // Only offered to someone who can actually read the account behind it,
+        // so the row does not lead to a page that refuses them.
+        onRowClick={can("fees.read") ? row => router.push(`/students/${row.id}`) : undefined}
         exportFileName="students"
         fetchAllRows={() =>
           collectAllPages((page, pageSize) =>
