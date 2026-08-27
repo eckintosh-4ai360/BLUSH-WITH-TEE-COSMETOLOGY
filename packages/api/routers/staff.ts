@@ -41,7 +41,20 @@ export const staffRouter = router({
   }),
   recordAttendance: staffProcedure.input(z.object({ enrollmentId: z.number().int().positive(), classDate: z.coerce.date(), status: z.enum(["present", "late", "absent", "excused"]), note: z.string().max(255).optional() })).mutation(async ({ input, ctx }) => {
     const db = await dbOrThrow();
-    await db.insert(attendanceRecords).values({ ...input, recordedByUserId: ctx.user.id });
+    // Upserts: `(enrollmentId, classDate)` is unique, so correcting a mark or
+    // marking a latecomer would otherwise fail on the constraint rather than
+    // update the row the index was added to keep singular.
+    await db
+      .insert(attendanceRecords)
+      .values({ ...input, recordedByUserId: ctx.user.id })
+      .onConflictDoUpdate({
+        target: [attendanceRecords.enrollmentId, attendanceRecords.classDate],
+        set: {
+          status: sql`excluded.status`,
+          note: sql`excluded.note`,
+          recordedByUserId: sql`excluded."recordedByUserId"`,
+        },
+      });
     return { success: true };
   }),
   adjustInventory: staffProcedure.input(z.object({ inventoryItemId: z.number().int().positive(), movementType: z.enum(["received", "adjustment", "damaged", "return"]), quantityDelta: z.number().int().min(-1000).max(1000).refine(value => value !== 0), note: z.string().min(2).max(500) })).mutation(async ({ input, ctx }) => {

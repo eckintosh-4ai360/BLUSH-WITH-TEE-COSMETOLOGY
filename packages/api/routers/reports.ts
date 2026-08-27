@@ -376,11 +376,14 @@ export const reportsRouter = router({
       const grouped = db
         .select({
           studentId: enrollments.studentId,
-          sessions: count(),
-          present: sql<number>`count(*) filter (where ${attendanceRecords.status} = 'present')`,
-          late: sql<number>`count(*) filter (where ${attendanceRecords.status} = 'late')`,
-          absent: sql<number>`count(*) filter (where ${attendanceRecords.status} = 'absent')`,
-          excused: sql<number>`count(*) filter (where ${attendanceRecords.status} = 'excused')`,
+          // Every raw-SQL column in a subquery needs an explicit alias: without
+          // one, reading it back off `grouped` below throws at query time even
+          // though the types line up.
+          sessions: count().as("sessions"),
+          present: sql<number>`count(*) filter (where ${attendanceRecords.status} = 'present')`.as("present"),
+          late: sql<number>`count(*) filter (where ${attendanceRecords.status} = 'late')`.as("late"),
+          absent: sql<number>`count(*) filter (where ${attendanceRecords.status} = 'absent')`.as("absent"),
+          excused: sql<number>`count(*) filter (where ${attendanceRecords.status} = 'excused')`.as("excused"),
         })
         .from(attendanceRecords)
         .innerJoin(enrollments, eq(attendanceRecords.enrollmentId, enrollments.id))
@@ -593,9 +596,9 @@ export const reportsRouter = router({
       const grouped = db
         .select({
           itemName: orderItems.itemName,
-          unitsSold: sql<string>`sum(${orderItems.quantity})`,
-          revenue: sql<string>`sum(${orderItems.lineTotal})`,
-          orderCount: sql<number>`count(distinct ${orderItems.orderId})`,
+          unitsSold: sql<string>`sum(${orderItems.quantity})`.as("unitsSold"),
+          revenue: sql<string>`sum(${orderItems.lineTotal})`.as("revenue"),
+          orderCount: sql<number>`count(distinct ${orderItems.orderId})`.as("orderCount"),
         })
         .from(orderItems)
         .innerJoin(storeOrders, eq(orderItems.orderId, storeOrders.id))

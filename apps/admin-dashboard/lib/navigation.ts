@@ -4,6 +4,7 @@ import {
   CalendarClock,
   ClipboardCheck,
   ClipboardList,
+  CalendarCheck,
   CreditCard,
   GraduationCap,
   LayoutDashboard,
@@ -78,6 +79,12 @@ export const NAV_SECTIONS: NavSection[] = [
         path: "/academics",
         icon: GraduationCap,
         permissions: ["academics.read"],
+      },
+      {
+        label: "Attendance",
+        path: "/academics/attendance",
+        icon: CalendarCheck,
+        permissions: ["attendance.read"],
       },
       {
         label: "Certificates",

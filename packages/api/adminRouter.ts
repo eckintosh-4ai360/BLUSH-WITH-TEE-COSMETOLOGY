@@ -1,4 +1,5 @@
 import { adminNamespaceRouter } from "./routers/admin";
+import { attendanceRouter } from "./routers/attendance";
 import { authRouter } from "./routers/auth";
 import { contentRouter } from "./routers/content";
 import { certificatesRouter } from "./routers/certificates";
@@ -19,6 +20,7 @@ import { router } from "./trpc";
 export const adminAppRouter = router({
   system: systemRouter,
   auth: authRouter,
+  attendance: attendanceRouter,
   content: contentRouter,
   staff: staffRouter,
   students: studentsRouter,
