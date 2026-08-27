@@ -2,7 +2,7 @@
 
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeftRight, Pencil, Plus } from "lucide-react";
+import { ArrowLeftRight, Pencil, Plus, Upload } from "lucide-react";
 import { Badge } from "@blush/ui/components/ui/badge";
 import { Button } from "@blush/ui/components/ui/button";
 import {
@@ -17,6 +17,8 @@ import { formatMoney } from "@blush/ui/lib/viz";
 import DashboardLayout from "@/components/DashboardLayout";
 import { DataTable, type Column } from "@/components/DataTable";
 import { PermissionGate } from "@/components/PermissionGate";
+import { ImportDialog } from "@/components/imports/ImportDialog";
+import { PRODUCT_IMPORT_COLUMNS } from "@blush/shared/imports";
 import { SaveItemDialog } from "@/components/inventory/SaveItemDialog";
 import { StockMovementDialog } from "@/components/inventory/StockMovementDialog";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -66,6 +68,8 @@ function InventoryContent() {
   const [movingItem, setMovingItem] = useState<ItemRow | null>(null);
   const [editingItem, setEditingItem] = useState<ItemRow | null>(null);
   const [itemDialogOpen, setItemDialogOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const importProducts = trpc.imports.products.useMutation();
 
   const utils = trpc.useUtils();
 
@@ -235,18 +239,40 @@ function InventoryContent() {
         }
         actions={
           can("inventory.write") ? (
-            <Button
-              className="gap-2"
-              onClick={() => {
-                setEditingItem(null);
-                setItemDialogOpen(true);
-              }}
-            >
-              <Plus className="h-4 w-4" />
-              New item
-            </Button>
+            <>
+              <Button variant="outline" className="gap-2" onClick={() => setImportOpen(true)}>
+                <Upload className="h-4 w-4" />
+                Import
+              </Button>
+              <Button
+                className="gap-2"
+                onClick={() => {
+                  setEditingItem(null);
+                  setItemDialogOpen(true);
+                }}
+              >
+                <Plus className="h-4 w-4" />
+                New item
+              </Button>
+            </>
           ) : null
         }
+      />
+
+      <ImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        title="Import stock"
+        description="Adds stock items in bulk from a spreadsheet. Opening quantities are booked as movements, so the ledger accounts for every unit."
+        columns={PRODUCT_IMPORT_COLUMNS}
+        templateName="stock-import-template"
+        noun="items"
+        isPending={importProducts.isPending}
+        runImport={args => importProducts.mutateAsync(args)}
+        onImported={() => {
+          toast.success("Stock imported.");
+          query.refetch();
+        }}
       />
 
       <SaveItemDialog

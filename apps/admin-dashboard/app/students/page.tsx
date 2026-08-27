@@ -2,6 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Upload } from "lucide-react";
+import { STUDENT_IMPORT_COLUMNS } from "@blush/shared/imports";
+import { Button } from "@blush/ui/components/ui/button";
+import { toast } from "@blush/ui/components/ui/sonner";
 import { Badge } from "@blush/ui/components/ui/badge";
 import {
   Select,
@@ -13,6 +17,7 @@ import {
 import DashboardLayout from "@/components/DashboardLayout";
 import { DataTable, type Column } from "@/components/DataTable";
 import { PermissionGate } from "@/components/PermissionGate";
+import { ImportDialog } from "@/components/imports/ImportDialog";
 import { usePermissions } from "@/hooks/usePermissions";
 import { collectAllPages } from "@/lib/exportAll";
 import { trpc } from "@/lib/trpc";
@@ -70,6 +75,8 @@ export default function AdminStudentsPage() {
 function StudentsContent() {
   const router = useRouter();
   const { can } = usePermissions();
+  const [importOpen, setImportOpen] = useState(false);
+  const importStudents = trpc.imports.students.useMutation();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState("all");
@@ -201,6 +208,14 @@ function StudentsContent() {
           )
         }
         emptyMessage="No students match these filters."
+        actions={
+          can("students.write") ? (
+            <Button variant="outline" className="gap-2" onClick={() => setImportOpen(true)}>
+              <Upload className="h-4 w-4" />
+              Import
+            </Button>
+          ) : null
+        }
         filters={
           <>
             <Select
@@ -265,6 +280,22 @@ function StudentsContent() {
             </Select>
           </>
         }
+      />
+
+      <ImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        title="Import students"
+        description="Adds students in bulk from a spreadsheet. Nothing is saved until you have seen what will happen."
+        columns={STUDENT_IMPORT_COLUMNS}
+        templateName="student-import-template"
+        noun="students"
+        isPending={importStudents.isPending}
+        runImport={args => importStudents.mutateAsync(args)}
+        onImported={() => {
+          toast.success("Students imported.");
+          query.refetch();
+        }}
       />
     </div>
   );

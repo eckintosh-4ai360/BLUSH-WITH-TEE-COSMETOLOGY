@@ -4,6 +4,7 @@ import { contentRouter } from "./routers/content";
 import { certificatesRouter } from "./routers/certificates";
 import { dashboardRouter } from "./routers/dashboard";
 import { financeRouter } from "./routers/finance";
+import { importsRouter } from "./routers/imports";
 import { inventoryRouter } from "./routers/inventory";
 import { notificationsRouter } from "./routers/notifications";
 import { platformRouter } from "./routers/platform";
@@ -23,6 +24,7 @@ export const adminAppRouter = router({
   students: studentsRouter,
   admin: adminNamespaceRouter,
   finance: financeRouter,
+  imports: importsRouter,
   inventory: inventoryRouter,
   orders: ordersRouter,
   certificates: certificatesRouter,
