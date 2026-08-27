@@ -2,6 +2,7 @@ import {
   BadgeCheck,
   Boxes,
   CalendarClock,
+  ClipboardCheck,
   ClipboardList,
   CreditCard,
   GraduationCap,
@@ -122,6 +123,12 @@ export const NAV_SECTIONS: NavSection[] = [
         permissions: ["inventory.read"],
       },
       { label: "Suppliers", path: "/suppliers", icon: Truck, permissions: ["suppliers.read"] },
+      {
+        label: "Purchase orders",
+        path: "/purchases",
+        icon: ClipboardCheck,
+        permissions: ["purchases.read"],
+      },
     ],
   },
   {

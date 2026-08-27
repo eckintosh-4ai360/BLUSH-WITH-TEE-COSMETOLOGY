@@ -1,11 +1,17 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Pencil, Plus } from "lucide-react";
 import { Badge } from "@blush/ui/components/ui/badge";
+import { Button } from "@blush/ui/components/ui/button";
+import { toast } from "@blush/ui/components/ui/sonner";
 import { formatMoney } from "@blush/ui/lib/viz";
 import DashboardLayout from "@/components/DashboardLayout";
 import { DataTable, type Column } from "@/components/DataTable";
 import { PermissionGate } from "@/components/PermissionGate";
+import { SaveSupplierDialog } from "@/components/suppliers/SaveSupplierDialog";
+import { usePermissions } from "@/hooks/usePermissions";
 import { collectAllPages } from "@/lib/exportAll";
 import { trpc } from "@/lib/trpc";
 
@@ -16,7 +22,9 @@ type SupplierRow = {
   phone: string | null;
   whatsapp: string | null;
   email: string | null;
+  address: string | null;
   productsSupplied: string | null;
+  notes: string | null;
   outstandingBalance: number;
   isActive: boolean;
 };
@@ -32,8 +40,12 @@ export default function SuppliersPage() {
 }
 
 function SuppliersContent() {
+  const router = useRouter();
+  const { can } = usePermissions();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [editing, setEditing] = useState<SupplierRow | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const utils = trpc.useUtils();
 
@@ -92,6 +104,33 @@ function SuppliersContent() {
       ),
       value: row => (row.isActive ? "Active" : "Inactive"),
     },
+    ...(can("suppliers.write")
+      ? [
+          {
+            key: "actions",
+            header: "",
+            align: "right" as const,
+            cell: (row: SupplierRow) => (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-1.5"
+                // The row itself opens the detail page, so the button must not
+                // let that click through as well.
+                onClick={event => {
+                  event.stopPropagation();
+                  setEditing(row);
+                  setDialogOpen(true);
+                }}
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                Edit
+              </Button>
+            ),
+            value: () => "",
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -113,6 +152,7 @@ function SuppliersContent() {
         page={page}
         onPageChange={setPage}
         rowKey={row => row.id}
+        onRowClick={row => router.push(`/suppliers/${row.id}`)}
         exportFileName="suppliers"
         fetchAllRows={() =>
           collectAllPages((page, pageSize) =>
@@ -120,6 +160,30 @@ function SuppliersContent() {
           )
         }
         emptyMessage="No suppliers recorded yet."
+        actions={
+          can("suppliers.write") ? (
+            <Button
+              className="gap-2"
+              onClick={() => {
+                setEditing(null);
+                setDialogOpen(true);
+              }}
+            >
+              <Plus className="h-4 w-4" />
+              New supplier
+            </Button>
+          ) : null
+        }
+      />
+
+      <SaveSupplierDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        editing={editing}
+        onSaved={() => {
+          toast.success(editing ? "Supplier updated." : "Supplier created.");
+          query.refetch();
+        }}
       />
     </div>
   );
