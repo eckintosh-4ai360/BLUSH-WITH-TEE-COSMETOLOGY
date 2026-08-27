@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Award, ExternalLink, Ban } from "lucide-react";
+import { Award, ExternalLink, Ban, Printer } from "lucide-react";
 import { Badge } from "@blush/ui/components/ui/badge";
 import { Button } from "@blush/ui/components/ui/button";
 import {
@@ -17,6 +17,7 @@ import { DataTable, type Column } from "@/components/DataTable";
 import { PermissionGate } from "@/components/PermissionGate";
 import { IssueCertificateDialog } from "@/components/certificates/IssueCertificateDialog";
 import { RevokeCertificateDialog } from "@/components/certificates/RevokeCertificateDialog";
+import { useDocuments } from "@/hooks/useDocuments";
 import { usePermissions } from "@/hooks/usePermissions";
 import { collectAllPages } from "@/lib/exportAll";
 import { trpc } from "@/lib/trpc";
@@ -49,6 +50,7 @@ export default function CertificatesPage() {
 
 function CertificatesContent() {
   const { can } = usePermissions();
+  const documents = useDocuments();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState("all");
@@ -112,6 +114,16 @@ function CertificatesContent() {
       align: "right",
       cell: row => (
         <span className="flex justify-end gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-1.5"
+            disabled={!documents.ready}
+            onClick={() => documents.certificate(row)}
+          >
+            <Printer className="h-3.5 w-3.5" />
+            Print
+          </Button>
           <Button variant="ghost" size="sm" className="gap-1.5" asChild>
             <a
               href={`${SITE_URL}/verify?c=${encodeURIComponent(row.verificationToken)}`}

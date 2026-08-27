@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gte, ilike, lte, or } from "drizzle-orm";
+import { and, count, desc, eq, gte, ilike, inArray, lte, or } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
@@ -33,7 +33,7 @@ import {
 } from "../services/access";
 import { recordAudit } from "../services/audit";
 import { listInputSchema, likePattern, paginate, paginationBounds } from "../services/pagination";
-import { permissionProcedure, router } from "../trpc";
+import { authedProcedure, permissionProcedure, router } from "../trpc";
 
 const ROLE_KEY_ENUM = z.enum(ROLE_KEYS as [string, ...string[]]);
 
@@ -377,6 +377,40 @@ export const platformRouter = router({
   /* ---------------------------------------------------------------------- */
   /* System settings (§60)                                                  */
   /* ---------------------------------------------------------------------- */
+
+  /**
+   * The letterhead: school identity and receipt wording.
+   *
+   * Open to any signed-in account rather than gated on `settings.read`,
+   * because everyone who prints a receipt, statement or invoice needs it and
+   * none of it is confidential — it is the address already printed on the door.
+   * Editing these still requires `settings.write`.
+   */
+  documentHeader: authedProcedure.query(async () => {
+    const db = await dbOrThrow();
+    const rows = await db
+      .select({ key: systemSettings.key, value: systemSettings.value })
+      .from(systemSettings)
+      .where(
+        inArray(systemSettings.key, [
+          "school.profile",
+          "finance.receipt",
+          "certificate.settings",
+        ]),
+      );
+
+    const byKey = new Map(rows.map(row => [row.key, row.value as Record<string, string>]));
+
+    return {
+      school: byKey.get("school.profile") ?? {},
+      receipt: byKey.get("finance.receipt") ?? {},
+      certificate: {
+        signatureName: "Principal",
+        signatureTitle: "Principal",
+        ...(byKey.get("certificate.settings") ?? {}),
+      },
+    };
+  }),
 
   settings: permissionProcedure("settings.read").query(async () => {
     const db = await dbOrThrow();

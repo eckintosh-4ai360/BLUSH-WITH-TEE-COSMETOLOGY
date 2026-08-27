@@ -37,6 +37,7 @@ import {
   STATUS_ACTION_LABEL,
   type FulfillmentStatus,
 } from "@/lib/orderStatus";
+import { useDocuments } from "@/hooks/useDocuments";
 import { usePermissions } from "@/hooks/usePermissions";
 import { trpc } from "@/lib/trpc";
 
@@ -54,6 +55,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
 function OrderDetail({ orderId }: { orderId: number }) {
   const { can } = usePermissions();
+  const documents = useDocuments();
   const [payOpen, setPayOpen] = useState(false);
   const [refundOpen, setRefundOpen] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<FulfillmentStatus | null>(null);
@@ -128,7 +130,28 @@ function OrderDetail({ orderId }: { orderId: number }) {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" className="gap-2" onClick={() => window.print()}>
+          {/* A real branded PDF, not window.print(): printing the page put the
+              dashboard chrome on the customer's invoice. */}
+          <Button
+            variant="outline"
+            className="gap-2"
+            disabled={!documents.ready}
+            onClick={() =>
+              documents.orderInvoice({
+                orderNumber: order.orderNumber,
+                customerName: order.customerName,
+                customerEmail: order.customerEmail,
+                customerPhone: order.customerPhone,
+                deliveryAddress: order.deliveryAddress,
+                createdAt: order.createdAt,
+                paymentStatus: order.paymentStatus,
+                fulfillmentStatus: order.fulfillmentStatus,
+                subtotal: order.subtotal,
+                total: order.total,
+                items: order.items,
+              })
+            }
+          >
             <Printer className="h-4 w-4" />
             Print invoice
           </Button>

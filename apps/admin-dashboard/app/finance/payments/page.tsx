@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Undo2 } from "lucide-react";
+import { Plus, Printer, Undo2 } from "lucide-react";
 import { toast } from "@blush/ui/components/ui/sonner";
 import { Badge } from "@blush/ui/components/ui/badge";
 import { Button } from "@blush/ui/components/ui/button";
@@ -18,6 +18,7 @@ import { DataTable, type Column } from "@/components/DataTable";
 import { PermissionGate } from "@/components/PermissionGate";
 import { RecordPaymentDialog } from "@/components/finance/RecordPaymentDialog";
 import { RefundPaymentDialog } from "@/components/finance/RefundPaymentDialog";
+import { useDocuments } from "@/hooks/useDocuments";
 import { usePermissions } from "@/hooks/usePermissions";
 import { collectAllPages } from "@/lib/exportAll";
 import { trpc } from "@/lib/trpc";
@@ -49,6 +50,7 @@ export default function PaymentsPage() {
 
 function PaymentsContent() {
   const { can } = usePermissions();
+  const documents = useDocuments();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [method, setMethod] = useState<string>("all");
@@ -130,31 +132,54 @@ function PaymentsContent() {
       cell: row => new Date(row.paidAt).toLocaleDateString("en-GB"),
       value: row => new Date(row.paidAt).toISOString().slice(0, 10),
     },
-    ...(can("payments.write")
-      ? [
-          {
-            key: "actions",
-            header: "",
-            align: "right" as const,
-            cell: (row: PaymentRow) =>
-              row.status === "completed" && row.refundedAmount < row.amount ? (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="gap-1.5"
-                  onClick={event => {
-                    event.stopPropagation();
-                    setRefunding(row);
-                  }}
-                >
-                  <Undo2 className="h-3.5 w-3.5" />
-                  Refund
-                </Button>
-              ) : null,
-            value: () => "",
-          },
-        ]
-      : []),
+    {
+      key: "actions",
+      header: "",
+      align: "right" as const,
+      cell: (row: PaymentRow) => (
+        <span className="flex justify-end gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-1.5"
+            disabled={!documents.ready}
+            onClick={event => {
+              event.stopPropagation();
+              documents.paymentReceipt({
+                reference: row.reference,
+                amount: row.amount,
+                refundedAmount: row.refundedAmount,
+                paymentMethod: row.paymentMethod,
+                paidAt: row.paidAt,
+                transactionReference: row.transactionReference,
+                studentName: row.studentName ?? "Student",
+                studentNumber: row.studentNumber,
+              });
+            }}
+          >
+            <Printer className="h-3.5 w-3.5" />
+            Receipt
+          </Button>
+          {can("payments.write") &&
+          row.status === "completed" &&
+          row.refundedAmount < row.amount ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-1.5"
+              onClick={event => {
+                event.stopPropagation();
+                setRefunding(row);
+              }}
+            >
+              <Undo2 className="h-3.5 w-3.5" />
+              Refund
+            </Button>
+          ) : null}
+        </span>
+      ),
+      value: () => "",
+    },
   ];
 
   return (

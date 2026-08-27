@@ -2,7 +2,7 @@
 
 import { use, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Percent, Plus, Receipt } from "lucide-react";
+import { ArrowLeft, FileText, Percent, Plus, Printer, Receipt } from "lucide-react";
 import { Badge } from "@blush/ui/components/ui/badge";
 import { Button } from "@blush/ui/components/ui/button";
 import { Card } from "@blush/ui/components/ui/card";
@@ -22,6 +22,7 @@ import { PermissionGate } from "@/components/PermissionGate";
 import { AddChargeDialog } from "@/components/finance/AddChargeDialog";
 import { AdjustAccountDialog } from "@/components/finance/AdjustAccountDialog";
 import { RecordPaymentDialog } from "@/components/finance/RecordPaymentDialog";
+import { useDocuments } from "@/hooks/useDocuments";
 import { usePermissions } from "@/hooks/usePermissions";
 import { trpc } from "@/lib/trpc";
 
@@ -51,6 +52,7 @@ function formatDate(value: Date | string | null | undefined) {
  */
 function StudentDetailContent({ studentId }: { studentId: number }) {
   const { can } = usePermissions();
+  const documents = useDocuments();
   const [chargeOpen, setChargeOpen] = useState(false);
   const [adjustOpen, setAdjustOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
@@ -125,6 +127,23 @@ function StudentDetailContent({ studentId }: { studentId: number }) {
         </div>
 
         <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            className="gap-2"
+            disabled={!documents.ready}
+            onClick={() =>
+              documents.feeStatement({
+                studentName: student.fullName,
+                studentNumber: student.studentNumber,
+                summary,
+                charges,
+                payments,
+              })
+            }
+          >
+            <FileText className="h-4 w-4" />
+            Statement
+          </Button>
           {can("fees.write") ? (
             <>
               <Button variant="outline" className="gap-2" onClick={() => setChargeOpen(true)}>
@@ -253,6 +272,7 @@ function StudentDetailContent({ studentId }: { studentId: number }) {
                     <TableHead>Paid</TableHead>
                     <TableHead>Method</TableHead>
                     <TableHead className="text-right">Amount</TableHead>
+                    <TableHead className="w-0" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -272,6 +292,29 @@ function StudentDetailContent({ studentId }: { studentId: number }) {
                             {formatMoney(payment.refundedAmount)} refunded
                           </span>
                         ) : null}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label={`Print receipt ${payment.reference}`}
+                          disabled={!documents.ready}
+                          onClick={() =>
+                            documents.paymentReceipt({
+                              reference: payment.reference,
+                              amount: payment.amount,
+                              refundedAmount: payment.refundedAmount,
+                              paymentMethod: payment.paymentMethod,
+                              paidAt: payment.paidAt,
+                              transactionReference: payment.transactionReference,
+                              note: payment.note,
+                              studentName: student.fullName,
+                              studentNumber: student.studentNumber,
+                            })
+                          }
+                        >
+                          <Printer className="h-3.5 w-3.5" />
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
