@@ -33,6 +33,7 @@ import {
   TableHeader,
   TableRow,
 } from "@blush/ui/components/ui/table";
+import { downloadCsv, downloadPdf } from "@/lib/exportTable";
 
 export type Column<T> = {
   key: string;
@@ -391,84 +392,4 @@ export function DataTable<T>({
       </div>
     </section>
   );
-}
-
-/**
- * Exports the rows currently on screen as CSV.
- *
- * Values are prefixed when they begin with a formula character, so a cell like
- * `=1+1` opens as text rather than executing in a spreadsheet.
- */
-function downloadCsv<T>(fileName: string, columns: Column<T>[], rows: T[]) {
-  const escape = (input: unknown): string => {
-    const raw = input === null || input === undefined ? "" : String(input);
-    const guarded = /^[=+\-@\t\r]/.test(raw) ? `'${raw}` : raw;
-    return `"${guarded.replace(/"/g, '""')}"`;
-  };
-
-  const header = columns.map(column => escape(column.header)).join(",");
-  const body = rows
-    .map(row =>
-      columns
-        .map(column =>
-          escape(
-            column.value
-              ? column.value(row)
-              : ((row as Record<string, unknown>)[column.key] ?? ""),
-          ),
-        )
-        .join(","),
-    )
-    .join("\n");
-
-  const blob = new Blob([`${header}\n${body}`], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `${fileName}-${new Date().toISOString().slice(0, 10)}.csv`;
-  link.click();
-  URL.revokeObjectURL(url);
-}
-
-/**
- * Exports the rows currently on screen as a landscape PDF table.
- *
- * jsPDF is loaded on demand so pages that never export one don't ship it.
- */
-async function downloadPdf<T>(
-  fileName: string,
-  title: string,
-  columns: Column<T>[],
-  rows: T[],
-) {
-  const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
-    import("jspdf"),
-    import("jspdf-autotable"),
-  ]);
-
-  const doc = new jsPDF({ orientation: columns.length > 5 ? "landscape" : "portrait" });
-  const generatedAt = new Date();
-
-  doc.setFontSize(14);
-  doc.setTextColor(40, 35, 48);
-  doc.text(title, 14, 16);
-  doc.setFontSize(9);
-  doc.setTextColor(130, 122, 138);
-  doc.text(`Exported ${generatedAt.toLocaleString("en-GB")} · ${rows.length} row${rows.length === 1 ? "" : "s"}`, 14, 22);
-
-  autoTable(doc, {
-    startY: 27,
-    head: [columns.map(column => column.header)],
-    body: rows.map(row =>
-      columns.map(column => {
-        const raw = column.value ? column.value(row) : (row as Record<string, unknown>)[column.key];
-        return raw === null || raw === undefined ? "" : String(raw);
-      }),
-    ),
-    styles: { fontSize: 8, cellPadding: 3, textColor: [70, 62, 78] },
-    headStyles: { fillColor: [95, 82, 119], textColor: 255 },
-    alternateRowStyles: { fillColor: [247, 244, 249] },
-  });
-
-  doc.save(`${fileName}-${generatedAt.toISOString().slice(0, 10)}.pdf`);
 }
