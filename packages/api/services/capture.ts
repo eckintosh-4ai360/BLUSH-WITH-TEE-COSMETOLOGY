@@ -16,6 +16,7 @@ import { assertVerificationMatches, getGateway } from "./gateway";
 import { toAmountString, toMinor } from "./money";
 import { notify } from "./notify";
 import { announce } from "./messaging/announce";
+import { flushInBackground } from "./messaging/dispatch";
 import { recordRevenue } from "./revenue";
 import { applyStockMovement } from "./stock";
 
@@ -76,7 +77,7 @@ export async function captureVerifiedPayment(
     currency: intent.currency,
   });
 
-  return db.transaction(async tx => {
+  const captured = await db.transaction(async tx => {
     // Lock the intent so two concurrent callbacks serialise here.
     const [locked] = await tx
       .select()
@@ -207,6 +208,10 @@ export async function captureVerifiedPayment(
       amount: amountMinor / 100,
     };
   });
+
+  // After the commit: a receipt must describe money that is actually banked.
+  flushInBackground(db);
+  return captured;
 }
 
 /** Order-side effects of a captured payment: revenue, stock, status. */

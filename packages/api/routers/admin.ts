@@ -197,7 +197,7 @@ export const adminNamespaceRouter = router({
         throw new TRPCError({ code: "NOT_FOUND", message: "That programme is unavailable." });
       }
 
-      return db.transaction(async tx => {
+      const recorded = await db.transaction(async tx => {
         // Same dedup as the public form, so an applicant already known to the
         // school does not become a second person record (§34).
         await resolvePerson(tx, {
@@ -270,6 +270,9 @@ export const adminNamespaceRouter = router({
 
         return { id: created?.id, reference, courseTitle: course.title };
       });
+
+      flushInBackground(db);
+      return recorded;
     }),
 
   endorseApplication: permissionProcedure("admissions.review")

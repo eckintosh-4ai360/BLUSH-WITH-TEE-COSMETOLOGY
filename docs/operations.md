@@ -73,6 +73,34 @@ password (hashed with scrypt) and grants the role in one step.
 | `CLOUDINARY_CLOUD_NAME` / `API_KEY` / `API_SECRET` | Assets stored as authenticated resources |
 | `CLOUDINARY_FOLDER` | Defaults to `blush-with-tee` |
 
+### Messaging
+Email and SMS are configured from **Settings → Messaging** in the dashboard, and
+what is typed there is stored in the database. These variables are for
+deployments that would rather not keep credentials in the database: any one of
+them overrides the saved value, and the settings page then shows that field as
+read-only.
+
+| Variable | Notes |
+|---|---|
+| `MNOTIFY_API_KEY` / `MNOTIFY_SENDER_ID` | mNotify credentials. The sender ID must be approved by mNotify |
+| `MNOTIFY_BASE_URL` | Defaults to `https://api.mnotify.com/api/sms/quick` |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASSWORD` / `SMTP_FROM` | Gmail wants an app password, not the account password |
+| `MESSAGING_CRON_SECRET` | Guards `/api/messaging/flush`. Without it that route refuses everything |
+
+Messages are queued in the same transaction as the event that caused them and
+sent immediately afterwards. Anything that fails is retried up to three times.
+Point a scheduler at `/api/messaging/flush` every five or ten minutes, sending
+the secret as a bearer token, so a message that was queued while the provider
+was down still goes out:
+
+```bash
+curl -H "Authorization: Bearer $MESSAGING_CRON_SECRET" https://your-dashboard/api/messaging/flush
+```
+
+Nothing is sent to anybody until **Automatic messages** is switched on in
+Settings, whatever else is configured. Every attempt, successful or not, is
+listed under **Recent messages** with the reason it did not go.
+
 ### Site
 | Variable | Notes |
 |---|---|
