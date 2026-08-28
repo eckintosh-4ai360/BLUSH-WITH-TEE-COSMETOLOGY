@@ -1,9 +1,10 @@
-import { and, desc, eq, gte, isNotNull, lt, ne, sql } from "drizzle-orm";
+import { and, desc, eq, gte, lt, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { dailyClosings, expenses, payments, users } from "@blush/db/schema";
 import { dbOrThrow } from "../dbOrThrow";
 import { recordAudit } from "../services/audit";
+import { dayBounds, isFutureDay, isoDay, toDayKey } from "../services/closing";
 import { money, toAmountString, toMinor } from "../services/money";
 import { permissionProcedure, router } from "../trpc";
 
@@ -23,32 +24,6 @@ import { permissionProcedure, router } from "../trpc";
  * So `totalSales` is the day's takings and `expectedCash` is what should be in
  * the till: cash in, less the cash paid out of it.
  */
-
-/**
- * Day boundaries.
- *
- * Ghana keeps UTC year-round with no daylight saving, so a UTC day and a local
- * trading day are the same window. That is what makes plain UTC bounds correct
- * here rather than merely convenient; a school in another zone would need the
- * offset applied.
- */
-function dayBounds(date: Date): { start: Date; end: Date } {
-  const start = new Date(
-    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 0, 0, 0, 0),
-  );
-  const end = new Date(start);
-  end.setUTCDate(end.getUTCDate() + 1);
-  return { start, end };
-}
-
-/** Midnight UTC, for the `date` column and for comparing days. */
-function toDayKey(date: Date): Date {
-  return dayBounds(date).start;
-}
-
-function isoDay(date: Date): string {
-  return toDayKey(date).toISOString().slice(0, 10);
-}
 
 export type DaySummary = Awaited<ReturnType<typeof summariseDay>>;
 
@@ -218,7 +193,7 @@ export const closingRouter = router({
             snapshot.expectedCash !== live.expectedCash
           : false,
         /** Tomorrow cannot be closed; today can, once trading has finished. */
-        isFuture: toDayKey(input.date).getTime() > toDayKey(new Date()).getTime(),
+        isFuture: isFutureDay(input.date),
       };
     }),
 
@@ -242,7 +217,7 @@ export const closingRouter = router({
       const db = await dbOrThrow();
       const dayKey = toDayKey(input.date);
 
-      if (dayKey.getTime() > toDayKey(new Date()).getTime()) {
+      if (isFutureDay(input.date)) {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "A day cannot be closed before it has happened.",
