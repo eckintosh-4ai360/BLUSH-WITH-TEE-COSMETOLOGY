@@ -450,28 +450,36 @@ export const platformRouter = router({
         .from(systemSettings)
         .where(eq(systemSettings.key, input.key))
         .limit(1);
-      if (!before) throw new TRPCError({ code: "NOT_FOUND", message: "Unknown setting." });
 
-      // Refused rather than hidden: this is the path that would overwrite a
-      // live credential with the mask the settings page was shown.
-      if (before.category === "messaging") {
+      if (before && before.category === "messaging") {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "Messaging settings are edited from the Messaging panel.",
         });
       }
 
-      await db
-        .update(systemSettings)
-        .set({ value: input.value as never, updatedByUserId: ctx.user.id })
-        .where(eq(systemSettings.key, input.key));
+      if (before) {
+        await db
+          .update(systemSettings)
+          .set({ value: input.value as never, updatedByUserId: ctx.user.id })
+          .where(eq(systemSettings.key, input.key));
+      } else {
+        const category = input.key.split(".")[0] || "school";
+        await db.insert(systemSettings).values({
+          key: input.key,
+          category,
+          value: input.value as never,
+          description: "Configurable system setting",
+          updatedByUserId: ctx.user.id,
+        });
+      }
 
       await recordAudit(db, ctx.actor, {
         action: "update_setting",
         entity: "systemSetting",
-        entityId: before.id,
+        entityId: before?.id ?? 0,
         entityLabel: input.key,
-        oldValue: before.value,
+        oldValue: before?.value ?? null,
         newValue: input.value,
         summary: `${ctx.actor.name ?? "Staff"} changed the ${input.key} setting`,
       });

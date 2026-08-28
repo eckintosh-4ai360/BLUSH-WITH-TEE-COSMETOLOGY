@@ -21,7 +21,9 @@ import {
   MapPin,
   Phone,
   Printer,
+  ScrollText,
   Search,
+  ExternalLink,
   ShieldCheck,
   Sparkles,
   User,
@@ -91,6 +93,7 @@ function ApplyFormContent() {
   const initialCourseId = searchParams.get("courseId") || "";
 
   const { data: courses = [], isLoading: loadingCourses } = trpc.content.courses.useQuery();
+  const { data: termsData } = trpc.content.terms.useQuery();
   const submit = trpc.admissions.submit.useMutation();
   const upload = trpc.admissions.uploadDocument.useMutation();
 
@@ -375,19 +378,61 @@ function ApplyFormContent() {
               </div>
             </div>
 
-            {/* School Policies Summary */}
-            <div className="rounded-3xl border border-[#8f0d6b]/15 bg-white/90 p-6 shadow-sm">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-[#8f0d6b] flex items-center gap-2">
-                <ShieldCheck className="h-4 w-4 text-[#fe00b6]" />
-                Key School Rules
-              </h3>
-              <div className="mt-3 space-y-2 text-xs text-[#692156]">
-                <p><b>1. Dress Code:</b> Prescribed school T-shirt/Lacoste (Tue–Thu), Mufti on Friday. Flat shoes/Crocs/sandals only (no high heels or talking shoes).</p>
-                <p><b>2. Modeling:</b> Students model for each other during practical studio sessions.</p>
-                <p><b>3. Practical Wear:</b> Protective overalls/aprons are compulsory in practicals.</p>
-                <p><b>4. Graduation:</b> Complete all project works and full fee settlement to receive official certificates.</p>
-                <p className="font-bold text-[#e01a4f] pt-1">
-                  ⚠️ FEES PAID ARE STRICTLY NON-REFUNDABLE.
+            {/* School Policies / Terms & Conditions Governing the School */}
+            <div className="rounded-3xl border border-[#8f0d6b]/20 bg-gradient-to-br from-white via-[#fdf2fa]/40 to-white p-6 shadow-sm">
+              <div className="flex items-center justify-between gap-2 border-b border-[#8f0d6b]/15 pb-3">
+                <div className="flex items-center gap-2 text-[#8f0d6b]">
+                  <ScrollText className="h-5 w-5 text-[#fe00b6]" />
+                  <div>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-[#8f0d6b]">
+                      Terms &amp; Conditions
+                    </h3>
+                    <p className="text-[10px] text-[#692156]">Governing the School</p>
+                  </div>
+                </div>
+                <Link
+                  href="/terms"
+                  target="_blank"
+                  className="inline-flex items-center gap-1 rounded-full bg-[#faeaf6] px-2.5 py-1 text-[10px] font-bold text-[#8f0d6b] hover:bg-[#8f0d6b] hover:text-white transition-colors"
+                >
+                  Policy Page <ExternalLink className="h-3 w-3" />
+                </Link>
+              </div>
+
+              {/* Terms list */}
+              <div className="mt-4 max-h-[380px] overflow-y-auto space-y-3 pr-1 text-xs text-[#521340]">
+                {termsData?.sections?.map((section, idx) => (
+                  <div
+                    key={idx}
+                    className="rounded-xl border border-[#8f0d6b]/10 bg-white/80 p-3 shadow-[0_2px_8px_rgba(143,13,107,0.03)]"
+                  >
+                    <p className="font-bold text-[#8f0d6b] flex items-center gap-1.5">
+                      <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#8f0d6b] text-[9px] font-bold text-white">
+                        {idx + 1}
+                      </span>
+                      <span>{section.title}</span>
+                    </p>
+                    <p className="mt-1 text-[11px] leading-relaxed text-[#521340]">
+                      {section.body}
+                    </p>
+                  </div>
+                )) ?? (
+                  <>
+                    <p><b>1. Discipline &amp; Personal Hygiene:</b> High standards of cleanliness and professional grooming are strictly required.</p>
+                    <p><b>2. Student Modeling:</b> Students are expected to model for each other during practical sessions.</p>
+                    <p><b>3. Prescribed Uniform:</b> School T-shirt &amp; Lacoste (Tue–Thu), Mufti on Friday. Flat shoes/Crocs/sandals only.</p>
+                    <p><b>4. Class Attendance:</b> Reporting time is 8:00 AM sharp.</p>
+                    <p><b>5. Protective Gear:</b> Aprons and protective wear are mandatory in practicals.</p>
+                    <p><b>6. School Property:</b> Damages to tools or school properties are payable.</p>
+                    <p><b>7. Graduation:</b> Final project works and full fee clearance are required for graduation.</p>
+                  </>
+                )}
+              </div>
+
+              {/* Bottom Notice */}
+              <div className="mt-4 rounded-xl border border-[#e01a4f]/30 bg-rose-50/80 p-3 text-center">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-[#e01a4f]">
+                  ⚠️ {termsData?.footer || "FEES PAID IS STRICTLY NON REFUNDABLE"}
                 </p>
               </div>
             </div>
@@ -850,19 +895,36 @@ function ApplyFormContent() {
                     6. Declaration & Agreement
                   </h3>
 
-                  <div className="max-h-48 overflow-y-auto rounded-2xl border border-[#8f0d6b]/20 bg-[#faeaf6]/40 p-4 text-xs leading-relaxed text-[#692156] space-y-2">
-                    <p className="font-bold text-[#8f0d6b]">
-                      TERMS & CONDITIONS GOVERNING BLUSH WITH TEE BEAUTY SCHOOL:
-                    </p>
-                    <p><b>1. Discipline & Personal Hygiene:</b> High standards of cleanliness and professional grooming are strictly required.</p>
-                    <p><b>2. Student Modeling:</b> Students are required to model for each other during practical sessions.</p>
-                    <p><b>3. Prescribed Uniform:</b> School T-shirt and Lacoste (Tue–Thu), Mufti on Friday. Loafers/flats/Crocs/sandals only (no high heels or talking shoes). No excess jewelry.</p>
-                    <p><b>4. Attendance:</b> Punctuality is strictly enforced; reporting time is 8:00 AM.</p>
-                    <p><b>5. Protective Gear:</b> Aprons, therapy shoes, and protective clothes are mandatory in practicals.</p>
-                    <p><b>6. School Property:</b> Students handle tools and equipment responsibly; damages are payable.</p>
-                    <p><b>7. Graduation:</b> Final project works and full fee settlement are mandatory for certificate award.</p>
-                    <p className="font-bold text-[#e01a4f]">
-                      8. NON-REFUNDABLE POLICY: ALL FEES PAID ARE STRICTLY NON-REFUNDABLE.
+                  <div className="max-h-52 overflow-y-auto rounded-2xl border border-[#8f0d6b]/20 bg-[#faeaf6]/40 p-4 text-xs leading-relaxed text-[#692156] space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <p className="font-bold text-[#8f0d6b] uppercase tracking-wider">
+                        TERMS &amp; CONDITIONS GOVERNING BLUSH WITH TEE:
+                      </p>
+                      <Link
+                        href="/terms"
+                        target="_blank"
+                        className="text-[10px] font-bold text-[#fe00b6] hover:underline inline-flex items-center gap-0.5"
+                      >
+                        Read Full Policy <ExternalLink className="h-2.5 w-2.5" />
+                      </Link>
+                    </div>
+                    {termsData?.sections?.map((section, idx) => (
+                      <p key={idx}>
+                        <b>{idx + 1}. {section.title}:</b> {section.body}
+                      </p>
+                    )) ?? (
+                      <>
+                        <p><b>1. Discipline &amp; Personal Hygiene:</b> High standards of cleanliness and professional grooming are strictly required.</p>
+                        <p><b>2. Student Modeling:</b> Students are required to model for each other during practical sessions.</p>
+                        <p><b>3. Prescribed Uniform:</b> School T-shirt and Lacoste (Tue–Thu), Mufti on Friday. Flat shoes/Crocs/sandals only.</p>
+                        <p><b>4. Attendance:</b> Punctuality is strictly enforced; reporting time is 8:00 AM.</p>
+                        <p><b>5. Protective Gear:</b> Aprons, therapy shoes, and protective clothes are mandatory in practicals.</p>
+                        <p><b>6. School Property:</b> Students handle tools and equipment responsibly; damages are payable.</p>
+                        <p><b>7. Graduation:</b> Final project works and full fee settlement are mandatory for certificate award.</p>
+                      </>
+                    )}
+                    <p className="font-bold text-[#e01a4f] pt-1">
+                      ⚠️ {termsData?.footer || "FEES PAID IS STRICTLY NON REFUNDABLE"}
                     </p>
                   </div>
 
@@ -875,7 +937,10 @@ function ApplyFormContent() {
                       className="mt-1 h-4 w-4 rounded border-[#8f0d6b]/30 text-[#fe00b6] focus:ring-[#fe00b6]"
                     />
                     <span className="text-xs text-[#692156] leading-relaxed">
-                      I have read, understood, and agreed to all the rules, terms, policies, and regulations governing Blush With Tee Beauty School.
+                      I have read, understood, and agreed to all the rules, terms, policies, and regulations governing Blush With Tee Beauty School as stated in the{" "}
+                      <Link href="/terms" target="_blank" className="font-bold text-[#8f0d6b] underline hover:text-[#fe00b6]">
+                        Terms &amp; Conditions
+                      </Link>.
                     </span>
                   </label>
 

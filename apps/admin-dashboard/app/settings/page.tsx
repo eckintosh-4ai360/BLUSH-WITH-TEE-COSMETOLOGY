@@ -11,6 +11,7 @@ import { Switch } from "@blush/ui/components/ui/switch";
 import DashboardLayout from "@/components/DashboardLayout";
 import { PermissionGate } from "@/components/PermissionGate";
 import { MessagingSettings } from "@/components/settings/MessagingSettings";
+import { TermsSettings } from "@/components/settings/TermsSettings";
 import { usePermissions } from "@/hooks/usePermissions";
 import { trpc } from "@/lib/trpc";
 
@@ -57,6 +58,19 @@ function SettingsContent() {
         </p>
       </header>
 
+      {/* School Terms & Conditions Editor */}
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-sm font-semibold tracking-tight text-foreground">
+            School Policies &amp; Terms
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            The rules and governing policies published on the public site and admission portal.
+          </p>
+        </div>
+        <TermsSettings readOnly={!can("settings.write")} />
+      </section>
+
       <section className="space-y-3">
         <div>
           <h2 className="text-sm font-semibold tracking-tight text-foreground">
@@ -80,31 +94,36 @@ function SettingsContent() {
           No settings have been initialised yet.
         </p>
       ) : (
-        query.data.map(group => (
-          <section key={group.category} className="space-y-3">
-            <div>
-              <h2 className="text-sm font-semibold tracking-tight text-foreground">
-                {CATEGORY_LABELS[group.category]?.title ?? group.category}
-              </h2>
-              <p className="text-xs text-muted-foreground">
-                {CATEGORY_LABELS[group.category]?.description ?? ""}
-              </p>
-            </div>
+        query.data.map(group => {
+          const visibleEntries = group.entries.filter(e => e.key !== "school.terms");
+          if (!visibleEntries.length) return null;
 
-            <div className="space-y-3">
-              {group.entries.map(entry => (
-                <SettingCard
-                  key={entry.key}
-                  settingKey={entry.key}
-                  description={entry.description}
-                  value={entry.value}
-                  readOnly={!can("settings.write")}
-                  onSaved={() => query.refetch()}
-                />
-              ))}
-            </div>
-          </section>
-        ))
+          return (
+            <section key={group.category} className="space-y-3">
+              <div>
+                <h2 className="text-sm font-semibold tracking-tight text-foreground">
+                  {CATEGORY_LABELS[group.category]?.title ?? group.category}
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  {CATEGORY_LABELS[group.category]?.description ?? ""}
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                {visibleEntries.map(entry => (
+                  <SettingCard
+                    key={entry.key}
+                    settingKey={entry.key}
+                    description={entry.description}
+                    value={entry.value}
+                    readOnly={!can("settings.write")}
+                    onSaved={() => query.refetch()}
+                  />
+                ))}
+              </div>
+            </section>
+          );
+        })
       )}
     </div>
   );

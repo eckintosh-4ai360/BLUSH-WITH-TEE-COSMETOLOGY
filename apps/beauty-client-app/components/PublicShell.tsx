@@ -171,6 +171,7 @@ export default function PublicShell({ children }: { children: React.ReactNode })
               <Link href="/programs" className="hover:text-[#fe00b6] transition-colors">Courses & Pathways</Link>
               <Link href="/apply" className="hover:text-[#fe00b6] transition-colors">Admissions Portal</Link>
               <Link href="/gallery" className="hover:text-[#fe00b6] transition-colors">Studio Showcase</Link>
+              <Link href="/terms" className="hover:text-[#fe00b6] transition-colors font-semibold">Terms & Conditions</Link>
             </div>
           </div>
 
@@ -204,15 +205,20 @@ export default function PublicShell({ children }: { children: React.ReactNode })
         </div>
 
         <div className="border-t border-[#8f0d6b]/10 bg-white/60 py-6">
-          <div className="container flex flex-col items-center justify-between gap-4 text-xs text-[#8f0d6b]/80 sm:flex-row">
+          <div className="container flex flex-col items-center justify-between gap-3 text-xs text-[#8f0d6b]/80 sm:flex-row">
             <p>© {new Date().getFullYear()} Blush With Tee (BWT) School of Cosmetology. All rights reserved.</p>
-            <p className="flex items-center gap-1 font-medium">
-              Empowering beauty artists with <span className="text-[#fe00b6]">♥</span> passion & craft
-            </p>
+            <div className="flex items-center gap-4">
+              <Link href="/terms" className="underline underline-offset-2 hover:text-[#fe00b6] transition-colors font-semibold">
+                Terms & Conditions
+              </Link>
+              <span className="text-[#8f0d6b]/30">·</span>
+              <p className="flex items-center gap-1 font-medium">
+                Empowering beauty artists with <span className="text-[#fe00b6]">♥</span> passion & craft
+              </p>
+            </div>
           </div>
         </div>
       </footer>
     </div>
   );
 }
-

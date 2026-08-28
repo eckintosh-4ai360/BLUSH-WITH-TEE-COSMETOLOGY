@@ -36,6 +36,9 @@ export const PERMISSIONS = {
   "expenses.read": "View expenses",
   "expenses.write": "Record expenses",
   "expenses.approve": "Approve or reject expenses",
+  "closing.read": "View the daily closing register",
+  "closing.write": "Close the register at the end of the day",
+  "closing.reopen": "Unlock a day that has already been closed",
 
   // Inventory and procurement
   "inventory.read": "View stock levels and movements",
@@ -156,6 +159,8 @@ export const ROLE_DEFINITIONS: Record<
       "expenses.read",
       "expenses.write",
       "expenses.approve",
+      "closing.read",
+      "closing.write",
       "students.read",
       "orders.read",
       "reports.read",

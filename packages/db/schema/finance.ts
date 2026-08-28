@@ -342,6 +342,72 @@ export const expenses = pgTable(
   ],
 );
 
+/**
+ * One row per day the register was closed.
+ *
+ * The figures are a snapshot, not a view. Closing a day is the act of saying
+ * "this is what the day was", and that statement has to keep meaning the same
+ * thing afterwards - a payment backdated into a closed day must not silently
+ * rewrite a count somebody signed off on. The live figures are still there to
+ * be recomputed and compared against; this is the record of what was agreed.
+ *
+ * Money is split by channel because only cash is in the drawer. MoMo and card
+ * takings never touch the till, so the till is reconciled against
+ * `expectedCash` (cash in, less cash paid out) rather than against the day's
+ * total takings.
+ */
+export const dailyClosings = pgTable(
+  "dailyClosings",
+  {
+    id: serial("id").primaryKey(),
+    /** Unique: a day is closed once, or reopened and closed again in place. */
+    closingDate: date("closingDate", { mode: "date" }).notNull().unique(),
+    customersServed: integer("customersServed").default(0).notNull(),
+
+    cashSales: numeric("cashSales", { precision: 12, scale: 2 }).default("0.00").notNull(),
+    momoSales: numeric("momoSales", { precision: 12, scale: 2 }).default("0.00").notNull(),
+    cardSales: numeric("cardSales", { precision: 12, scale: 2 }).default("0.00").notNull(),
+    bankSales: numeric("bankSales", { precision: 12, scale: 2 }).default("0.00").notNull(),
+    onlineSales: numeric("onlineSales", { precision: 12, scale: 2 }).default("0.00").notNull(),
+    totalSales: numeric("totalSales", { precision: 12, scale: 2 }).default("0.00").notNull(),
+
+    /** Everything spent on the day, however it was paid. */
+    totalExpenses: numeric("totalExpenses", { precision: 12, scale: 2 }).default("0.00").notNull(),
+    /** The part of that taken out of the drawer, which the till count must account for. */
+    cashExpenses: numeric("cashExpenses", { precision: 12, scale: 2 }).default("0.00").notNull(),
+
+    /** cashSales - cashExpenses: what should physically be there. */
+    expectedCash: numeric("expectedCash", { precision: 12, scale: 2 }).default("0.00").notNull(),
+    countedCash: numeric("countedCash", { precision: 12, scale: 2 }).default("0.00").notNull(),
+    /** countedCash - expectedCash. Negative is short, positive is over. */
+    discrepancy: numeric("discrepancy", { precision: 12, scale: 2 }).default("0.00").notNull(),
+
+    notes: text("notes"),
+    closedByUserId: integer("closedByUserId").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    closedAt: timestamp("closedAt").defaultNow().notNull(),
+    /** Set while a day has been unlocked for correction; cleared on re-close. */
+    reopenedAt: timestamp("reopenedAt"),
+    reopenedByUserId: integer("reopenedByUserId").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    reopenReason: text("reopenReason"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt")
+      .defaultNow()
+      .notNull()
+      .$onUpdate(() => new Date()),
+  },
+  table => [index("daily_closings_date_idx").on(table.closingDate)],
+);
+
+export const dailyClosingsRelations = relations(dailyClosings, ({ one }) => ({
+  closedBy: one(users, { fields: [dailyClosings.closedByUserId], references: [users.id] }),
+}));
+
+export type DailyClosing = typeof dailyClosings.$inferSelect;
+
 export const feeChargesRelations = relations(feeCharges, ({ one, many }) => ({
   student: one(studentProfiles, {
     fields: [feeCharges.studentId],
