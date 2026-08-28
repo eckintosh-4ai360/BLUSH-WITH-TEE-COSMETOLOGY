@@ -317,9 +317,16 @@ function AcademicsContent() {
                 >
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between gap-2">
-                      <Badge variant="outline" className="font-mono text-xs font-bold uppercase text-primary border-primary/20 bg-primary/5">
-                        {course.code}
-                      </Badge>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <Badge variant="outline" className="font-mono text-xs font-bold uppercase text-primary border-primary/20 bg-primary/5">
+                          {course.code}
+                        </Badge>
+                        {course.category ? (
+                          <Badge variant="secondary" className="text-[10px] uppercase tracking-wider font-semibold">
+                            {course.category}
+                          </Badge>
+                        ) : null}
+                      </div>
                       <div className="flex items-center gap-1.5">
                         {course.isFeatured ? (
                           <Badge className="bg-amber-500/15 text-amber-800 dark:text-amber-300 text-[10px] gap-1">
@@ -349,7 +356,7 @@ function AcademicsContent() {
                   <CardContent className="space-y-3 pt-0">
                     <div className="grid grid-cols-2 gap-2 rounded-xl bg-muted/40 p-3 text-xs">
                       <div>
-                        <span className="text-muted-foreground block text-[11px]">Tuition</span>
+                        <span className="text-muted-foreground block text-[11px]">Tuition Fee</span>
                         <span className="font-semibold text-foreground">
                           {formatMoney(course.tuition)}
                         </span>
@@ -363,6 +370,13 @@ function AcademicsContent() {
                       </div>
                     </div>
 
+                    {course.productFee ? (
+                      <div className="rounded-lg bg-amber-500/10 px-3 py-1.5 text-xs text-amber-900 dark:text-amber-200 flex items-center justify-between">
+                        <span>Tools / Product Fee:</span>
+                        <span className="font-bold">{formatMoney(course.productFee)}</span>
+                      </div>
+                    ) : null}
+
                     {course.schedule ? (
                       <p className="text-xs text-muted-foreground flex items-center gap-1.5 truncate">
                         <Calendar className="h-3.5 w-3.5 shrink-0 text-primary/70" />
@@ -374,6 +388,12 @@ function AcademicsContent() {
                       <p className="text-xs text-muted-foreground flex items-center gap-1.5 truncate">
                         <Award className="h-3.5 w-3.5 shrink-0 text-primary/70" />
                         <span className="truncate">{course.certification}</span>
+                      </p>
+                    ) : null}
+
+                    {course.toiletries ? (
+                      <p className="text-[11px] text-muted-foreground bg-muted/30 rounded-md p-2 line-clamp-2">
+                        <b className="text-foreground/80">Toiletries:</b> {course.toiletries}
                       </p>
                     ) : null}
 

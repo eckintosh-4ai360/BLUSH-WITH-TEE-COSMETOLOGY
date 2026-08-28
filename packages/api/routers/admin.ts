@@ -159,10 +159,26 @@ export const adminNamespaceRouter = router({
         whatsapp: z.string().trim().max(40).optional(),
         courseId: z.number().int().positive(),
         birthDate: z.coerce.date().optional(),
+        hometown: z.string().trim().max(160).optional(),
+        age: z.number().int().min(10).max(120).optional(),
         gender: z.string().trim().max(32).optional(),
+        maritalStatus: z.string().trim().max(32).optional(),
         address: z.string().trim().max(1500).optional(),
         emergencyContact: z.string().trim().max(180).optional(),
+        emergencyRelationship: z.string().trim().max(80).optional(),
+        instagram: z.string().trim().max(120).optional(),
+        tiktok: z.string().trim().max(120).optional(),
+        otherSocialMedia: z.string().trim().max(160).optional(),
+        educationalLevel: z.string().trim().max(120).optional(),
         education: z.string().trim().max(1800).optional(),
+        paymentPlan: z.string().trim().max(80).optional(),
+        duration: z.string().trim().max(80).optional(),
+        startDate: z.coerce.date().optional(),
+        guardianName: z.string().trim().max(160).optional(),
+        guardianAddress: z.string().trim().max(1500).optional(),
+        guardianPhone: z.string().trim().max(40).optional(),
+        signatureData: z.string().trim().max(500).optional(),
+        agreedToTerms: z.boolean().default(true),
         statement: z.string().trim().max(3000).optional(),
       }),
     )
@@ -171,7 +187,7 @@ export const adminNamespaceRouter = router({
       const email = input.email.toLowerCase();
 
       const [course] = await db
-        .select({ id: courses.id, title: courses.title })
+        .select({ id: courses.id, title: courses.title, durationWeeks: courses.durationWeeks })
         .from(courses)
         .where(and(eq(courses.id, input.courseId), eq(courses.isActive, true)))
         .limit(1);
@@ -204,11 +220,27 @@ export const adminNamespaceRouter = router({
             phone: input.phone,
             whatsapp: input.whatsapp,
             birthDate: input.birthDate,
+            hometown: input.hometown,
+            age: input.age,
             gender: input.gender,
+            maritalStatus: input.maritalStatus,
             address: input.address,
             emergencyContact: input.emergencyContact,
+            emergencyRelationship: input.emergencyRelationship,
+            instagram: input.instagram,
+            tiktok: input.tiktok,
+            otherSocialMedia: input.otherSocialMedia,
+            educationalLevel: input.educationalLevel,
             education: input.education,
             courseId: input.courseId,
+            paymentPlan: input.paymentPlan,
+            duration: input.duration || `${course.durationWeeks} weeks`,
+            startDate: input.startDate,
+            guardianName: input.guardianName,
+            guardianAddress: input.guardianAddress,
+            guardianPhone: input.guardianPhone,
+            signatureData: input.signatureData,
+            agreedToTerms: input.agreedToTerms,
             statement: input.statement,
             status: "submitted",
             submittedAt: new Date(),
@@ -226,6 +258,43 @@ export const adminNamespaceRouter = router({
 
         return { id: created?.id, reference, courseTitle: course.title };
       });
+    }),
+
+  endorseApplication: permissionProcedure("admissions.review")
+    .input(
+      z.object({
+        applicationId: z.number().int().positive(),
+        signature: z.string().trim().min(2).max(160),
+        endorsed: z.boolean().default(true),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+      const [app] = await db
+        .select()
+        .from(applications)
+        .where(eq(applications.id, input.applicationId))
+        .limit(1);
+      if (!app) throw new TRPCError({ code: "NOT_FOUND", message: "Application not found." });
+
+      await db
+        .update(applications)
+        .set({
+          ceoEndorsed: input.endorsed,
+          ceoEndorsementSignature: input.signature,
+          ceoEndorsementDate: new Date(),
+        })
+        .where(eq(applications.id, input.applicationId));
+
+      await recordAudit(db, ctx.actor, {
+        action: "endorse",
+        entity: "application",
+        entityId: app.id,
+        entityLabel: app.reference,
+        summary: `${ctx.actor.name ?? "CEO"} endorsed application ${app.reference} (${app.fullName})`,
+      });
+
+      return { success: true };
     }),
 
   reviewApplication: adminProcedure.input(z.object({ applicationId: z.number().int().positive(), status: z.enum(["under_review", "more_information", "approved", "rejected"]), decisionNote: z.string().max(2000).optional() })).mutation(async ({ input, ctx }) => {
@@ -350,6 +419,7 @@ export const adminNamespaceRouter = router({
         .object({
           search: z.string().max(200).optional(),
           status: z.enum(["all", "active", "inactive"]).optional(),
+          category: z.string().max(64).optional(),
         })
         .optional()
     )
@@ -358,6 +428,7 @@ export const adminNamespaceRouter = router({
       const conditions: SQL[] = [sql`${courses.deletedAt} is null`];
       if (input?.status === "active") conditions.push(eq(courses.isActive, true));
       if (input?.status === "inactive") conditions.push(eq(courses.isActive, false));
+      if (input?.category && input.category !== "all") conditions.push(eq(courses.category, input.category));
       if (input?.search && input.search.trim()) {
         const pattern = `%${input.search.trim()}%`;
         conditions.push(
@@ -376,13 +447,16 @@ export const adminNamespaceRouter = router({
           code: courses.code,
           slug: courses.slug,
           title: courses.title,
+          category: courses.category,
           summary: courses.summary,
           description: courses.description,
           durationWeeks: courses.durationWeeks,
           tuition: courses.tuition,
+          productFee: courses.productFee,
           schedule: courses.schedule,
           certification: courses.certification,
           requirements: courses.requirements,
+          toiletries: courses.toiletries,
           imageKey: courses.imageKey,
           isFeatured: courses.isFeatured,
           isActive: courses.isActive,
@@ -402,6 +476,7 @@ export const adminNamespaceRouter = router({
       return rows.map(row => ({
         ...row,
         tuition: money(row.tuition),
+        productFee: row.productFee ? money(row.productFee) : null,
         activeEnrollments: Number(row.activeEnrollments ?? 0),
       }));
     }),
@@ -411,13 +486,16 @@ export const adminNamespaceRouter = router({
       z.object({
         code: z.string().trim().min(2).max(32),
         title: z.string().trim().min(2).max(160),
+        category: z.string().trim().max(64).optional(),
         summary: z.string().trim().min(2).max(1000),
         description: z.string().trim().min(2).max(5000),
         durationWeeks: z.number().int().min(1).max(200),
         tuition: z.number().min(0).max(1_000_000),
+        productFee: z.number().min(0).max(1_000_000).optional(),
         schedule: z.string().trim().max(160).optional(),
         certification: z.string().trim().max(160).optional(),
         requirements: z.string().trim().max(2000).optional(),
+        toiletries: z.string().trim().max(2000).optional(),
         isFeatured: z.boolean().default(false),
         isActive: z.boolean().default(true),
         slug: z.string().trim().max(180).optional(),
@@ -448,13 +526,16 @@ export const adminNamespaceRouter = router({
             code,
             slug,
             title: input.title.trim(),
+            category: input.category?.trim() || "Full Cosmetology",
             summary: input.summary.trim(),
             description: input.description.trim(),
             durationWeeks: input.durationWeeks,
             tuition: input.tuition.toFixed(2),
+            productFee: input.productFee ? input.productFee.toFixed(2) : null,
             schedule: input.schedule?.trim() || null,
             certification: input.certification?.trim() || null,
             requirements: input.requirements?.trim() || null,
+            toiletries: input.toiletries?.trim() || null,
             isFeatured: input.isFeatured,
             isActive: input.isActive,
           })
@@ -486,13 +567,16 @@ export const adminNamespaceRouter = router({
         id: z.number().int().positive(),
         code: z.string().trim().min(2).max(32),
         title: z.string().trim().min(2).max(160),
+        category: z.string().trim().max(64).optional(),
         summary: z.string().trim().min(2).max(1000),
         description: z.string().trim().min(2).max(5000),
         durationWeeks: z.number().int().min(1).max(200),
         tuition: z.number().min(0).max(1_000_000),
+        productFee: z.number().min(0).max(1_000_000).optional(),
         schedule: z.string().trim().max(160).optional(),
         certification: z.string().trim().max(160).optional(),
         requirements: z.string().trim().max(2000).optional(),
+        toiletries: z.string().trim().max(2000).optional(),
         isFeatured: z.boolean().default(false),
         isActive: z.boolean().default(true),
         slug: z.string().trim().max(180).optional(),
@@ -538,13 +622,16 @@ export const adminNamespaceRouter = router({
             code,
             slug,
             title: input.title.trim(),
+            category: input.category?.trim() || existing.category,
             summary: input.summary.trim(),
             description: input.description.trim(),
             durationWeeks: input.durationWeeks,
             tuition: input.tuition.toFixed(2),
+            productFee: input.productFee !== undefined ? (input.productFee ? input.productFee.toFixed(2) : null) : existing.productFee,
             schedule: input.schedule?.trim() || null,
             certification: input.certification?.trim() || null,
             requirements: input.requirements?.trim() || null,
+            toiletries: input.toiletries?.trim() || null,
             isFeatured: input.isFeatured,
             isActive: input.isActive,
             updatedAt: new Date(),

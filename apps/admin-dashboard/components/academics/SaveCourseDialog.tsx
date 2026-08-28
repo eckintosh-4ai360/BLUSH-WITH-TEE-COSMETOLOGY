@@ -22,13 +22,16 @@ export type SaveableCourse = {
   id: number;
   code: string;
   title: string;
+  category?: string | null;
   summary: string;
   description: string;
   durationWeeks: number;
   tuition: number;
+  productFee?: number | null;
   schedule?: string | null;
   certification?: string | null;
   requirements?: string | null;
+  toiletries?: string | null;
   isFeatured?: boolean;
   isActive?: boolean;
 };
@@ -48,13 +51,16 @@ export function SaveCourseDialog({
 
   const [code, setCode] = useState("");
   const [title, setTitle] = useState("");
+  const [category, setCategory] = useState("Full Cosmetology");
   const [durationWeeks, setDurationWeeks] = useState("12");
   const [tuition, setTuition] = useState("");
-  const [schedule, setSchedule] = useState("");
+  const [productFee, setProductFee] = useState("");
+  const [schedule, setSchedule] = useState("Monday - Saturday (8am - 5pm)");
   const [certification, setCertification] = useState("");
   const [summary, setSummary] = useState("");
   const [description, setDescription] = useState("");
   const [requirements, setRequirements] = useState("");
+  const [toiletries, setToiletries] = useState("");
   const [isFeatured, setIsFeatured] = useState(false);
   const [isActive, setIsActive] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -63,25 +69,31 @@ export function SaveCourseDialog({
     if (editing) {
       setCode(editing.code);
       setTitle(editing.title);
+      setCategory(editing.category ?? "Full Cosmetology");
       setDurationWeeks(String(editing.durationWeeks));
       setTuition(editing.tuition.toFixed(2));
-      setSchedule(editing.schedule ?? "");
+      setProductFee(editing.productFee ? editing.productFee.toFixed(2) : "");
+      setSchedule(editing.schedule ?? "Monday - Saturday (8am - 5pm)");
       setCertification(editing.certification ?? "");
       setSummary(editing.summary ?? "");
       setDescription(editing.description ?? "");
       setRequirements(editing.requirements ?? "");
+      setToiletries(editing.toiletries ?? "");
       setIsFeatured(Boolean(editing.isFeatured));
       setIsActive(editing.isActive ?? true);
     } else {
       setCode("");
       setTitle("");
+      setCategory("Full Cosmetology");
       setDurationWeeks("12");
       setTuition("");
-      setSchedule("");
+      setProductFee("");
+      setSchedule("Monday - Saturday (8am - 5pm)");
       setCertification("");
       setSummary("");
       setDescription("");
       setRequirements("");
+      setToiletries("One big size Omo, One big size Dettol, One big size paper roll, 2 big wet wipes, 1 full pack of blade");
       setIsFeatured(false);
       setIsActive(true);
     }
@@ -135,13 +147,16 @@ export function SaveCourseDialog({
     const payload = {
       code: code.trim().toUpperCase(),
       title: title.trim(),
+      category: category.trim() || "Full Cosmetology",
       durationWeeks: Number(durationWeeks),
       tuition: Number(tuition),
+      productFee: productFee.trim() ? Number(productFee) : undefined,
       schedule: schedule.trim() || undefined,
       certification: certification.trim() || undefined,
       summary: summary.trim(),
       description: description.trim() || summary.trim(),
       requirements: requirements.trim() || undefined,
+      toiletries: toiletries.trim() || undefined,
       isFeatured,
       isActive,
     };
@@ -176,7 +191,7 @@ export function SaveCourseDialog({
               </Label>
               <Input
                 id="prog-code"
-                placeholder="e.g. ESTH-PRO"
+                placeholder="e.g. COSM-ADV"
                 value={code}
                 onChange={e => setCode(e.target.value.toUpperCase())}
                 className="font-mono uppercase"
@@ -190,14 +205,29 @@ export function SaveCourseDialog({
               </Label>
               <Input
                 id="prog-title"
-                placeholder="e.g. Advanced Esthetics & Clinical Skincare"
+                placeholder="e.g. Basic Cosmetology Course"
                 value={title}
                 onChange={e => setTitle(e.target.value)}
               />
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="space-y-2">
+              <Label htmlFor="prog-cat">Category</Label>
+              <select
+                id="prog-cat"
+                value={category}
+                onChange={e => setCategory(e.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                <option value="Full Cosmetology">Full Cosmetology</option>
+                <option value="Individual Courses">Individual Courses</option>
+                <option value="Masterclasses">Masterclasses</option>
+                <option value="Workshops">Workshops</option>
+              </select>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="prog-duration">
                 Duration (Weeks) <span className="text-destructive">*</span>
@@ -207,7 +237,7 @@ export function SaveCourseDialog({
                 type="number"
                 min="1"
                 max="200"
-                placeholder="16"
+                placeholder="12"
                 value={durationWeeks}
                 onChange={e => setDurationWeeks(e.target.value)}
               />
@@ -222,7 +252,7 @@ export function SaveCourseDialog({
                 type="number"
                 step="0.01"
                 min="0"
-                placeholder="2500.00"
+                placeholder="5000.00"
                 value={tuition}
                 onChange={e => setTuition(e.target.value)}
               />
@@ -231,34 +261,48 @@ export function SaveCourseDialog({
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="prog-schedule">Schedule / Timetable</Label>
+              <Label htmlFor="prog-product-fee">Product / Kit Fee (GH₵) (Optional)</Label>
               <Input
-                id="prog-schedule"
-                placeholder="e.g. Weekday mornings (9:00 AM - 1:00 PM)"
-                value={schedule}
-                onChange={e => setSchedule(e.target.value)}
+                id="prog-product-fee"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="e.g. 2500.00"
+                value={productFee}
+                onChange={e => setProductFee(e.target.value)}
               />
+              <p className="text-[11px] text-muted-foreground">Tools & products purchased at school store</p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="prog-cert">Certification Awarded</Label>
+              <Label htmlFor="prog-schedule">Training Hours / Schedule</Label>
               <Input
-                id="prog-cert"
-                placeholder="e.g. Professional Diploma in Cosmetology"
-                value={certification}
-                onChange={e => setCertification(e.target.value)}
+                id="prog-schedule"
+                placeholder="e.g. Monday - Saturday (8am - 5pm)"
+                value={schedule}
+                onChange={e => setSchedule(e.target.value)}
               />
             </div>
           </div>
 
           <div className="space-y-2">
+            <Label htmlFor="prog-cert">Certification Awarded</Label>
+            <Input
+              id="prog-cert"
+              placeholder="e.g. Basic Cosmetology Certificate"
+              value={certification}
+              onChange={e => setCertification(e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="prog-summary">
-              Short Summary <span className="text-destructive">*</span>
+              Modules / Short Summary <span className="text-destructive">*</span>
             </Label>
             <Textarea
               id="prog-summary"
               rows={2}
-              placeholder="A brief punchy overview for admissions listings and programme cards..."
+              placeholder="e.g. Makeup, Wigmaking and styling (machine), Installation, Frontal pony..."
               value={summary}
               onChange={e => setSummary(e.target.value)}
             />
@@ -269,10 +313,22 @@ export function SaveCourseDialog({
             <Textarea
               id="prog-description"
               rows={3}
-              placeholder="Detailed syllabus, modules, practical laboratory components, and learning outcomes..."
+              placeholder="Detailed syllabus, modules, practical studio sessions, and graduation criteria..."
               value={description}
               onChange={e => setDescription(e.target.value)}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="prog-toiletries">Required Toiletries to be Brought</Label>
+            <Textarea
+              id="prog-toiletries"
+              rows={2}
+              placeholder="e.g. One big size Omo, One big size Dettol, One big size paper roll, 2 big wet wipes, 1 full pack of blade"
+              value={toiletries}
+              onChange={e => setToiletries(e.target.value)}
+            />
+            <p className="text-[11px] text-muted-foreground">Toiletries to be brought by students on the first day of class</p>
           </div>
 
           <div className="space-y-2">

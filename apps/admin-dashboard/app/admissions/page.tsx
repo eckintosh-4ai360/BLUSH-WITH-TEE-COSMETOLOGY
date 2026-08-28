@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Eye, Plus, X } from "lucide-react";
+import { Check, Eye, FileText, Plus, X } from "lucide-react";
 import { Badge } from "@blush/ui/components/ui/badge";
 import { Button } from "@blush/ui/components/ui/button";
 import {
@@ -16,6 +16,10 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { DataTable, type Column } from "@/components/DataTable";
 import { PermissionGate } from "@/components/PermissionGate";
 import { RecordApplicationDialog } from "@/components/admissions/RecordApplicationDialog";
+import {
+  ViewAdmissionFormDialog,
+  type AdmissionApplicationData,
+} from "@/components/admissions/ViewAdmissionFormDialog";
 import { usePermissions } from "@/hooks/usePermissions";
 import { collectAllPages } from "@/lib/exportAll";
 import { trpc } from "@/lib/trpc";
@@ -46,6 +50,32 @@ type ApplicationRow = {
     fullName: string;
     email: string;
     phone: string;
+    whatsapp?: string | null;
+    birthDate?: Date | string | null;
+    hometown?: string | null;
+    age?: number | null;
+    gender?: string | null;
+    maritalStatus?: string | null;
+    address?: string | null;
+    emergencyContact?: string | null;
+    emergencyRelationship?: string | null;
+    instagram?: string | null;
+    tiktok?: string | null;
+    otherSocialMedia?: string | null;
+    educationalLevel?: string | null;
+    education?: string | null;
+    paymentPlan?: string | null;
+    duration?: string | null;
+    startDate?: Date | string | null;
+    guardianName?: string | null;
+    guardianAddress?: string | null;
+    guardianPhone?: string | null;
+    signatureData?: string | null;
+    agreedToTerms?: boolean | null;
+    ceoEndorsed?: boolean | null;
+    ceoEndorsementDate?: Date | string | null;
+    ceoEndorsementSignature?: string | null;
+    statement?: string | null;
     status: (typeof STATUS)[number];
     decisionNote: string | null;
     createdAt: Date;
@@ -70,6 +100,7 @@ function AdmissionsContent() {
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState("all");
   const [recordOpen, setRecordOpen] = useState(false);
+  const [viewFormApp, setViewFormApp] = useState<AdmissionApplicationData | null>(null);
 
   // Shared by the table and by export, so a download covers exactly what the
   // filters describe rather than the page on screen.
@@ -106,7 +137,16 @@ function AdmissionsContent() {
     {
       key: "courseTitle",
       header: "Programme",
-      cell: row => row.courseTitle,
+      cell: row => (
+        <div>
+          <span className="font-semibold text-foreground">{row.courseTitle}</span>
+          {row.application.duration && (
+            <span className="block text-xs text-muted-foreground">
+              {row.application.duration}
+            </span>
+          )}
+        </div>
+      ),
     },
     {
       key: "phone",
@@ -118,9 +158,16 @@ function AdmissionsContent() {
       key: "status",
       header: "Status",
       cell: row => (
-        <Badge className={`capitalize ${STATUS_TONE[row.application.status] ?? ""}`}>
-          {row.application.status.replaceAll("_", " ")}
-        </Badge>
+        <div className="flex items-center gap-1.5">
+          <Badge className={`capitalize ${STATUS_TONE[row.application.status] ?? ""}`}>
+            {row.application.status.replaceAll("_", " ")}
+          </Badge>
+          {row.application.ceoEndorsed && (
+            <Badge variant="outline" className="text-[10px] text-emerald-700 border-emerald-400 bg-emerald-50">
+              CEO Endorsed
+            </Badge>
+          )}
+        </div>
       ),
       value: row => row.application.status.replaceAll("_", " "),
     },
@@ -132,67 +179,59 @@ function AdmissionsContent() {
       value: row => new Date(row.application.createdAt).toISOString().slice(0, 10),
     },
     {
-      key: "decisionNote",
-      header: "Decision note",
-      optional: true,
-      cell: row => row.application.decisionNote || <span className="text-muted-foreground">—</span>,
-      value: row => row.application.decisionNote ?? "",
+      key: "actions",
+      header: "",
+      align: "right" as const,
+      cell: (row: ApplicationRow) => {
+        const applicationId = row.application.id;
+        const currentStatus = row.application.status;
+        return (
+          <span className="flex justify-end gap-1 items-center">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1 text-xs"
+              onClick={() => setViewFormApp(row as unknown as AdmissionApplicationData)}
+            >
+              <FileText className="h-3.5 w-3.5 text-primary" />
+              View Form
+            </Button>
+            {can("admissions.review") && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1 text-emerald-700 hover:text-emerald-800"
+                  disabled={review.isPending || currentStatus === "approved"}
+                  onClick={() => review.mutate({ applicationId, status: "approved" })}
+                >
+                  <Check className="h-3.5 w-3.5" />
+                  Approve
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1 text-destructive"
+                  disabled={review.isPending || currentStatus === "rejected"}
+                  onClick={() => review.mutate({ applicationId, status: "rejected" })}
+                >
+                  <X className="h-3.5 w-3.5" />
+                  Decline
+                </Button>
+              </>
+            )}
+          </span>
+        );
+      },
+      value: () => "",
     },
-    ...(can("admissions.review")
-      ? [
-          {
-            key: "actions",
-            header: "",
-            align: "right" as const,
-            cell: (row: ApplicationRow) => {
-              const applicationId = row.application.id;
-              const currentStatus = row.application.status;
-              return (
-                <span className="flex justify-end gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="gap-1"
-                    disabled={review.isPending || currentStatus === "under_review"}
-                    onClick={() => review.mutate({ applicationId, status: "under_review" })}
-                  >
-                    <Eye className="h-3.5 w-3.5" />
-                    Review
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="gap-1 text-emerald-700 hover:text-emerald-800"
-                    disabled={review.isPending || currentStatus === "approved"}
-                    onClick={() => review.mutate({ applicationId, status: "approved" })}
-                  >
-                    <Check className="h-3.5 w-3.5" />
-                    Approve
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="gap-1 text-destructive"
-                    disabled={review.isPending || currentStatus === "rejected"}
-                    onClick={() => review.mutate({ applicationId, status: "rejected" })}
-                  >
-                    <X className="h-3.5 w-3.5" />
-                    Decline
-                  </Button>
-                </span>
-              );
-            },
-            value: () => "",
-          },
-        ]
-      : []),
   ];
 
   return (
     <div className="mx-auto max-w-[1400px]">
       <DataTable
         title="Admissions"
-        description="Applications awaiting their next step."
+        description="Official student applications awaiting review, endorsement, and class placement."
         columns={columns}
         data={query.data}
         isLoading={query.isLoading}
@@ -254,6 +293,19 @@ function AdmissionsContent() {
           query.refetch();
         }}
       />
+
+      <ViewAdmissionFormDialog
+        open={Boolean(viewFormApp)}
+        onOpenChange={open => {
+          if (!open) setViewFormApp(null);
+        }}
+        data={viewFormApp}
+        onStatusChanged={() => {
+          query.refetch();
+          setViewFormApp(null);
+        }}
+      />
     </div>
   );
 }
+

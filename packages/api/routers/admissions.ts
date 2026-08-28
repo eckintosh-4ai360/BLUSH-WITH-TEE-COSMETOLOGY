@@ -18,45 +18,84 @@ const uploadLimit = throttledPublicProcedure({ bucket: "admissions.upload", limi
 const lookupLimit = throttledPublicProcedure({ bucket: "admissions.lookup", limit: 30, windowMs: 10 * 60_000 });
 
 const applicationInput = z.object({
-  fullName: z.string().min(2).max(160),
-  email: z.string().email(),
-  phone: z.string().min(7).max(40),
-  whatsapp: z.string().max(40).optional(),
+  fullName: z.string().trim().min(2).max(160),
+  email: z.string().trim().email().max(320),
+  phone: z.string().trim().min(7).max(40),
+  whatsapp: z.string().trim().max(40).optional(),
   birthDate: z.coerce.date().optional(),
-  gender: z.string().max(32).optional(),
-  address: z.string().max(1500).optional(),
-  emergencyContact: z.string().max(180).optional(),
-  education: z.string().max(1800).optional(),
+  hometown: z.string().trim().max(160).optional(),
+  age: z.number().int().min(10).max(120).optional(),
+  gender: z.string().trim().max(32).optional(),
+  maritalStatus: z.string().trim().max(32).optional(),
+  address: z.string().trim().max(1500).optional(),
+  emergencyContact: z.string().trim().max(180).optional(),
+  emergencyRelationship: z.string().trim().max(80).optional(),
+  instagram: z.string().trim().max(120).optional(),
+  tiktok: z.string().trim().max(120).optional(),
+  otherSocialMedia: z.string().trim().max(160).optional(),
+  educationalLevel: z.string().trim().max(120).optional(),
+  education: z.string().trim().max(1800).optional(),
   courseId: z.number().int().positive(),
-  statement: z.string().max(3000).optional(),
+  paymentPlan: z.string().trim().max(80).optional(),
+  duration: z.string().trim().max(80).optional(),
+  startDate: z.coerce.date().optional(),
+  guardianName: z.string().trim().max(160).optional(),
+  guardianAddress: z.string().trim().max(1500).optional(),
+  guardianPhone: z.string().trim().max(40).optional(),
+  signatureData: z.string().trim().max(500).optional(),
+  agreedToTerms: z.boolean().default(true),
+  statement: z.string().trim().max(3000).optional(),
 });
 
 export const admissionsRouter = router({
   submit: submitLimit.input(applicationInput).mutation(async ({ input, ctx }) => {
     const db = await dbOrThrow();
-    const [course] = await db.select().from(courses).where(and(eq(courses.id, input.courseId), eq(courses.isActive, true))).limit(1);
+    const [course] = await db
+      .select()
+      .from(courses)
+      .where(and(eq(courses.id, input.courseId), eq(courses.isActive, true)))
+      .limit(1);
     if (!course) throw new TRPCError({ code: "NOT_FOUND", message: "The selected program is unavailable." });
 
     const reference = buildReference("APP");
-    const inserted = await db.insert(applications).values({
-      reference,
-      userId: ctx.user?.id,
-      fullName: input.fullName,
-      email: input.email.toLowerCase(),
-      phone: input.phone,
-      whatsapp: input.whatsapp,
-      birthDate: input.birthDate,
-      gender: input.gender,
-      address: input.address,
-      emergencyContact: input.emergencyContact,
-      education: input.education,
-      courseId: input.courseId,
-      statement: input.statement,
-      status: "submitted",
-      submittedAt: new Date(),
-    }).returning({ id: applications.id });
+    const [inserted] = await db
+      .insert(applications)
+      .values({
+        reference,
+        userId: ctx.user?.id,
+        fullName: input.fullName,
+        email: input.email.toLowerCase(),
+        phone: input.phone,
+        whatsapp: input.whatsapp,
+        birthDate: input.birthDate,
+        hometown: input.hometown,
+        age: input.age,
+        gender: input.gender,
+        maritalStatus: input.maritalStatus,
+        address: input.address,
+        emergencyContact: input.emergencyContact,
+        emergencyRelationship: input.emergencyRelationship,
+        instagram: input.instagram,
+        tiktok: input.tiktok,
+        otherSocialMedia: input.otherSocialMedia,
+        educationalLevel: input.educationalLevel,
+        education: input.education,
+        courseId: input.courseId,
+        paymentPlan: input.paymentPlan,
+        duration: input.duration || `${course.durationWeeks} weeks`,
+        startDate: input.startDate,
+        guardianName: input.guardianName,
+        guardianAddress: input.guardianAddress,
+        guardianPhone: input.guardianPhone,
+        signatureData: input.signatureData,
+        agreedToTerms: input.agreedToTerms,
+        statement: input.statement,
+        status: "submitted",
+        submittedAt: new Date(),
+      })
+      .returning({ id: applications.id });
 
-    return { applicationId: inserted[0]?.id, reference };
+    return { applicationId: inserted?.id, reference, courseTitle: course.title };
   }),
   uploadDocument: uploadLimit.input(z.object({
     reference: z.string().min(6).max(32),
