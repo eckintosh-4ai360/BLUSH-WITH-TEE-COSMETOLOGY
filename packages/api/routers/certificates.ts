@@ -14,6 +14,8 @@ import {
 } from "@blush/db/schema";
 import { dbOrThrow } from "../dbOrThrow";
 import { recordAudit } from "../services/audit";
+import { announce } from "../services/messaging/announce";
+import { flushInBackground } from "../services/messaging/dispatch";
 import {
   certificateSettings,
   deriveGrade,
@@ -136,6 +138,8 @@ export const certificatesRouter = router({
           id: studentProfiles.id,
           fullName: studentProfiles.fullName,
           userId: studentProfiles.userId,
+          email: studentProfiles.email,
+          phone: studentProfiles.phone,
         })
         .from(studentProfiles)
         .where(eq(studentProfiles.id, input.studentId))
@@ -182,17 +186,28 @@ export const certificatesRouter = router({
         summary: `${ctx.actor.name ?? "Staff"} issued ${issued.certificateNumber} to ${student.fullName}`,
       });
 
-      if (student.userId) {
-        await notify(db, {
-          userIds: [student.userId],
-          type: "certificate_issued",
-          title: "Your certificate has been issued",
-          body: `Certificate ${issued.certificateNumber} is available to download from your portal.`,
-          entityType: "certificate",
-          entityId: issued.id,
-          link: "/portal",
-        });
-      }
+      const [course] = await db
+        .select({ title: courses.title })
+        .from(courses)
+        .where(eq(courses.id, input.courseId))
+        .limit(1);
+
+      await announce(db, {
+        type: "certificate_issued",
+        recipient: {
+          name: student.fullName,
+          email: student.email,
+          phone: student.phone,
+          userId: student.userId,
+        },
+        title: "Your certificate has been issued",
+        body: `Certificate ${issued.certificateNumber} is available to download from your portal.`,
+        facts: { course: course?.title, reference: issued.certificateNumber },
+        entityType: "certificate",
+        entityId: issued.id,
+        link: "/portal",
+      });
+      flushInBackground(db);
 
       return issued;
     }),

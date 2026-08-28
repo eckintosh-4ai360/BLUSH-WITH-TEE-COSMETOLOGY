@@ -15,6 +15,8 @@ import {
 import { dbOrThrow } from "../dbOrThrow";
 import { buildReference } from "../platform.utils";
 import { recordAudit } from "../services/audit";
+import { announce } from "../services/messaging/announce";
+import { flushInBackground } from "../services/messaging/dispatch";
 import { allocatePayment, assertRefundable, studentAccountSummary } from "../services/fees";
 import { fromMinor, money, toAmountString, toMinor } from "../services/money";
 import { notify, staffRecipients } from "../services/notify";
@@ -404,14 +406,20 @@ export const financeRouter = router({
       const amountMinor = toMinor(input.amount);
 
       const [student] = await db
-        .select({ id: studentProfiles.id, fullName: studentProfiles.fullName, userId: studentProfiles.userId })
+        .select({
+          id: studentProfiles.id,
+          fullName: studentProfiles.fullName,
+          userId: studentProfiles.userId,
+          email: studentProfiles.email,
+          phone: studentProfiles.phone,
+        })
         .from(studentProfiles)
         .where(eq(studentProfiles.id, input.studentId))
         .limit(1);
       if (!student) throw new TRPCError({ code: "NOT_FOUND", message: "Student was not found." });
 
       try {
-        return await db.transaction(async tx => {
+        const result = await db.transaction(async tx => {
           const reference = buildReference("PAY");
 
           const [payment] = await tx
@@ -471,21 +479,38 @@ export const financeRouter = router({
             summary: `${ctx.actor.name ?? "Staff"} recorded GHS ${input.amount.toFixed(2)} for ${student.fullName}`,
           });
 
-          if (student.userId) {
-            await notify(tx, {
-              userIds: [student.userId],
-              type: "payment_received",
-              title: `Payment received: GHS ${input.amount.toFixed(2)}`,
-              body: `Reference ${reference}. Your fee balance has been updated.`,
-              entityType: "payment",
-              entityId: payment.id,
-              link: "/portal",
-            });
-          }
-
           const summary = await studentAccountSummary(tx, input.studentId);
+
+          await announce(tx, {
+            type: "payment_received",
+            recipient: {
+              name: student.fullName,
+              email: student.email,
+              phone: student.phone,
+              userId: student.userId,
+            },
+            title: `Payment received: GHS ${input.amount.toFixed(2)}`,
+            body: `Reference ${reference}. Your fee balance has been updated.`,
+            facts: {
+              amount: `GHS ${input.amount.toFixed(2)}`,
+              reference,
+              balance:
+                summary.outstanding > 0
+                  ? `Your outstanding balance is GHS ${summary.outstanding.toFixed(2)}.`
+                  : "Your fees are fully paid.",
+            },
+            entityType: "payment",
+            entityId: payment.id,
+            link: "/portal",
+          });
+
           return { id: payment.id, reference, allocations: allocations.length, summary };
         });
+
+        // After the commit: the receipt must describe a payment that is
+        // actually on file.
+        flushInBackground(db);
+        return result;
       } catch (error) {
         if (isUniqueViolation(error)) {
           throw new TRPCError({

@@ -13,7 +13,8 @@
     "./payments-webhook": "./routers/payments.ts",
     "./trpc": "./trpc.ts",
     "./context": "./context.ts",
-    "./storage-access": "./services/storageAccess.ts"
+    "./storage-access": "./services/storageAccess.ts",
+    "./messaging-flush": "./services/messaging/dispatch.ts"
   },
   "scripts": {
     "test": "vitest run",

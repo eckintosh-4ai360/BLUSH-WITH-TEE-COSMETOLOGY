@@ -10,6 +10,8 @@ import {
   safeFileName,
   validateDocumentUpload,
 } from "../platform.utils";
+import { announce } from "../services/messaging/announce";
+import { flushInBackground } from "../services/messaging/dispatch";
 import { router, throttledPublicProcedure } from "../trpc";
 
 /** An applicant fills a form once; a script fills it as fast as it can. */
@@ -94,6 +96,26 @@ export const admissionsRouter = router({
         submittedAt: new Date(),
       })
       .returning({ id: applications.id });
+
+    // Confirmed to the applicant on the channels the school has switched on.
+    // Queued rather than sent here so a provider outage cannot turn a
+    // successfully filed application into an error on the form.
+    await announce(db, {
+      type: "application_submitted",
+      recipient: {
+        name: input.fullName,
+        email: input.email.toLowerCase(),
+        phone: input.phone,
+        userId: ctx.user?.id ?? null,
+      },
+      title: "Application received",
+      body: `Your application for ${course.title} is with us. Reference ${reference}.`,
+      facts: { course: course.title, reference },
+      entityType: "application",
+      entityId: inserted?.id,
+      link: "/portal",
+    });
+    flushInBackground(db);
 
     return { applicationId: inserted?.id, reference, courseTitle: course.title };
   }),

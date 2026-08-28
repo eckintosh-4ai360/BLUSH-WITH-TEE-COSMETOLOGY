@@ -15,6 +15,7 @@ import { allocatePayment } from "./fees";
 import { assertVerificationMatches, getGateway } from "./gateway";
 import { toAmountString, toMinor } from "./money";
 import { notify } from "./notify";
+import { announce } from "./messaging/announce";
 import { recordRevenue } from "./revenue";
 import { applyStockMovement } from "./stock";
 
@@ -153,17 +154,31 @@ export async function captureVerifiedPayment(
       });
 
       const [student] = await tx
-        .select({ userId: studentProfiles.userId, fullName: studentProfiles.fullName })
+        .select({
+          userId: studentProfiles.userId,
+          fullName: studentProfiles.fullName,
+          email: studentProfiles.email,
+          phone: studentProfiles.phone,
+        })
         .from(studentProfiles)
         .where(eq(studentProfiles.id, locked.studentId))
         .limit(1);
 
-      if (student?.userId) {
-        await notify(tx, {
-          userIds: [student.userId],
+      if (student) {
+        await announce(tx, {
           type: "payment_received",
+          recipient: {
+            name: student.fullName,
+            email: student.email,
+            phone: student.phone,
+            userId: student.userId,
+          },
           title: `Payment received: GHS ${(amountMinor / 100).toFixed(2)}`,
           body: `Reference ${paymentReference}. Your fee balance has been updated.`,
+          facts: {
+            amount: `GHS ${(amountMinor / 100).toFixed(2)}`,
+            reference: paymentReference,
+          },
           entityType: "payment",
           entityId: payment.id,
           link: "/portal",

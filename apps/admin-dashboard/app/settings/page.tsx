@@ -10,6 +10,7 @@ import { toast } from "@blush/ui/components/ui/sonner";
 import { Switch } from "@blush/ui/components/ui/switch";
 import DashboardLayout from "@/components/DashboardLayout";
 import { PermissionGate } from "@/components/PermissionGate";
+import { MessagingSettings } from "@/components/settings/MessagingSettings";
 import { usePermissions } from "@/hooks/usePermissions";
 import { trpc } from "@/lib/trpc";
 
@@ -55,6 +56,18 @@ function SettingsContent() {
           rules the system applies.
         </p>
       </header>
+
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-sm font-semibold tracking-tight text-foreground">
+            Messaging
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            How the school reaches applicants and students by email and text.
+          </p>
+        </div>
+        <MessagingSettings readOnly={!can("settings.write")} />
+      </section>
 
       {query.isLoading ? (
         <div className="space-y-4">

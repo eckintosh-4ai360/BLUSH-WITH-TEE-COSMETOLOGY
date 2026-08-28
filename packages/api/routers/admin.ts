@@ -33,6 +33,8 @@ import {
   slugify,
   validateDocumentUpload,
 } from "../platform.utils";
+import { announce } from "../services/messaging/announce";
+import { flushInBackground } from "../services/messaging/dispatch";
 import { adminProcedure, permissionProcedure, router } from "../trpc";
 
 export const adminNamespaceRouter = router({
@@ -256,6 +258,16 @@ export const adminNamespaceRouter = router({
           summary: `${ctx.actor.name ?? "Staff"} recorded application ${reference} for ${input.fullName}`,
         });
 
+        await announce(tx, {
+          type: "application_submitted",
+          recipient: { name: input.fullName, email, phone: input.phone },
+          title: "Application received",
+          body: `Application ${reference} for ${course.title}.`,
+          facts: { course: course.title, reference },
+          entityType: "application",
+          entityId: created?.id,
+        });
+
         return { id: created?.id, reference, courseTitle: course.title };
       });
     }),
@@ -302,6 +314,11 @@ export const adminNamespaceRouter = router({
     const [application] = await db.select().from(applications).where(eq(applications.id, input.applicationId)).limit(1);
     if (!application) throw new TRPCError({ code: "NOT_FOUND", message: "Application not found." });
     await db.update(applications).set({ status: input.status, decisionNote: input.decisionNote, reviewedByUserId: ctx.user.id }).where(eq(applications.id, application.id));
+
+    // Carried out of the approval branch below so the message can quote the
+    // new student number when there is one.
+    let studentNumber: string | null = null;
+
     if (input.status === "approved") {
       const [existing] = await db.select().from(studentProfiles).where(eq(studentProfiles.applicationId, application.id)).limit(1);
       if (!existing) {
@@ -319,7 +336,8 @@ export const adminNamespaceRouter = router({
           gender: application.gender,
           address: application.address,
         });
-        const [student] = await db.insert(studentProfiles).values({ applicationId: application.id, personId, userId: accountId, studentNumber: buildReference("STU"), fullName: application.fullName, email: application.email, phone: application.phone }).returning({ id: studentProfiles.id });
+        studentNumber = buildReference("STU");
+        const [student] = await db.insert(studentProfiles).values({ applicationId: application.id, personId, userId: accountId, studentNumber, fullName: application.fullName, email: application.email, phone: application.phone }).returning({ id: studentProfiles.id });
         if (student?.id) {
           await db.insert(enrollments).values({ studentId: student.id, courseId: application.courseId, status: "active" });
           await db.insert(feeCharges).values({ studentId: student.id, feeType: "tuition", description: "Program tuition", amountDue: "0.00", status: "open" });
@@ -328,8 +346,55 @@ export const adminNamespaceRouter = router({
           await grantStudentRole(db, accountId);
           if (!application.userId) await db.update(applications).set({ userId: accountId }).where(eq(applications.id, application.id));
         }
+      } else {
+        studentNumber = existing.studentNumber;
       }
     }
+
+    // "under_review" is an internal step and is deliberately not announced:
+    // an applicant does not need a text saying somebody has opened their form.
+    const announcement = {
+      approved: "application_approved",
+      rejected: "application_rejected",
+      more_information: "missing_document",
+    } as const;
+    const type = announcement[input.status as keyof typeof announcement];
+
+    if (type) {
+      const [course] = await db
+        .select({ title: courses.title })
+        .from(courses)
+        .where(eq(courses.id, application.courseId))
+        .limit(1);
+
+      await announce(db, {
+        type,
+        recipient: {
+          name: application.fullName,
+          email: application.email,
+          phone: application.phone,
+          userId: application.userId,
+        },
+        title:
+          input.status === "approved"
+            ? "Your application was approved"
+            : input.status === "rejected"
+              ? "Your application was not successful"
+              : "More information needed",
+        body: input.decisionNote ?? undefined,
+        facts: {
+          course: course?.title,
+          // The student number is the more useful reference once there is one.
+          reference: studentNumber ?? application.reference,
+          note: input.decisionNote,
+        },
+        entityType: "application",
+        entityId: application.id,
+        link: "/portal",
+      });
+      flushInBackground(db);
+    }
+
     return { success: true };
   }),
 
