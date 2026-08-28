@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import {
   Check,
   CheckCircle2,
-  Clock,
   Download,
+  Eye,
   FileCheck,
   FileText,
   MapPin,
@@ -21,14 +22,12 @@ import { Button } from "@blush/ui/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@blush/ui/components/ui/dialog";
 import { Input } from "@blush/ui/components/ui/input";
 import { Label } from "@blush/ui/components/ui/label";
-import { Textarea } from "@blush/ui/components/ui/textarea";
 import { toast } from "@blush/ui/components/ui/sonner";
 import { usePermissions } from "@/hooks/usePermissions";
 import { trpc } from "@/lib/trpc";
@@ -87,7 +86,6 @@ export function ViewAdmissionFormDialog({
   const { can } = usePermissions();
   const utils = trpc.useUtils();
   const [ceoSignature, setCeoSignature] = useState("");
-  const [decisionNote, setDecisionNote] = useState("");
 
   const review = trpc.admin.reviewApplication.useMutation({
     onSuccess: () => {
@@ -137,284 +135,394 @@ export function ViewAdmissionFormDialog({
     });
   }
 
+  const handlePrint = () => {
+    window.print();
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-4xl p-0">
-        {/* Printable Physical Admission Sheet Header */}
-        <div className="bg-[#fdf2fa] p-6 border-b border-[#8f0d6b]/20 sm:p-8 text-center relative">
-          <div className="absolute top-4 right-4 flex items-center gap-2 print:hidden">
+      <DialogContent className="max-h-[94vh] overflow-y-auto sm:max-w-4xl p-0 border-[#8f0d6b]/20 print:p-0 print:border-none print:shadow-none print:max-h-none print:overflow-visible">
+        {/* CSS for Seamless A4 Single Sheet Printing */}
+        <style dangerouslySetInnerHTML={{
+          __html: `
+            @media print {
+              @page {
+                size: A4 portrait;
+                margin: 6mm 8mm;
+              }
+              html, body {
+                height: auto !important;
+                overflow: visible !important;
+                background: #ffffff !important;
+                color: #000000 !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
+              body * {
+                visibility: hidden !important;
+              }
+              #printable-admission-dossier,
+              #printable-admission-dossier * {
+                visibility: visible !important;
+              }
+              #printable-admission-dossier {
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                box-shadow: none !important;
+                border: none !important;
+                background: #ffffff !important;
+                color: #1a1a1a !important;
+                display: block !important;
+                overflow: visible !important;
+              }
+              .no-print,
+              button,
+              [role="dialog"] > button {
+                display: none !important;
+              }
+              div[role="dialog"],
+              [data-state="open"] {
+                position: static !important;
+                overflow: visible !important;
+                height: auto !important;
+                max-height: none !important;
+                transform: none !important;
+                box-shadow: none !important;
+                border: none !important;
+                padding: 0 !important;
+                margin: 0 !important;
+              }
+            }
+          `
+        }} />
+
+        {/* Printable Dossier Container */}
+        <div id="printable-admission-dossier" className="w-full bg-white text-slate-900 font-sans">
+          
+          {/* Top Control Bar (Screen Only) */}
+          <div className="no-print flex items-center justify-between px-6 py-3 bg-[#fdf2fa] border-b border-[#8f0d6b]/20">
+            <div className="flex items-center gap-2 text-xs font-semibold text-[#8f0d6b]">
+              <FileCheck className="h-4 w-4 text-[#fe00b6]" />
+              <span>Official Student Admission File — {application.reference}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handlePrint}
+                className="gap-1.5 rounded-full border-[#8f0d6b]/40 text-[#8f0d6b] bg-white hover:bg-[#faeaf6] shadow-sm font-semibold text-xs h-8"
+              >
+                <Printer className="h-3.5 w-3.5" /> Print A4 Sheet
+              </Button>
+            </div>
+          </div>
+
+          {/* Form Printable Body: Specially designed to fit beautifully on an A4 sheet */}
+          <div className="p-5 sm:p-6 print:p-0 space-y-3">
+            
+            {/* Header: School Logo, Name, Location & Admission Banner */}
+            <div className="rounded-xl border border-[#8f0d6b]/25 bg-gradient-to-b from-[#fdf2fa] to-white p-3.5 text-center relative print:border print:border-[#8f0d6b]/40 print:p-2.5">
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
+                {/* School Logo */}
+                <div className="relative h-14 w-14 sm:h-16 sm:w-16 shrink-0 overflow-hidden rounded-full border-2 border-[#8f0d6b]/30 bg-white p-1 shadow-sm print:h-13 print:w-13">
+                  <img
+                    src="/logo.png"
+                    alt="Blush With Tee Logo"
+                    className="h-full w-full object-contain"
+                  />
+                </div>
+
+                {/* School Title & Subtitle */}
+                <div className="text-center sm:text-left">
+                  <span className="inline-block rounded-full bg-white px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-widest text-[#8f0d6b] border border-[#8f0d6b]/20 mb-0.5 print:py-0">
+                    Official Student Admission File
+                  </span>
+                  <h2 className="font-serif text-xl sm:text-2xl font-bold tracking-tight text-[#8f0d6b] leading-tight print:text-xl">
+                    BLUSH WITH TEE BEAUTY SCHOOL
+                  </h2>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-[#fe00b6] flex items-center justify-center sm:justify-start gap-1">
+                    <MapPin className="h-3 w-3 inline print:hidden" />
+                    Allied Filling Station, A&apos;koon - Tarkwa
+                  </p>
+                  <p className="text-[10px] text-[#692156] font-medium">
+                    Phone: <b className="text-slate-900">059 770 6250</b> | WhatsApp: <b className="text-slate-900">054 556 3536</b>
+                  </p>
+                </div>
+              </div>
+
+              {/* Admission Form Tag & Reference Meta */}
+              <div className="mt-2.5 pt-2 border-t border-[#8f0d6b]/15 flex items-center justify-between text-[10.5px] px-2 print:mt-1.5 print:pt-1">
+                <div className="flex items-center gap-2">
+                  <span className="rounded bg-[#8f0d6b] px-2.5 py-0.5 font-bold uppercase tracking-wider text-white text-[10px] print:bg-[#8f0d6b]">
+                    ADMISSION FORM
+                  </span>
+                  <span className="text-slate-600">Ref: <b className="font-mono text-slate-900 font-bold">{application.reference}</b></span>
+                </div>
+                <div className="flex items-center gap-3 text-slate-600">
+                  <span>Date: <b className="text-slate-900">{formattedCreatedAt}</b></span>
+                  <Badge variant="outline" className="capitalize text-[10px] py-0 px-2 font-bold border-[#8f0d6b]/30 text-[#8f0d6b]">
+                    {application.status.replaceAll("_", " ")}
+                  </Badge>
+                </div>
+              </div>
+            </div>
+
+            {/* Grid Container for Sections */}
+            <div className="space-y-2.5 print:space-y-2 text-[10.5px] leading-snug">
+              
+              {/* Section 1: Applicant Personal Details */}
+              <div className="rounded-lg border border-slate-300 p-2.5 bg-slate-50/50 print:bg-white print:border-slate-400 print:p-2">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-1 mb-1.5 print:mb-1">
+                  <h4 className="font-bold uppercase tracking-wider text-[#8f0d6b] text-[10.5px]">
+                    1. Applicant Personal Details
+                  </h4>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-1.5 print:grid-cols-4 print:gap-y-1">
+                  <div className="col-span-2">
+                    <span className="text-slate-500 block text-[9.5px] uppercase">Full Name:</span>
+                    <span className="font-bold text-slate-900 text-xs">{application.fullName}</span>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-slate-500 block text-[9.5px] uppercase">Email Address:</span>
+                    <span className="font-semibold text-slate-800">{application.email}</span>
+                  </div>
+
+                  <div>
+                    <span className="text-slate-500 block text-[9.5px] uppercase">Primary Contact:</span>
+                    <span className="font-semibold text-slate-900">{application.phone}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[9.5px] uppercase">WhatsApp:</span>
+                    <span className="text-slate-800">{application.whatsapp || "—"}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[9.5px] uppercase">Date of Birth / Age:</span>
+                    <span className="text-slate-800">{formattedDob} {application.age ? `(${application.age} yrs)` : ""}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[9.5px] uppercase">Hometown:</span>
+                    <span className="text-slate-800">{application.hometown || "—"}</span>
+                  </div>
+
+                  <div>
+                    <span className="text-slate-500 block text-[9.5px] uppercase">Gender:</span>
+                    <span className="text-slate-800 capitalize">{application.gender || "Female"}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[9.5px] uppercase">Marital Status:</span>
+                    <span className="text-slate-800 capitalize">{application.maritalStatus || "Single"}</span>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-slate-500 block text-[9.5px] uppercase">Residential / Postal Address:</span>
+                    <span className="text-slate-800">{application.address || "—"}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 2: Emergency Contact & Social Media */}
+              <div className="rounded-lg border border-slate-300 p-2.5 bg-slate-50/50 print:bg-white print:border-slate-400 print:p-2">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-1 mb-1.5 print:mb-1">
+                  <h4 className="font-bold uppercase tracking-wider text-[#8f0d6b] text-[10.5px]">
+                    2. Emergency Contact & Social Media Handles
+                  </h4>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-x-3 gap-y-1.5 print:grid-cols-5 print:gap-y-1">
+                  <div className="col-span-1">
+                    <span className="text-slate-500 block text-[9.5px] uppercase">Emergency Contact:</span>
+                    <span className="font-bold text-slate-900">{application.emergencyContact || "—"}</span>
+                  </div>
+                  <div className="col-span-1">
+                    <span className="text-slate-500 block text-[9.5px] uppercase">Relationship:</span>
+                    <span className="text-slate-800">{application.emergencyRelationship || "—"}</span>
+                  </div>
+                  <div className="col-span-1">
+                    <span className="text-slate-500 block text-[9.5px] uppercase">Instagram:</span>
+                    <span className="font-mono text-[#8f0d6b] font-medium">{application.instagram || "—"}</span>
+                  </div>
+                  <div className="col-span-1">
+                    <span className="text-slate-500 block text-[9.5px] uppercase">TikTok:</span>
+                    <span className="font-mono text-slate-800">{application.tiktok || "—"}</span>
+                  </div>
+                  <div className="col-span-1">
+                    <span className="text-slate-500 block text-[9.5px] uppercase">Other Social:</span>
+                    <span className="text-slate-800">{application.otherSocialMedia || "—"}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 3: Academic Programme & Payment Terms */}
+              <div className="rounded-lg border border-slate-300 p-2.5 bg-slate-50/50 print:bg-white print:border-slate-400 print:p-2">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-1 mb-1.5 print:mb-1">
+                  <h4 className="font-bold uppercase tracking-wider text-[#8f0d6b] text-[10.5px]">
+                    3. Academic Programme & Payment Terms
+                  </h4>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-x-3 gap-y-1.5 print:grid-cols-5 print:gap-y-1">
+                  <div className="col-span-2">
+                    <span className="text-slate-500 block text-[9.5px] uppercase">Enrolled Programme:</span>
+                    <span className="font-bold text-xs text-[#8f0d6b]">{courseTitle}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[9.5px] uppercase">Educational Level:</span>
+                    <span className="text-slate-800">{application.educationalLevel || "—"}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[9.5px] uppercase">Course Duration:</span>
+                    <span className="font-semibold text-slate-900">{application.duration || "—"}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[9.5px] uppercase">Payment Plan:</span>
+                    <span className="font-semibold text-slate-900">{application.paymentPlan || "Full Payment"}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 4: References / Parent / Guardian */}
+              <div className="rounded-lg border border-slate-300 p-2.5 bg-slate-50/50 print:bg-white print:border-slate-400 print:p-2">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-1 mb-1.5 print:mb-1">
+                  <h4 className="font-bold uppercase tracking-wider text-[#8f0d6b] text-[10.5px]">
+                    4. References / Parent / Guardian
+                  </h4>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-3 gap-y-1.5 print:grid-cols-3 print:gap-y-1">
+                  <div>
+                    <span className="text-slate-500 block text-[9.5px] uppercase">Guardian Name:</span>
+                    <span className="font-bold text-slate-900">{application.guardianName || "—"}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[9.5px] uppercase">Guardian Phone:</span>
+                    <span className="font-semibold text-slate-900">{application.guardianPhone || "—"}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[9.5px] uppercase">Guardian Address:</span>
+                    <span className="text-slate-800">{application.guardianAddress || "—"}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 5: Student Declaration */}
+              <div className="rounded-lg border border-[#8f0d6b]/30 bg-[#faeaf6]/20 p-2.5 print:bg-white print:border-slate-400 print:p-2">
+                <div className="flex items-center justify-between border-b border-[#8f0d6b]/15 pb-1 mb-1 print:mb-0.5">
+                  <h4 className="font-bold uppercase tracking-wider text-[#8f0d6b] text-[10.5px]">
+                    5. Student Signature & Declaration
+                  </h4>
+                  <span className="text-[9.5px] font-semibold text-emerald-700">✓ Agreed to Terms & Regulations</span>
+                </div>
+                <p className="text-[9.5px] text-slate-600 italic leading-snug">
+                  &quot;I hereby declare that the particulars provided above are accurate and truthful. I agree to abide by all the rules, terms, policies, and regulations of Blush With Tee Beauty School.&quot;
+                </p>
+                <div className="flex items-end justify-between pt-1.5 mt-1 border-t border-dashed border-slate-200">
+                  <div>
+                    <span className="text-[9px] text-slate-500 uppercase block">Applicant Digital Signature:</span>
+                    <p className="font-serif italic font-bold text-sm text-[#8f0d6b] leading-tight">
+                      {application.signatureData || application.fullName}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[9px] text-slate-500 uppercase block">Signed Date:</span>
+                    <p className="font-mono font-semibold text-xs text-slate-800">{formattedCreatedAt}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 6: Official Use Only (CEO Endorsement & Approval) */}
+              <div className="rounded-lg border-2 border-dashed border-[#8f0d6b]/50 bg-gradient-to-r from-white via-[#fdf2fa]/40 to-white p-2.5 print:bg-white print:border-slate-500 print:p-2">
+                <div className="flex items-center justify-between border-b border-[#8f0d6b]/20 pb-1 mb-1.5 print:mb-1">
+                  <h4 className="font-serif font-bold text-xs uppercase tracking-wider text-[#8f0d6b] flex items-center gap-1.5">
+                    <ShieldCheck className="h-3.5 w-3.5 text-[#fe00b6]" />
+                    6. FOR OFFICIAL USE ONLY (CEO Endorsement & Admissions Sign-off)
+                  </h4>
+                  {application.ceoEndorsed ? (
+                    <span className="rounded bg-emerald-600 px-2 py-0.5 text-[9.5px] font-bold text-white uppercase print:bg-emerald-700">
+                      ✓ CEO Endorsed
+                    </span>
+                  ) : (
+                    <span className="rounded bg-amber-100 text-amber-800 border border-amber-300 px-2 py-0.5 text-[9.5px] font-bold uppercase">
+                      Pending CEO Endorsement
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-center">
+                  <div>
+                    <span className="text-slate-500 block text-[9.5px] uppercase">CEO / Director Signature:</span>
+                    <span className="font-serif italic font-bold text-sm text-[#8f0d6b] block">
+                      {application.ceoEndorsementSignature || (application.ceoEndorsed ? "Blush With Tee Director" : "—")}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-slate-500 block text-[9.5px] uppercase">Endorsement Date:</span>
+                    <span className="font-semibold text-slate-800">
+                      {application.ceoEndorsementDate
+                        ? new Date(application.ceoEndorsementDate).toLocaleDateString("en-GB")
+                        : "—"}
+                    </span>
+                  </div>
+
+                  <div className="text-right">
+                    <span className="text-slate-500 block text-[9.5px] uppercase">Official School Stamp:</span>
+                    <div className="inline-block border border-dashed border-[#8f0d6b]/40 rounded px-2 py-0.5 text-[9px] font-bold uppercase text-[#8f0d6b]">
+                      BLUSH WITH TEE ACADEMIC BOARD
+                    </div>
+                  </div>
+                </div>
+
+                {/* On-screen CEO endorsement input if not yet endorsed */}
+                {!application.ceoEndorsed && can("admissions.review") && (
+                  <div className="no-print mt-2 pt-2 border-t border-slate-200 flex items-center gap-2">
+                    <Input
+                      placeholder="Enter CEO Name / Signature to endorse"
+                      value={ceoSignature}
+                      onChange={e => setCeoSignature(e.target.value)}
+                      className="font-serif italic h-8 text-xs max-w-sm"
+                    />
+                    <Button
+                      size="sm"
+                      onClick={handleEndorse}
+                      disabled={endorse.isPending || !ceoSignature.trim()}
+                      className="bg-[#8f0d6b] text-white hover:bg-[#691152] h-8 text-xs"
+                    >
+                      Endorse Form
+                    </Button>
+                  </div>
+                )}
+
+                {application.decisionNote && (
+                  <div className="mt-1.5 pt-1 border-t border-slate-200 text-[10px] text-slate-700">
+                    <b className="text-slate-900">Decision Note:</b> {application.decisionNote}
+                  </div>
+                )}
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+        {/* Dialog Actions & Decision Controls (Screen Only) */}
+        <DialogFooter className="no-print border-t p-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 bg-muted/20">
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+              Close
+            </Button>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => window.print()}
-              className="gap-1.5 rounded-full border-[#8f0d6b]/30 text-[#8f0d6b] bg-white hover:bg-[#faeaf6]"
+              onClick={handlePrint}
+              className="gap-1.5 border-[#8f0d6b]/30 text-[#8f0d6b] hover:bg-[#faeaf6]"
             >
-              <Printer className="h-4 w-4" /> Print Form
+              <Printer className="h-3.5 w-3.5" /> Print A4 Sheet
             </Button>
           </div>
-
-          <div className="inline-block rounded-full bg-white px-4 py-1 text-xs font-bold uppercase tracking-widest text-[#8f0d6b] shadow-sm mb-2">
-            Official Student Admission File
-          </div>
-          <h2 className="font-serif text-3xl font-bold tracking-tight text-[#8f0d6b] sm:text-4xl">
-            BLUSH WITH TEE BEAUTY SCHOOL
-          </h2>
-          <p className="text-xs font-bold uppercase tracking-wider text-[#fe00b6] mt-1">
-            Allied Filling Station, A&apos;koon - Tarkwa
-          </p>
-          <p className="text-xs text-[#692156] mt-0.5">
-            Phone: <b>059 770 6250</b> | WhatsApp: <b>054 556 3536</b>
-          </p>
-
-          <div className="mt-4 inline-block rounded-xl border border-[#8f0d6b]/30 bg-white/90 px-6 py-2 shadow-sm">
-            <span className="font-serif text-xl font-bold tracking-wider text-[#8f0d6b]">
-              ADMISSION FORM
-            </span>
-          </div>
-
-          <div className="mt-3 flex items-center justify-center gap-4 text-xs text-[#8f0d6b]">
-            <span>Ref: <b className="font-mono">{application.reference}</b></span>
-            <span>·</span>
-            <span>Date: <b>{formattedCreatedAt}</b></span>
-            <span>·</span>
-            <Badge className="capitalize">
-              {application.status.replaceAll("_", " ")}
-            </Badge>
-          </div>
-        </div>
-
-        {/* Paper Form Content Body */}
-        <div className="p-6 sm:p-8 space-y-6 text-xs text-foreground">
-          {/* Section 1: Personal Particulars */}
-          <div className="rounded-xl border border-border/80 p-4 space-y-3 bg-card/60">
-            <h4 className="font-bold text-xs uppercase tracking-wider text-primary border-b pb-1.5">
-              1. Applicant Personal Details
-            </h4>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <span className="text-muted-foreground block text-[11px]">Full Name:</span>
-                <span className="font-semibold text-sm text-foreground">{application.fullName}</span>
-              </div>
-              <div>
-                <span className="text-muted-foreground block text-[11px]">Email Address:</span>
-                <span className="font-semibold text-foreground">{application.email}</span>
-              </div>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div>
-                <span className="text-muted-foreground block text-[11px]">Primary Contact:</span>
-                <span className="font-semibold">{application.phone}</span>
-              </div>
-              <div>
-                <span className="text-muted-foreground block text-[11px]">WhatsApp:</span>
-                <span>{application.whatsapp || "—"}</span>
-              </div>
-              <div>
-                <span className="text-muted-foreground block text-[11px]">Date of Birth / Age:</span>
-                <span>{formattedDob} ({application.age ? `${application.age} years` : "—"})</span>
-              </div>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div>
-                <span className="text-muted-foreground block text-[11px]">Hometown:</span>
-                <span>{application.hometown || "—"}</span>
-              </div>
-              <div>
-                <span className="text-muted-foreground block text-[11px]">Gender:</span>
-                <span>{application.gender || "Female"}</span>
-              </div>
-              <div>
-                <span className="text-muted-foreground block text-[11px]">Marital Status:</span>
-                <span className="capitalize">{application.maritalStatus || "Single"}</span>
-              </div>
-            </div>
-
-            <div>
-              <span className="text-muted-foreground block text-[11px]">Residential / Postal Address:</span>
-              <span className="leading-relaxed">{application.address || "—"}</span>
-            </div>
-          </div>
-
-          {/* Section 2: Emergency Contact & Social Media */}
-          <div className="rounded-xl border border-border/80 p-4 space-y-3 bg-card/60">
-            <h4 className="font-bold text-xs uppercase tracking-wider text-primary border-b pb-1.5">
-              2. Emergency Contact & Social Media
-            </h4>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <span className="text-muted-foreground block text-[11px]">Emergency Contact:</span>
-                <span className="font-semibold">{application.emergencyContact || "—"}</span>
-              </div>
-              <div>
-                <span className="text-muted-foreground block text-[11px]">Relationship to Contact:</span>
-                <span>{application.emergencyRelationship || "—"}</span>
-              </div>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div>
-                <span className="text-muted-foreground block text-[11px]">Instagram Handle:</span>
-                <span className="font-mono text-primary">{application.instagram || "—"}</span>
-              </div>
-              <div>
-                <span className="text-muted-foreground block text-[11px]">TikTok Handle:</span>
-                <span className="font-mono">{application.tiktok || "—"}</span>
-              </div>
-              <div>
-                <span className="text-muted-foreground block text-[11px]">Other Social Handle:</span>
-                <span>{application.otherSocialMedia || "—"}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Section 3: Academic Programme & Payment Plan */}
-          <div className="rounded-xl border border-border/80 p-4 space-y-3 bg-card/60">
-            <h4 className="font-bold text-xs uppercase tracking-wider text-primary border-b pb-1.5">
-              3. Academic Programme & Payment Terms
-            </h4>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <span className="text-muted-foreground block text-[11px]">Enrolled Programme:</span>
-                <span className="font-bold text-sm text-primary">{courseTitle}</span>
-              </div>
-              <div>
-                <span className="text-muted-foreground block text-[11px]">Educational Level:</span>
-                <span>{application.educationalLevel || "—"}</span>
-              </div>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div>
-                <span className="text-muted-foreground block text-[11px]">Payment Plan:</span>
-                <span className="font-semibold">{application.paymentPlan || "Full Payment"}</span>
-              </div>
-              <div>
-                <span className="text-muted-foreground block text-[11px]">Course Duration:</span>
-                <span>{application.duration || "—"}</span>
-              </div>
-              <div>
-                <span className="text-muted-foreground block text-[11px]">Desired Start Date:</span>
-                <span>{formattedStartDate}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Section 4: References / Parent / Guardian */}
-          <div className="rounded-xl border border-border/80 p-4 space-y-3 bg-card/60">
-            <h4 className="font-bold text-xs uppercase tracking-wider text-primary border-b pb-1.5">
-              4. References / Parent / Guardian
-            </h4>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <span className="text-muted-foreground block text-[11px]">Guardian Name:</span>
-                <span className="font-semibold">{application.guardianName || "—"}</span>
-              </div>
-              <div>
-                <span className="text-muted-foreground block text-[11px]">Guardian Phone:</span>
-                <span>{application.guardianPhone || "—"}</span>
-              </div>
-            </div>
-            <div>
-              <span className="text-muted-foreground block text-[11px]">Guardian Address:</span>
-              <span>{application.guardianAddress || "—"}</span>
-            </div>
-          </div>
-
-          {/* Section 5: Student Declaration */}
-          <div className="rounded-xl border border-[#8f0d6b]/20 bg-[#faeaf6]/30 p-4 space-y-2">
-            <h4 className="font-bold text-xs uppercase tracking-wider text-primary">
-              Student Signature & Declaration
-            </h4>
-            <p className="text-[11px] leading-relaxed text-muted-foreground">
-              &quot;I have read, understood, and agreed to all the rules, terms, policies, and regulations governing Blush With Tee Beauty School.&quot;
-            </p>
-            <div className="flex items-center justify-between pt-2 border-t border-[#8f0d6b]/10">
-              <div>
-                <span className="text-[10px] text-muted-foreground uppercase">Student Digital Signature:</span>
-                <p className="font-serif italic font-bold text-sm text-primary">
-                  {application.signatureData || application.fullName}
-                </p>
-              </div>
-              <div className="text-right">
-                <span className="text-[10px] text-muted-foreground uppercase">Date Signed:</span>
-                <p className="font-mono text-xs">{formattedCreatedAt}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Section 6: Official Use Only (CEO Endorsement & Approval) */}
-          <div className="rounded-xl border-2 border-dashed border-[#8f0d6b]/40 bg-gradient-to-br from-white to-[#fdf2fa] p-5 space-y-4">
-            <div className="flex items-center justify-between">
-              <h4 className="font-serif font-bold text-sm uppercase tracking-wider text-[#8f0d6b] flex items-center gap-1.5">
-                <ShieldCheck className="h-4 w-4 text-[#fe00b6]" />
-                FOR OFFICIAL USE ONLY (CEO Endorsement)
-              </h4>
-              {application.ceoEndorsed ? (
-                <Badge className="bg-emerald-600 text-white gap-1">
-                  <CheckCircle2 className="h-3 w-3" /> Endorsed by CEO
-                </Badge>
-              ) : (
-                <Badge variant="outline" className="text-amber-700 border-amber-400">
-                  Pending CEO Endorsement
-                </Badge>
-              )}
-            </div>
-
-            {application.ceoEndorsed ? (
-              <div className="grid gap-3 sm:grid-cols-2 text-xs bg-white/80 p-3 rounded-lg border border-emerald-500/20">
-                <div>
-                  <span className="text-muted-foreground block text-[11px]">CEO Signature:</span>
-                  <span className="font-serif italic font-bold text-sm text-emerald-800">
-                    {application.ceoEndorsementSignature || "Blush With Tee Director"}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground block text-[11px]">Endorsement Date:</span>
-                  <span>
-                    {application.ceoEndorsementDate
-                      ? new Date(application.ceoEndorsementDate).toLocaleDateString("en-GB")
-                      : "—"}
-                  </span>
-                </div>
-              </div>
-            ) : can("admissions.review") ? (
-              <div className="space-y-3 pt-2">
-                <Label htmlFor="ceo-sig">CEO / Director Signature</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="ceo-sig"
-                    placeholder="Enter CEO Name / Signature"
-                    value={ceoSignature}
-                    onChange={e => setCeoSignature(e.target.value)}
-                    className="font-serif italic"
-                  />
-                  <Button
-                    onClick={handleEndorse}
-                    disabled={endorse.isPending || !ceoSignature.trim()}
-                    className="bg-[#8f0d6b] text-white shrink-0"
-                  >
-                    Endorse Form
-                  </Button>
-                </div>
-              </div>
-            ) : null}
-
-            {/* Decision note */}
-            {application.decisionNote && (
-              <div className="text-xs bg-muted/40 p-2.5 rounded-lg">
-                <b className="text-foreground">Admissions Decision Note:</b> {application.decisionNote}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Dialog Actions & Decision Controls */}
-        <DialogFooter className="border-t p-4 flex flex-col sm:flex-row items-center justify-between gap-3 bg-muted/20">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Close Form
-          </Button>
 
           {can("admissions.review") && (
             <div className="flex items-center gap-2 flex-wrap">

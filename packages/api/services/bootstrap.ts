@@ -95,6 +95,42 @@ const DEFAULT_SETTINGS: Array<{
     value: { prefix: "COS", signatureName: "Principal", signatureTitle: "Principal" },
     description: "Certificate numbering and signature block.",
   },
+  // Messaging is seeded empty and switched off. Credentials are typed in on
+  // the settings page, and nothing is sent to anybody until somebody turns it
+  // on deliberately - a half-configured install must not start emailing
+  // students the moment it boots.
+  {
+    key: "messaging.sms",
+    category: "messaging",
+    value: {
+      enabled: false,
+      baseUrl: "https://api.mnotify.com/api/sms/quick",
+      senderId: "",
+      apiKey: "",
+    },
+    description: "mNotify credentials used to send text messages.",
+  },
+  {
+    key: "messaging.email",
+    category: "messaging",
+    value: {
+      enabled: false,
+      host: "smtp.gmail.com",
+      port: 587,
+      secure: false,
+      fromName: "",
+      fromAddress: "",
+      user: "",
+      appPassword: "",
+    },
+    description: "Mailbox used to send email, over SMTP.",
+  },
+  {
+    key: "messaging.events",
+    category: "messaging",
+    value: { masterEnabled: false, events: {}, templates: {} },
+    description: "Which events are announced, over which channels, and in what words.",
+  },
 ];
 
 let bootstrapPromise: Promise<void> | null = null;

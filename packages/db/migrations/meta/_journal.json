@@ -22,6 +22,13 @@
       "when": 1787445401912,
       "tag": "0002_perfect_dark_beast",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1787885817219,
+      "tag": "0003_cloudy_stepford_cuckoos",
+      "breakpoints": true
     }
   ]
 }

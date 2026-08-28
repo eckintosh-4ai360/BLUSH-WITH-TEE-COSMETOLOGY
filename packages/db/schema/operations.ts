@@ -122,22 +122,48 @@ export const notificationPreferences = pgTable(
   table => [unique("notification_preference_unique").on(table.userId, table.type)],
 );
 
-/** Per-channel send log, so a failed email is visible rather than silent. */
+/**
+ * The outbox: one row per message per channel, so a failed email is visible
+ * rather than silent.
+ *
+ * `notificationId` is nullable because most people the school writes to have
+ * no account to hang an in-app notification on. An applicant is the ordinary
+ * case - they are told their application arrived, and whether it was accepted,
+ * long before there is a student record or a sign-in for them. Those rows
+ * carry their own recipient, subject and body and stand alone.
+ *
+ * Rows are written inside the transaction that caused them and sent
+ * afterwards, so a message is never sent for a change that then rolled back,
+ * and a send that fails leaves a row to retry rather than nothing at all.
+ */
 export const notificationDeliveries = pgTable(
   "notificationDeliveries",
   {
     id: serial("id").primaryKey(),
-    notificationId: integer("notificationId")
-      .notNull()
-      .references(() => notifications.id, { onDelete: "cascade" }),
+    notificationId: integer("notificationId").references(() => notifications.id, {
+      onDelete: "cascade",
+    }),
+    /** What happened, for rows that have no notification to read it from. */
+    type: notificationType("type"),
     channel: notificationChannel("channel").notNull(),
+    /** Email address or phone number, depending on the channel. */
     destination: varchar("destination", { length: 320 }),
+    recipientName: varchar("recipientName", { length: 160 }),
+    subject: varchar("subject", { length: 255 }),
+    body: text("body"),
     status: deliveryStatus("status").default("queued").notNull(),
     error: text("error"),
+    /** Counted so a permanently failing message stops being retried. */
+    attempts: integer("attempts").default(0).notNull(),
+    lastAttemptAt: timestamp("lastAttemptAt"),
     sentAt: timestamp("sentAt"),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
   },
-  table => [index("notification_deliveries_notification_idx").on(table.notificationId)],
+  table => [
+    index("notification_deliveries_notification_idx").on(table.notificationId),
+    // The drain query is "oldest queued first", and it runs on every dispatch.
+    index("notification_deliveries_pending_idx").on(table.status, table.createdAt),
+  ],
 );
 
 /**

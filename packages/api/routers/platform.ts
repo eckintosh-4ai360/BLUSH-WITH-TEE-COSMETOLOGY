@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gte, ilike, inArray, lte, or } from "drizzle-orm";
+import { and, count, desc, eq, gte, ilike, inArray, lte, ne, or } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
@@ -412,9 +412,23 @@ export const platformRouter = router({
     };
   }),
 
+  /**
+   * Every setting the generic editor is allowed to touch.
+   *
+   * Messaging is excluded on purpose. Those rows hold an API key and an app
+   * password, and the generic editor round-trips whatever it was given - it
+   * would show the secret to anyone with `settings.read`, and saving an
+   * unrelated field on the same card would write the masked value back over a
+   * working credential. They have their own procedures, which never return a
+   * secret at all.
+   */
   settings: permissionProcedure("settings.read").query(async () => {
     const db = await dbOrThrow();
-    const rows = await db.select().from(systemSettings).orderBy(systemSettings.category, systemSettings.key);
+    const rows = await db
+      .select()
+      .from(systemSettings)
+      .where(ne(systemSettings.category, "messaging"))
+      .orderBy(systemSettings.category, systemSettings.key);
 
     const grouped = new Map<string, typeof rows>();
     for (const row of rows) {
@@ -438,6 +452,15 @@ export const platformRouter = router({
         .limit(1);
       if (!before) throw new TRPCError({ code: "NOT_FOUND", message: "Unknown setting." });
 
+      // Refused rather than hidden: this is the path that would overwrite a
+      // live credential with the mask the settings page was shown.
+      if (before.category === "messaging") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Messaging settings are edited from the Messaging panel.",
+        });
+      }
+
       await db
         .update(systemSettings)
         .set({ value: input.value as never, updatedByUserId: ctx.user.id })
@@ -455,4 +478,4 @@ export const platformRouter = router({
 
       return { success: true };
     }),
-});
+}
