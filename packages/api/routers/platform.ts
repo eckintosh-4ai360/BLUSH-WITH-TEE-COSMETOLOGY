@@ -124,7 +124,8 @@ export const platformRouter = router({
 
     return roleRows.map(role => ({
       ...role,
-      description: role.description ?? ROLE_DEFINITIONS[role.key]?.description ?? null,
+      description:
+        role.description ?? ROLE_DEFINITIONS[role.key as RoleKey]?.description ?? null,
       permissions: byRole.get(role.key) ?? [],
     }));
   }),

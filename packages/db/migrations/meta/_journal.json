@@ -43,6 +43,13 @@
       "when": 1787889644324,
       "tag": "0005_add_daily_closings",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1787891531106,
+      "tag": "0006_add_secretary_role",
+      "breakpoints": true
     }
   ]
 }

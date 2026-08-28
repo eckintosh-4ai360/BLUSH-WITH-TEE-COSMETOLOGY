@@ -20,7 +20,10 @@ import type { Database } from "../dbOrThrow";
 const LEGACY_ROLE_MAP: Record<string, RoleKey | null> = {
   admin: "super_admin",
   staff: "instructor",
-  student: "student",
+  // A student portal account carries no back-office role. The role it used to
+  // map to has been retired in favour of `secretary`, and it granted nothing
+  // in any case - portal access comes from `users.role`, not from here.
+  student: null,
   user: "customer",
 };
 
@@ -65,6 +68,8 @@ async function seedAccessControl(db: Database): Promise<void> {
     )
     .onConflictDoNothing({ target: roles.key });
 
+  await retireUndefinedRoles(db);
+
   const [roleRows, permissionRows] = await Promise.all([
     db.select({ id: roles.id, key: roles.key }).from(roles),
     db.select({ id: permissions.id, key: permissions.key }).from(permissions),
@@ -82,6 +87,41 @@ async function seedAccessControl(db: Database): Promise<void> {
 
   if (grants.length) {
     await db.insert(rolePermissions).values(grants).onConflictDoNothing();
+  }
+}
+
+/**
+ * Removes roles that are no longer defined.
+ *
+ * The catalogue insert never deletes, so a retired role would linger in the
+ * table and keep appearing in the admin UI as something assignable. One that
+ * somebody still holds is left alone deliberately: silently stripping a live
+ * grant is a worse outcome than showing a stale name, and `permissionsForRole`
+ * already resolves an unknown key to no privileges. Reassign the holders and
+ * the row goes on the next boot.
+ */
+async function retireUndefinedRoles(db: Database): Promise<void> {
+  const defined = new Set<string>(ROLE_KEYS);
+
+  const existing = await db.select({ id: roles.id, key: roles.key }).from(roles);
+  const retired = existing.filter(role => !defined.has(role.key));
+  if (!retired.length) return;
+
+  const heldRows = await db
+    .select({ roleId: userRoles.roleId })
+    .from(userRoles)
+    .where(
+      inArray(
+        userRoles.roleId,
+        retired.map(role => role.id),
+      ),
+    );
+  const held = new Set(heldRows.map(row => row.roleId));
+
+  const removable = retired.filter(role => !held.has(role.id)).map(role => role.id);
+  if (removable.length) {
+    // rolePermissions cascades off the role, so the grants go with it.
+    await db.delete(roles).where(inArray(roles.id, removable));
   }
 }
 
@@ -202,9 +242,10 @@ export function portalRoleFor(role: RoleKey): "user" | "student" | "staff" | "ad
     case "accountant":
     case "storekeeper":
     case "ecommerce_manager":
+    // The desk works inside the dashboard, so a secretary is staff. What they
+    // can actually do there is decided by their permissions, not by this.
+    case "secretary":
       return "staff";
-    case "student":
-      return "student";
     default:
       return "user";
   }

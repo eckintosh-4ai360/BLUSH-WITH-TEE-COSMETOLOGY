@@ -1,0 +1,1 @@
+ALTER TYPE "public"."role_key" ADD VALUE 'secretary' BEFORE 'student';

@@ -79,6 +79,14 @@ export type PermissionKey = keyof typeof PERMISSIONS;
 
 export const PERMISSION_KEYS = Object.keys(PERMISSIONS) as PermissionKey[];
 
+/**
+ * The roles that can be assigned.
+ *
+ * `student` is absent on purpose. It is still a value in the database enum,
+ * because dropping one from a Postgres type means recreating it, but it is no
+ * longer a role: the front desk is `secretary`, and student portal access
+ * comes from `users.role` rather than from here.
+ */
 export type RoleKey =
   | "super_admin"
   | "administrator"
@@ -86,7 +94,7 @@ export type RoleKey =
   | "accountant"
   | "storekeeper"
   | "ecommerce_manager"
-  | "student"
+  | "secretary"
   | "customer";
 
 const READ_ONLY_ACADEMIC: PermissionKey[] = [
@@ -202,10 +210,66 @@ export const ROLE_DEFINITIONS: Record<
       "cms.read",
     ],
   },
-  student: {
-    name: "Student",
-    description: "Access to the student portal only.",
-    permissions: [],
+  /**
+   * The front desk.
+   *
+   * A secretary is the person the school actually runs through: they take the
+   * money, register the walk-ins, mark the register, sell from the shop and
+   * count the till at the end of the day. The set below is drawn to cover that
+   * day rather than to fit a department.
+   *
+   * What is deliberately withheld is as much the point. They record expenses
+   * but cannot approve them; they close the till but cannot reopen a closed
+   * day; they file applications but do not decide them; they read stock but do
+   * not adjust it. Each of those is a second pair of eyes on the first, and
+   * the desk should not be both.
+   */
+  secretary: {
+    name: "Secretary",
+    description:
+      "Front desk: admissions, registrations, attendance, shop sales, payments and daily closing.",
+    permissions: [
+      // Reception and registration
+      "admissions.read",
+      "admissions.write",
+      "students.read",
+      "students.write",
+      "academics.read",
+
+      // The register
+      "attendance.read",
+      "attendance.write",
+
+      // Taking money. `fees.read` is not optional here - a payment cannot be
+      // applied to a balance nobody is allowed to see.
+      "fees.read",
+      "payments.read",
+      "payments.write",
+
+      // Cash paid out of the till. Without this the drawer cannot be
+      // reconciled: cash expenses are subtracted from what should be in it,
+      // so a secretary who cannot record them will be short every time.
+      "expenses.read",
+      "expenses.write",
+
+      // End of day
+      "closing.read",
+      "closing.write",
+
+      // The shop
+      "orders.read",
+      "orders.write",
+      "products.read",
+      "inventory.read",
+      "customers.read",
+      "customers.write",
+
+      // Student clinic bookings
+      "appointments.read",
+      "appointments.write",
+
+      "notifications.read",
+    ],
   },
   customer: {
     name: "Customer",
@@ -216,9 +280,16 @@ export const ROLE_DEFINITIONS: Record<
 
 export const ROLE_KEYS = Object.keys(ROLE_DEFINITIONS) as RoleKey[];
 
-/** Expands a role to its concrete permission set, resolving the wildcard. */
+/**
+ * Expands a role to its concrete permission set, resolving the wildcard.
+ *
+ * An unknown key grants nothing rather than throwing. Roles are retired from
+ * time to time and a row can outlive its definition; a stale grant should
+ * quietly carry no privileges, not break every request the holder makes.
+ */
 export function permissionsForRole(role: RoleKey): PermissionKey[] {
   const definition = ROLE_DEFINITIONS[role];
+  if (!definition) return [];
   return definition.permissions === "*" ? [...PERMISSION_KEYS] : definition.permissions;
 }
 

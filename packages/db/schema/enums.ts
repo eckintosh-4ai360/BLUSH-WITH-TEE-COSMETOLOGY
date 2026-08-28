@@ -17,6 +17,13 @@ export const roleKey = pgEnum("role_key", [
   "accountant",
   "storekeeper",
   "ecommerce_manager",
+  "secretary",
+  /**
+   * Retired. The front desk is `secretary` now; this stays in the type because
+   * dropping a value from a Postgres enum means recreating it and rewriting
+   * every column that references it. It is no longer a role anyone can be
+   * given - see ROLE_DEFINITIONS, which is what the admin UI offers.
+   */
   "student",
   "customer",
 ]);

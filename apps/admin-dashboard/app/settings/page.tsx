@@ -3,21 +3,14 @@
 import { useEffect, useState } from "react";
 import {
   Building2,
-  CheckCircle2,
-  CreditCard,
   GraduationCap,
   Loader2,
-  Mail,
   MessageSquare,
   Receipt,
   Save,
-  School,
   ScrollText,
   Search,
-  Settings,
   ShoppingBag,
-  Sliders,
-  Sparkles,
 } from "lucide-react";
 import { Badge } from "@blush/ui/components/ui/badge";
 import { Button } from "@blush/ui/components/ui/button";
@@ -26,7 +19,7 @@ import { Label } from "@blush/ui/components/ui/label";
 import { Skeleton } from "@blush/ui/components/ui/skeleton";
 import { toast } from "@blush/ui/components/ui/sonner";
 import { Switch } from "@blush/ui/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@blush/ui/components/ui/tabs";
+import { cn } from "@blush/ui/lib/utils";
 import DashboardLayout from "@/components/DashboardLayout";
 import { PermissionGate } from "@/components/PermissionGate";
 import { MessagingSettings } from "@/components/settings/MessagingSettings";
@@ -37,53 +30,51 @@ import { trpc } from "@/lib/trpc";
 type CategoryMeta = {
   id: string;
   label: string;
-  shortLabel: string;
+  shortDesc: string;
   icon: React.ComponentType<{ className?: string }>;
   description: string;
-  badge?: string;
 };
 
 const CATEGORIES: CategoryMeta[] = [
   {
     id: "school",
-    label: "School & Branding",
-    shortLabel: "School",
+    label: "School Identity",
+    shortDesc: "Branding & Contacts",
     icon: Building2,
     description: "School name, campus contact details, social links, and public profiles.",
   },
   {
     id: "terms",
     label: "Policies & Terms",
-    shortLabel: "Policies",
+    shortDesc: "10 School Rules",
     icon: ScrollText,
     description: "Official rules governing the school, code of conduct, and refund disclaimers.",
-    badge: "Public Policy",
   },
   {
     id: "messaging",
     label: "Messaging & Alerts",
-    shortLabel: "Messaging",
+    shortDesc: "SMS & Email",
     icon: MessageSquare,
     description: "SMS (mNotify), Email (SMTP), broadcast event triggers, and delivery audit logs.",
   },
   {
     id: "academic",
     label: "Academics & Certs",
-    shortLabel: "Academics",
+    shortDesc: "Grading & Attendance",
     icon: GraduationCap,
     description: "Grading bands, pass mark thresholds, attendance policies, and certificate numbering.",
   },
   {
     id: "financial",
     label: "Finance & Receipts",
-    shortLabel: "Finance",
+    shortDesc: "Receipts & Currency",
     icon: Receipt,
     description: "Operating currency, tax rates, receipt prefixes, and payment receipt wording.",
   },
   {
     id: "ecommerce",
     label: "Store & Delivery",
-    shortLabel: "Store",
+    shortDesc: "Delivery Fees",
     icon: ShoppingBag,
     description: "Beauty store delivery pricing, free shipping thresholds, and checkout notes.",
   },
@@ -112,6 +103,8 @@ function SettingsContent() {
     },
     {} as Record<string, NonNullable<typeof query.data>[number]["entries"]>
   );
+
+  const currentCategoryMeta = CATEGORIES.find(c => c.id === activeCategory) || CATEGORIES[0];
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 pb-12">
@@ -143,177 +136,178 @@ function SettingsContent() {
         </div>
       </header>
 
-      {/* Main Tabs Container */}
-      <Tabs
-        value={activeCategory}
-        onValueChange={setActiveCategory}
-        className="w-full space-y-6"
-      >
-        {/* Navigation Tabs Bar */}
-        <div className="w-full">
-          <TabsList className="h-auto w-full flex flex-wrap items-center justify-start gap-2.5 bg-muted/40 p-2 rounded-2xl border border-border/60">
-            {CATEGORIES.map(cat => {
-              const Icon = cat.icon;
-              const entriesCount = groupsByCategory[cat.id]?.length;
-              return (
-                <TabsTrigger
-                  key={cat.id}
-                  value={cat.id}
-                  className="data-[state=active]:bg-white data-[state=active]:text-[#8f0d6b] data-[state=active]:shadow-sm data-[state=active]:border-[#8f0d6b]/25 dark:data-[state=active]:bg-card rounded-xl py-2 px-3.5 text-xs font-semibold transition-all flex items-center justify-center shrink-0 border border-transparent hover:bg-white/50 text-muted-foreground"
-                >
-                  <Icon className="h-4 w-4 shrink-0 text-[#8f0d6b] mr-2" />
-                  <span className="whitespace-nowrap">{cat.label}</span>
-                  {cat.badge ? (
-                    <span className="ml-2 inline-flex items-center rounded-full bg-[#faeaf6] text-[#8f0d6b] px-2 py-0.5 text-[10px] font-bold border border-[#8f0d6b]/20">
-                      {cat.badge}
-                    </span>
-                  ) : entriesCount ? (
-                    <span className="ml-2 inline-flex items-center justify-center rounded-full bg-muted-foreground/10 text-muted-foreground px-1.5 py-0.5 text-[10px] font-medium min-w-[18px]">
-                      {entriesCount}
-                    </span>
-                  ) : null}
-                </TabsTrigger>
-              );
-            })}
-          </TabsList>
+      {/* Category Navigation Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+        {CATEGORIES.map(cat => {
+          const Icon = cat.icon;
+          const isActive = activeCategory === cat.id;
+
+          return (
+            <button
+              key={cat.id}
+              type="button"
+              onClick={() => setActiveCategory(cat.id)}
+              className={cn(
+                "group relative flex flex-col items-start rounded-2xl p-3.5 text-left transition-all duration-200 border",
+                isActive
+                  ? "bg-gradient-to-br from-[#8f0d6b] to-[#69094e] text-white border-[#8f0d6b] shadow-md ring-2 ring-[#8f0d6b]/20"
+                  : "bg-card text-foreground border-border/70 hover:border-[#8f0d6b]/40 hover:bg-[#faeaf6]/30 shadow-sm"
+              )}
+            >
+              <div
+                className={cn(
+                  "flex h-9 w-9 items-center justify-center rounded-xl transition-colors mb-2.5",
+                  isActive
+                    ? "bg-white/20 text-white"
+                    : "bg-[#faeaf6] text-[#8f0d6b] group-hover:bg-[#8f0d6b] group-hover:text-white"
+                )}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+              </div>
+              <p
+                className={cn(
+                  "text-xs font-bold leading-tight line-clamp-1",
+                  isActive ? "text-white" : "text-foreground"
+                )}
+              >
+                {cat.label}
+              </p>
+              <p
+                className={cn(
+                  "text-[10px] mt-0.5 line-clamp-1",
+                  isActive ? "text-white/80" : "text-muted-foreground"
+                )}
+              >
+                {cat.shortDesc}
+              </p>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Loading Skeleton */}
+      {query.isLoading ? (
+        <div className="space-y-4">
+          <Skeleton className="h-20 w-full rounded-2xl" />
+          <Skeleton className="h-64 w-full rounded-2xl" />
         </div>
+      ) : null}
 
-        {/* Loading Skeleton */}
-        {query.isLoading ? (
-          <div className="space-y-4">
-            <Skeleton className="h-20 w-full rounded-2xl" />
-            <Skeleton className="h-64 w-full rounded-2xl" />
-          </div>
-        ) : null}
+      {/* Active Category Header Banner */}
+      {!query.isLoading && (
+        <CategoryHeader
+          icon={currentCategoryMeta.icon}
+          title={currentCategoryMeta.label}
+          description={currentCategoryMeta.description}
+        />
+      )}
 
-        {/* 1. School & Branding Tab */}
-        <TabsContent value="school" className="space-y-4 outline-none">
-          <CategoryHeader
-            icon={Building2}
-            title="School &amp; Branding"
-            description="School identity used on receipts, public website headers, letters, and certificates."
-          />
-          <div className="space-y-4">
-            {(groupsByCategory["school"] ?? [])
-              .filter(entry =>
-                !searchQuery.trim() ||
-                entry.key.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                (entry.description || "").toLowerCase().includes(searchQuery.toLowerCase())
-              )
-              .map(entry => (
-                <SettingCard
-                  key={entry.key}
-                  settingKey={entry.key}
-                  description={entry.description}
-                  value={entry.value}
-                  readOnly={!can("settings.write")}
-                  onSaved={() => query.refetch()}
-                />
-              ))}
-          </div>
-        </TabsContent>
+      {/* Category Content Panels */}
+      {!query.isLoading && (
+        <div className="space-y-4">
+          {/* 1. School Identity */}
+          {activeCategory === "school" && (
+            <div className="space-y-4">
+              {(groupsByCategory["school"] ?? [])
+                .filter(
+                  entry =>
+                    !searchQuery.trim() ||
+                    entry.key.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    (entry.description || "").toLowerCase().includes(searchQuery.toLowerCase())
+                )
+                .map(entry => (
+                  <SettingCard
+                    key={entry.key}
+                    settingKey={entry.key}
+                    description={entry.description}
+                    value={entry.value}
+                    readOnly={!can("settings.write")}
+                    onSaved={() => query.refetch()}
+                  />
+                ))}
+            </div>
+          )}
 
-        {/* 2. Policies & Terms Tab */}
-        <TabsContent value="terms" className="space-y-4 outline-none">
-          <CategoryHeader
-            icon={ScrollText}
-            title="School Policies &amp; Terms &amp; Conditions"
-            description="The 10 official governing rules, dress code, attendance hours, student modeling, and fee refund disclaimers displayed on the public site and admission portal."
-          />
-          <TermsSettings readOnly={!can("settings.write")} />
-        </TabsContent>
+          {/* 2. Policies & Terms */}
+          {activeCategory === "terms" && (
+            <TermsSettings readOnly={!can("settings.write")} />
+          )}
 
-        {/* 3. Messaging & Alerts Tab */}
-        <TabsContent value="messaging" className="space-y-4 outline-none">
-          <CategoryHeader
-            icon={MessageSquare}
-            title="Messaging Channels &amp; Automated Broadcasts"
-            description="Configure mNotify SMS credentials, SMTP email servers, announcement trigger events, and inspect message dispatch logs."
-          />
-          <MessagingSettings readOnly={!can("settings.write")} />
-        </TabsContent>
+          {/* 3. Messaging & Alerts */}
+          {activeCategory === "messaging" && (
+            <MessagingSettings readOnly={!can("settings.write")} />
+          )}
 
-        {/* 4. Academics & Certs Tab */}
-        <TabsContent value="academic" className="space-y-4 outline-none">
-          <CategoryHeader
-            icon={GraduationCap}
-            title="Academic &amp; Certification Rules"
-            description="Configure assessment grade bands, passing mark thresholds, minimum attendance requirements, and certificate serial numbering."
-          />
-          <div className="space-y-4">
-            {(groupsByCategory["academic"] ?? [])
-              .filter(entry =>
-                !searchQuery.trim() ||
-                entry.key.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                (entry.description || "").toLowerCase().includes(searchQuery.toLowerCase())
-              )
-              .map(entry => (
-                <SettingCard
-                  key={entry.key}
-                  settingKey={entry.key}
-                  description={entry.description}
-                  value={entry.value}
-                  readOnly={!can("settings.write")}
-                  onSaved={() => query.refetch()}
-                />
-              ))}
-          </div>
-        </TabsContent>
+          {/* 4. Academics & Certs */}
+          {activeCategory === "academic" && (
+            <div className="space-y-4">
+              {(groupsByCategory["academic"] ?? [])
+                .filter(
+                  entry =>
+                    !searchQuery.trim() ||
+                    entry.key.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    (entry.description || "").toLowerCase().includes(searchQuery.toLowerCase())
+                )
+                .map(entry => (
+                  <SettingCard
+                    key={entry.key}
+                    settingKey={entry.key}
+                    description={entry.description}
+                    value={entry.value}
+                    readOnly={!can("settings.write")}
+                    onSaved={() => query.refetch()}
+                  />
+                ))}
+            </div>
+          )}
 
-        {/* 5. Finance & Receipts Tab */}
-        <TabsContent value="financial" className="space-y-4 outline-none">
-          <CategoryHeader
-            icon={Receipt}
-            title="Finance &amp; Receipt Configuration"
-            description="Set default transaction currency, tax computation rules, official receipt sequence prefixes, and printed receipt footer notes."
-          />
-          <div className="space-y-4">
-            {(groupsByCategory["financial"] ?? [])
-              .filter(entry =>
-                !searchQuery.trim() ||
-                entry.key.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                (entry.description || "").toLowerCase().includes(searchQuery.toLowerCase())
-              )
-              .map(entry => (
-                <SettingCard
-                  key={entry.key}
-                  settingKey={entry.key}
-                  description={entry.description}
-                  value={entry.value}
-                  readOnly={!can("settings.write")}
-                  onSaved={() => query.refetch()}
-                />
-              ))}
-          </div>
-        </TabsContent>
+          {/* 5. Finance & Receipts */}
+          {activeCategory === "financial" && (
+            <div className="space-y-4">
+              {(groupsByCategory["financial"] ?? [])
+                .filter(
+                  entry =>
+                    !searchQuery.trim() ||
+                    entry.key.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    (entry.description || "").toLowerCase().includes(searchQuery.toLowerCase())
+                )
+                .map(entry => (
+                  <SettingCard
+                    key={entry.key}
+                    settingKey={entry.key}
+                    description={entry.description}
+                    value={entry.value}
+                    readOnly={!can("settings.write")}
+                    onSaved={() => query.refetch()}
+                  />
+                ))}
+            </div>
+          )}
 
-        {/* 6. Store & Delivery Tab */}
-        <TabsContent value="ecommerce" className="space-y-4 outline-none">
-          <CategoryHeader
-            icon={ShoppingBag}
-            title="Store &amp; Delivery Logistics"
-            description="Manage campus store delivery pricing rules, free shipping order amounts, and delivery notes displayed at checkout."
-          />
-          <div className="space-y-4">
-            {(groupsByCategory["ecommerce"] ?? [])
-              .filter(entry =>
-                !searchQuery.trim() ||
-                entry.key.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                (entry.description || "").toLowerCase().includes(searchQuery.toLowerCase())
-              )
-              .map(entry => (
-                <SettingCard
-                  key={entry.key}
-                  settingKey={entry.key}
-                  description={entry.description}
-                  value={entry.value}
-                  readOnly={!can("settings.write")}
-                  onSaved={() => query.refetch()}
-                />
-              ))}
-          </div>
-        </TabsContent>
-      </Tabs>
+          {/* 6. Store & Delivery */}
+          {activeCategory === "ecommerce" && (
+            <div className="space-y-4">
+              {(groupsByCategory["ecommerce"] ?? [])
+                .filter(
+                  entry =>
+                    !searchQuery.trim() ||
+                    entry.key.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    (entry.description || "").toLowerCase().includes(searchQuery.toLowerCase())
+                )
+                .map(entry => (
+                  <SettingCard
+                    key={entry.key}
+                    settingKey={entry.key}
+                    description={entry.description}
+                    value={entry.value}
+                    readOnly={!can("settings.write")}
+                    onSaved={() => query.refetch()}
+                  />
+                ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
