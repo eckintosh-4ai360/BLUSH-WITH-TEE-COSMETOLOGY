@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import {
   BadgeCheck,
   ChevronDown,
+  GraduationCap,
   PackagePlus,
   Plus,
   Receipt,
@@ -79,6 +80,12 @@ const ACTIONS: Array<{
     permission: "suppliers.read",
   },
   {
+    label: "Add programme",
+    href: "/academics",
+    icon: GraduationCap,
+    permission: "academics.write",
+  },
+  {
     label: "Students",
     href: "/students",
     icon: Users,
@@ -99,7 +106,7 @@ export function QuickActions() {
     <div className="flex items-center gap-2">
       <Button
         onClick={() => router.push(primary.href)}
-        className="gap-2 bg-[#22b8bd] text-white shadow-[0_14px_28px_rgba(34,184,189,0.22)] hover:bg-[#1ca5ad]"
+        className="gap-2 bg-[#22b8bd] text-white shadow-[0_14px_28px_rgba(34,184,189,0.22)] hover:bg-[#1ca5ad] dark:bg-[#3fd0d8] dark:text-[#04252a] dark:shadow-[0_14px_28px_rgba(63,208,216,0.18)] dark:hover:bg-[#5adbe2]"
       >
         <Plus className="h-4 w-4" />
         {primary.label}
@@ -110,7 +117,7 @@ export function QuickActions() {
           <DropdownMenuTrigger asChild>
             <Button
               variant="outline"
-              className="gap-1 border-white/70 bg-white/45 text-[#344b59] shadow-sm hover:bg-white/70 hover:text-[#263746]"
+              className="gap-1 border-white/70 bg-white/45 text-[#344b59] shadow-sm hover:bg-white/70 hover:text-[#263746] dark:border-white/10 dark:bg-white/5 dark:text-[#cfe7ec] dark:hover:bg-white/10 dark:hover:text-[#f2fbfc]"
               aria-label="More quick actions"
             >
               More

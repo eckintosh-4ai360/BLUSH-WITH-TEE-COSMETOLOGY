@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import { Button } from "@blush/ui/components/ui/button";
 import {
   Dialog,
@@ -21,6 +21,8 @@ import {
   SelectValue,
 } from "@blush/ui/components/ui/select";
 import { Textarea } from "@blush/ui/components/ui/textarea";
+import { SaveCourseDialog } from "@/components/academics/SaveCourseDialog";
+import { usePermissions } from "@/hooks/usePermissions";
 import { trpc } from "@/lib/trpc";
 
 /**
@@ -39,6 +41,8 @@ export function RecordApplicationDialog({
   onOpenChange: (open: boolean) => void;
   onRecorded: (reference: string) => void;
 }) {
+  const { can } = usePermissions();
+  const [courseDialogOpen, setCourseDialogOpen] = useState(false);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -143,7 +147,19 @@ export function RecordApplicationDialog({
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="app-course">Programme</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="app-course">Programme</Label>
+                {can("academics.write") ? (
+                  <button
+                    type="button"
+                    onClick={() => setCourseDialogOpen(true)}
+                    className="text-xs text-primary hover:underline font-medium inline-flex items-center gap-0.5"
+                  >
+                    <Plus className="h-3 w-3" />
+                    New programme
+                  </button>
+                ) : null}
+              </div>
               <Select value={courseId} onValueChange={setCourseId} disabled={noCourses}>
                 <SelectTrigger id="app-course">
                   <SelectValue placeholder="Choose a programme" />
@@ -273,6 +289,15 @@ export function RecordApplicationDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      <SaveCourseDialog
+        open={courseDialogOpen}
+        onOpenChange={setCourseDialogOpen}
+        onSaved={newCourse => {
+          courses.refetch();
+          setCourseId(String(newCourse.id));
+        }}
+      />
     </Dialog>
   );
 }

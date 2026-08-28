@@ -86,14 +86,14 @@ export default function AdminOverviewPage() {
         <header className="admin-glass-card relative overflow-hidden rounded-[1.55rem] border p-6 sm:p-8">
           <span
             aria-hidden
-            className="pointer-events-none absolute inset-0 bg-[linear-gradient(116deg,rgba(226,252,255,0.82),rgba(249,247,255,0.58)_52%,rgba(255,249,241,0.72))]"
+            className="pointer-events-none absolute inset-0 bg-[linear-gradient(116deg,rgba(226,252,255,0.82),rgba(249,247,255,0.58)_52%,rgba(255,249,241,0.72))] dark:bg-[linear-gradient(116deg,rgba(16,44,54,0.72),rgba(24,28,52,0.5)_52%,rgba(44,20,42,0.6))]"
           />
           <div className="relative flex flex-wrap items-end justify-between gap-6">
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase text-[#22aeb6]">
+              <p className="text-xs font-semibold uppercase text-[#22aeb6] dark:text-[#3fd0d8]">
                 Blush With Tee
               </p>
-              <h1 className="mt-2 text-2xl font-semibold text-[#263746] sm:text-3xl">
+              <h1 className="mt-2 text-2xl font-semibold text-[#263746] sm:text-3xl dark:text-[#e4f4f7]">
                 Admin dashboard
               </h1>
               <p className="mt-2 max-w-xl text-sm text-muted-foreground">
@@ -693,7 +693,7 @@ function ActivityPanel({
         <h3 className="text-base font-semibold text-foreground">{title}</h3>
         <Link
           href={href}
-          className="group flex shrink-0 items-center gap-1 rounded-full border border-white/70 bg-white/45 px-3 py-1 text-xs font-medium text-[#24747c] shadow-sm transition-colors hover:bg-white/70"
+          className="group flex shrink-0 items-center gap-1 rounded-full border border-white/70 bg-white/45 px-3 py-1 text-xs font-medium text-[#24747c] shadow-sm transition-colors hover:bg-white/70 dark:border-white/10 dark:bg-white/5 dark:text-[#9fe4ea] dark:hover:bg-white/10"
         >
           View all
           <ArrowRight
@@ -708,12 +708,12 @@ function ActivityPanel({
             {[0, 1, 2].map(index => (
               <div
                 key={index}
-                className="h-16 animate-pulse rounded-[1.05rem] bg-white/50"
+                className="h-16 animate-pulse rounded-[1.05rem] bg-white/50 dark:bg-white/6"
               />
             ))}
           </div>
         ) : isEmpty ? (
-          <p className="rounded-[1.05rem] border border-dashed border-white/70 bg-white/35 px-4 py-8 text-center text-sm text-muted-foreground">
+          <p className="rounded-[1.05rem] border border-dashed border-white/70 bg-white/35 px-4 py-8 text-center text-sm text-muted-foreground dark:border-white/12 dark:bg-white/4">
             {emptyMessage}
           </p>
         ) : (
@@ -750,19 +750,19 @@ function ActivityRow({
       ? "bg-rose-500/12 text-rose-700 dark:text-rose-300"
       : tone === "warning"
         ? "bg-amber-500/12 text-amber-700 dark:text-amber-300"
-        : "bg-white/55 text-muted-foreground";
+        : "bg-white/55 text-muted-foreground dark:bg-white/8";
 
   const avatarClass =
     tone === "critical"
       ? "bg-rose-500/15 text-rose-700 dark:text-rose-300"
       : tone === "warning"
         ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
-        : "bg-[#22b8bd] text-white shadow-[0_10px_24px_rgba(34,184,189,0.2)]";
+        : "bg-[#22b8bd] text-white shadow-[0_10px_24px_rgba(34,184,189,0.2)] dark:bg-[#3fd0d8] dark:text-[#04252a] dark:shadow-[0_10px_24px_rgba(63,208,216,0.16)]";
 
   return (
     <Link
       href={href}
-      className="group flex items-center gap-3 rounded-[1.05rem] border border-white/55 bg-white/35 px-3 py-3 transition-colors hover:border-[#8bdde5] hover:bg-white/60"
+      className="group flex items-center gap-3 rounded-[1.05rem] border border-white/55 bg-white/35 px-3 py-3 transition-colors hover:border-[#8bdde5] hover:bg-white/60 dark:border-white/10 dark:bg-white/4 dark:hover:border-[#3fd0d8]/45 dark:hover:bg-white/10"
     >
       <span
         aria-hidden

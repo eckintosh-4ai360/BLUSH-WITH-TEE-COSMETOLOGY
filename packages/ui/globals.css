@@ -247,6 +247,88 @@
     }
   }
 
+  /**
+   * Admin dashboard palette.
+   *
+   * The back office runs on its own teal scheme rather than the site-wide
+   * magenta, so it re-points the semantic tokens for everything inside the
+   * shell. This lives in CSS rather than as an inline style object on the
+   * shell element for one reason: inline custom properties win over every
+   * selector, so a `.dark` rule could never override them. Declared here, the
+   * dark block below simply takes precedence and the pre-paint theme script
+   * is enough to get the right palette on screen with no flash and nothing
+   * for React to correct after hydration.
+   *
+   * The mobile navigation is a Radix sheet portalled onto `body`, outside the
+   * shell entirely, so it is named alongside it. Without that it would fall
+   * through to the site-wide magenta and open a plum drawer next to a teal
+   * dashboard.
+   */
+  .admin-dashboard-shell,
+  [data-slot="sidebar"][data-mobile="true"] {
+    --background: #f3fbfd;
+    --foreground: #263746;
+    --card: rgba(255, 255, 255, 0.68);
+    --card-foreground: #263746;
+    --popover: rgba(255, 255, 255, 0.92);
+    --popover-foreground: #263746;
+    --primary: #22aeb6;
+    --primary-foreground: #ffffff;
+    --secondary: rgba(237, 250, 252, 0.8);
+    --secondary-foreground: #24747c;
+    --muted: rgba(232, 247, 250, 0.74);
+    --muted-foreground: #667987;
+    --accent: #b44ac8;
+    --accent-foreground: #ffffff;
+    --border: rgba(158, 230, 236, 0.66);
+    --input: rgba(158, 230, 236, 0.72);
+    --ring: #22b8bd;
+    --sidebar: rgba(249, 254, 255, 0.62);
+    --sidebar-foreground: #344b59;
+    --sidebar-accent: rgba(255, 255, 255, 0.52);
+    --sidebar-accent-foreground: #263746;
+    --sidebar-border: rgba(158, 230, 236, 0.64);
+    --sidebar-ring: #22b8bd;
+  }
+
+  /**
+   * The same scheme after dark: the hues are held and the lightness is
+   * inverted, so the dashboard still reads as the teal one and only the
+   * ground changes. Surfaces stay translucent because they sit on the shell's
+   * gradient and the blur is doing real work; popovers are the exception and
+   * are opaque, since they float over arbitrary content.
+   *
+   * Primary flips to a brighter teal with a near-black label. Bright ink on a
+   * mid teal fill loses too much contrast on a dark ground, and the button is
+   * the one place the palette has to carry text.
+   */
+  .dark .admin-dashboard-shell,
+  .dark [data-slot="sidebar"][data-mobile="true"] {
+    --background: #0b1e26;
+    --foreground: #e4f4f7;
+    --card: rgba(19, 44, 53, 0.72);
+    --card-foreground: #e4f4f7;
+    --popover: #12262e;
+    --popover-foreground: #e4f4f7;
+    --primary: #3fd0d8;
+    --primary-foreground: #04252a;
+    --secondary: rgba(30, 63, 73, 0.72);
+    --secondary-foreground: #9fe4ea;
+    --muted: rgba(24, 53, 62, 0.68);
+    --muted-foreground: #97b9c2;
+    --accent: #c168d6;
+    --accent-foreground: #1c0722;
+    --border: rgba(130, 216, 225, 0.22);
+    --input: rgba(130, 216, 225, 0.28);
+    --ring: #3fd0d8;
+    --sidebar: rgba(13, 34, 42, 0.62);
+    --sidebar-foreground: #cfe7ec;
+    --sidebar-accent: rgba(255, 255, 255, 0.08);
+    --sidebar-accent-foreground: #f2fbfc;
+    --sidebar-border: rgba(130, 216, 225, 0.2);
+    --sidebar-ring: #3fd0d8;
+  }
+
   .admin-dashboard-shell {
     background:
       linear-gradient(
@@ -453,6 +535,64 @@
       inset 0 1px 0 rgba(255, 255, 255, 0.08),
       0 18px 45px rgba(0, 0, 0, 0.24);
   }
+
+  /* The status cards keep their amber and rose hue after dark, dropped to a
+     tint the dark panel can carry — a light-mode card here is a bright slab
+     that reads as more urgent than the panels around it. */
+  .dark .admin-glass-card-warning {
+    border-color: rgba(239, 184, 100, 0.34);
+    background: linear-gradient(
+      142deg,
+      rgba(58, 44, 24, 0.72),
+      rgba(44, 38, 28, 0.66) 45%,
+      rgba(20, 44, 52, 0.68)
+    );
+  }
+
+  .dark .admin-glass-card-critical {
+    border-color: rgba(240, 122, 148, 0.36);
+    background: linear-gradient(
+      142deg,
+      rgba(62, 26, 38, 0.72),
+      rgba(50, 24, 36, 0.66) 45%,
+      rgba(24, 30, 50, 0.68)
+    );
+  }
+}
+
+.dark .soft-input {
+  border-color: rgba(130, 216, 225, 0.24);
+  background: rgba(16, 38, 46, 0.72);
+  color: #e4f4f7;
+}
+.dark .soft-input::placeholder {
+  color: #7f9fa9;
+}
+.dark .soft-input:focus {
+  border-color: #3fd0d8;
+  box-shadow: 0 0 0 3px rgba(63, 208, 216, 0.24);
+}
+.dark .soft-input option {
+  background: #12262e;
+  color: #e4f4f7;
+}
+.dark .field-label {
+  color: #9fe4ea;
+}
+.dark .eyebrow {
+  color: #58d6de;
+}
+.dark .upload-box {
+  border-color: rgba(130, 216, 225, 0.32);
+  background: rgba(16, 38, 46, 0.6);
+  color: #9fe4ea;
+}
+.dark .upload-box:hover {
+  border-color: #3fd0d8;
+  background: rgba(22, 52, 62, 0.72);
+}
+.dark .upload-box small {
+  color: #9fe4ea;
 }
 
 .hero-mist {

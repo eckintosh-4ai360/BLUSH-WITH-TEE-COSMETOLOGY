@@ -30,6 +30,7 @@ import {
   buildReference,
   money,
   safeFileName,
+  slugify,
   validateDocumentUpload,
 } from "../platform.utils";
 import { adminProcedure, permissionProcedure, router } from "../trpc";
@@ -341,4 +342,271 @@ export const adminNamespaceRouter = router({
     const [file] = await db.insert(mediaFiles).values({ ownerUserId: ctx.user.id, purpose: input.purpose, storageKey: stored.key, fileName: safeFileName(input.fileName), mimeType: input.mimeType, sizeBytes: buffer.length, altText: input.altText }).returning({ id: mediaFiles.id });
     return { id: file?.id, url: stored.url };
   }),
+
+  /** Academic programmes management. */
+  courses: permissionProcedure("academics.read")
+    .input(
+      z
+        .object({
+          search: z.string().max(200).optional(),
+          status: z.enum(["all", "active", "inactive"]).optional(),
+        })
+        .optional()
+    )
+    .query(async ({ input }) => {
+      const db = await dbOrThrow();
+      const conditions: SQL[] = [sql`${courses.deletedAt} is null`];
+      if (input?.status === "active") conditions.push(eq(courses.isActive, true));
+      if (input?.status === "inactive") conditions.push(eq(courses.isActive, false));
+      if (input?.search && input.search.trim()) {
+        const pattern = `%${input.search.trim()}%`;
+        conditions.push(
+          or(
+            ilike(courses.code, pattern),
+            ilike(courses.title, pattern),
+            ilike(courses.summary, pattern),
+            ilike(courses.certification, pattern)
+          )!
+        );
+      }
+
+      const rows = await db
+        .select({
+          id: courses.id,
+          code: courses.code,
+          slug: courses.slug,
+          title: courses.title,
+          summary: courses.summary,
+          description: courses.description,
+          durationWeeks: courses.durationWeeks,
+          tuition: courses.tuition,
+          schedule: courses.schedule,
+          certification: courses.certification,
+          requirements: courses.requirements,
+          imageKey: courses.imageKey,
+          isFeatured: courses.isFeatured,
+          isActive: courses.isActive,
+          createdAt: courses.createdAt,
+          updatedAt: courses.updatedAt,
+          activeEnrollments: count(enrollments.id),
+        })
+        .from(courses)
+        .leftJoin(
+          enrollments,
+          and(eq(enrollments.courseId, courses.id), eq(enrollments.status, "active"))
+        )
+        .where(and(...conditions))
+        .groupBy(courses.id)
+        .orderBy(desc(courses.createdAt));
+
+      return rows.map(row => ({
+        ...row,
+        tuition: money(row.tuition),
+        activeEnrollments: Number(row.activeEnrollments ?? 0),
+      }));
+    }),
+
+  createCourse: permissionProcedure("academics.write")
+    .input(
+      z.object({
+        code: z.string().trim().min(2).max(32),
+        title: z.string().trim().min(2).max(160),
+        summary: z.string().trim().min(2).max(1000),
+        description: z.string().trim().min(2).max(5000),
+        durationWeeks: z.number().int().min(1).max(200),
+        tuition: z.number().min(0).max(1_000_000),
+        schedule: z.string().trim().max(160).optional(),
+        certification: z.string().trim().max(160).optional(),
+        requirements: z.string().trim().max(2000).optional(),
+        isFeatured: z.boolean().default(false),
+        isActive: z.boolean().default(true),
+        slug: z.string().trim().max(180).optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+      const code = input.code.toUpperCase();
+      const [existing] = await db
+        .select({ id: courses.id })
+        .from(courses)
+        .where(eq(courses.code, code))
+        .limit(1);
+
+      if (existing) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: `A programme with code "${code}" already exists.`,
+        });
+      }
+
+      const slug = input.slug?.trim() || slugify(input.title);
+
+      return db.transaction(async tx => {
+        const [created] = await tx
+          .insert(courses)
+          .values({
+            code,
+            slug,
+            title: input.title.trim(),
+            summary: input.summary.trim(),
+            description: input.description.trim(),
+            durationWeeks: input.durationWeeks,
+            tuition: input.tuition.toFixed(2),
+            schedule: input.schedule?.trim() || null,
+            certification: input.certification?.trim() || null,
+            requirements: input.requirements?.trim() || null,
+            isFeatured: input.isFeatured,
+            isActive: input.isActive,
+          })
+          .returning();
+
+        if (!created) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Could not create programme.",
+          });
+        }
+
+        await recordAudit(tx, ctx.actor, {
+          action: "create",
+          entity: "course",
+          entityId: created.id,
+          entityLabel: `${created.code} · ${created.title}`,
+          newValue: { code, title: created.title, tuition: created.tuition },
+          summary: `${ctx.actor.name ?? "Staff"} created programme "${created.title}" (${code})`,
+        });
+
+        return { ...created, tuition: money(created.tuition) };
+      });
+    }),
+
+  updateCourse: permissionProcedure("academics.write")
+    .input(
+      z.object({
+        id: z.number().int().positive(),
+        code: z.string().trim().min(2).max(32),
+        title: z.string().trim().min(2).max(160),
+        summary: z.string().trim().min(2).max(1000),
+        description: z.string().trim().min(2).max(5000),
+        durationWeeks: z.number().int().min(1).max(200),
+        tuition: z.number().min(0).max(1_000_000),
+        schedule: z.string().trim().max(160).optional(),
+        certification: z.string().trim().max(160).optional(),
+        requirements: z.string().trim().max(2000).optional(),
+        isFeatured: z.boolean().default(false),
+        isActive: z.boolean().default(true),
+        slug: z.string().trim().max(180).optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+      const code = input.code.toUpperCase();
+
+      const [existing] = await db
+        .select()
+        .from(courses)
+        .where(eq(courses.id, input.id))
+        .limit(1);
+
+      if (!existing) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Programme not found.",
+        });
+      }
+
+      if (existing.code !== code) {
+        const [conflict] = await db
+          .select({ id: courses.id })
+          .from(courses)
+          .where(eq(courses.code, code))
+          .limit(1);
+        if (conflict) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: `A programme with code "${code}" already exists.`,
+          });
+        }
+      }
+
+      const slug = input.slug?.trim() || slugify(input.title);
+
+      return db.transaction(async tx => {
+        const [updated] = await tx
+          .update(courses)
+          .set({
+            code,
+            slug,
+            title: input.title.trim(),
+            summary: input.summary.trim(),
+            description: input.description.trim(),
+            durationWeeks: input.durationWeeks,
+            tuition: input.tuition.toFixed(2),
+            schedule: input.schedule?.trim() || null,
+            certification: input.certification?.trim() || null,
+            requirements: input.requirements?.trim() || null,
+            isFeatured: input.isFeatured,
+            isActive: input.isActive,
+            updatedAt: new Date(),
+          })
+          .where(eq(courses.id, input.id))
+          .returning();
+
+        if (!updated) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Could not update programme.",
+          });
+        }
+
+        await recordAudit(tx, ctx.actor, {
+          action: "update",
+          entity: "course",
+          entityId: updated.id,
+          entityLabel: `${updated.code} · ${updated.title}`,
+          oldValue: { code: existing.code, title: existing.title, tuition: existing.tuition },
+          newValue: { code, title: updated.title, tuition: updated.tuition },
+          summary: `${ctx.actor.name ?? "Staff"} updated programme "${updated.title}" (${code})`,
+        });
+
+        return { ...updated, tuition: money(updated.tuition) };
+      });
+    }),
+
+  toggleCourseActive: permissionProcedure("academics.write")
+    .input(
+      z.object({
+        id: z.number().int().positive(),
+        isActive: z.boolean(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+      const [existing] = await db
+        .select()
+        .from(courses)
+        .where(eq(courses.id, input.id))
+        .limit(1);
+
+      if (!existing) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Programme not found." });
+      }
+
+      return db.transaction(async tx => {
+        await tx
+          .update(courses)
+          .set({ isActive: input.isActive, updatedAt: new Date() })
+          .where(eq(courses.id, input.id));
+
+        await recordAudit(tx, ctx.actor, {
+          action: input.isActive ? "activate" : "deactivate",
+          entity: "course",
+          entityId: existing.id,
+          entityLabel: `${existing.code} · ${existing.title}`,
+          summary: `${ctx.actor.name ?? "Staff"} ${input.isActive ? "activated" : "deactivated"} programme "${existing.title}"`,
+        });
+
+        return { success: true };
+      });
+    }),
 });

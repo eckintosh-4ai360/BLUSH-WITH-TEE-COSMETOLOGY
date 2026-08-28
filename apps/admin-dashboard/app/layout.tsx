@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Sora } from "next/font/google";
-import { ThemeProvider } from "@blush/ui/theme";
+import { ThemeProvider, ThemeScript } from "@blush/ui/theme";
 import { TooltipProvider } from "@blush/ui/components/ui/tooltip";
 import { Toaster } from "@blush/ui/components/ui/sonner";
 import "@blush/ui/globals.css";
@@ -24,10 +24,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={sora.variable}>
+    <html lang="en" className={sora.variable} suppressHydrationWarning>
       <body suppressHydrationWarning>
+        {/* First thing in the document so the stored theme is on <html>
+            before the browser paints, instead of after React hydrates. */}
+        <ThemeScript defaultTheme="system" />
         <TrpcProvider>
-          <ThemeProvider defaultTheme="light">
+          <ThemeProvider defaultTheme="system" switchable>
             <TooltipProvider>
               <Toaster />
               {children}
