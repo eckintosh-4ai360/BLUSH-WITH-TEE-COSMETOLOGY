@@ -48,6 +48,71 @@ describe("role definitions", () => {
     expect(instructor).toContain("results.write" as PermissionKey);
   });
 
+  it("no longer offers the retired student role", () => {
+    // The front desk is `secretary` now. `student` survives in the database
+    // enum only because Postgres cannot drop a value from one without
+    // recreating the type; it must not be assignable.
+    expect(ROLE_KEYS).not.toContain("student" as never);
+    expect(ROLE_KEYS).toContain("secretary");
+  });
+
+  it("grants nothing for a role that no longer has a definition", () => {
+    // A retired role can still be sitting on somebody's account. Expanding it
+    // must yield no privileges rather than throwing on every request they make.
+    expect(permissionsForRole("student" as never)).toEqual([]);
+    expect(permissionsForRoles(["student" as never]).size).toBe(0);
+  });
+
+  it("lets a secretary run the front desk", () => {
+    const secretary = permissionsForRole("secretary");
+    for (const needed of [
+      // Take money and close the till.
+      "payments.write",
+      "fees.read",
+      "closing.read",
+      "closing.write",
+      // Cash out of the drawer, or the till will never reconcile.
+      "expenses.write",
+      // Mark the register.
+      "attendance.write",
+      // Sell from the shop.
+      "orders.write",
+      "products.read",
+      "inventory.read",
+      "customers.write",
+      // Reception.
+      "admissions.write",
+      "students.write",
+      "appointments.write",
+    ] as PermissionKey[]) {
+      expect(secretary).toContain(needed);
+    }
+  });
+
+  it("stops the secretary marking their own homework", () => {
+    const secretary = permissionsForRole("secretary");
+    for (const forbidden of [
+      // Records an expense but does not approve it.
+      "expenses.approve",
+      // Closes a day but cannot unlock one already closed.
+      "closing.reopen",
+      // Files an application but does not decide it.
+      "admissions.review",
+      // Reads stock but does not adjust it.
+      "inventory.write",
+      // Not theirs at all.
+      "students.delete",
+      "fees.write",
+      "finance.read",
+      "staff.salary.read",
+      "roles.write",
+      "settings.write",
+      "audit.read",
+    ] as PermissionKey[]) {
+      expect(secretary).not.toContain(forbidden);
+    }
+  });
+
   it("keeps a storekeeper out of student and financial records", () => {
     const storekeeper = permissionsForRole("storekeeper");
     for (const forbidden of [
