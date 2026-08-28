@@ -91,10 +91,15 @@ function buildPrintHtml(application: AdmissionApplicationData["application"], co
 <style>
   @page {
     size: A4 portrait;
-    margin: 8mm 10mm;
+    margin: 7mm 9mm;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+  }
 
   body {
     font-family: "Segoe UI", Arial, sans-serif;
@@ -103,6 +108,16 @@ function buildPrintHtml(application: AdmissionApplicationData["application"], co
     background: #ffffff;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+
+  .page-wrap {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    height: 100%;
   }
 
   /* ── HEADER ── */
@@ -197,10 +212,14 @@ function buildPrintHtml(application: AdmissionApplicationData["application"], co
   .section {
     border: 0.75pt solid #ccbbcc;
     border-radius: 4pt;
-    padding: 5pt 7pt 4pt;
-    margin-bottom: 4pt;
+    padding: 8pt 9pt 6pt;
+    margin-bottom: 0;
     page-break-inside: avoid;
+    display: flex;
+    flex-direction: column;
   }
+  /* sections that flex-grow to fill remaining space */
+  .section.grow { flex: 1; }
   .section-title {
     font-size: 7pt;
     font-weight: 800;
@@ -208,12 +227,14 @@ function buildPrintHtml(application: AdmissionApplicationData["application"], co
     letter-spacing: 0.08em;
     color: #8f0d6b;
     border-bottom: 0.5pt solid #ddd;
-    padding-bottom: 2pt;
-    margin-bottom: 4pt;
+    padding-bottom: 3pt;
+    margin-bottom: 6pt;
   }
+  /* vertical spacer between sections */
+  .gap { flex-shrink: 0; height: 5pt; }
 
   /* ── GRID ── */
-  .grid { display: grid; gap: 3pt 8pt; }
+  .grid { display: grid; gap: 5pt 10pt; }
   .g2 { grid-template-columns: 1fr 1fr; }
   .g3 { grid-template-columns: 1fr 1fr 1fr; }
   .g4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
@@ -221,7 +242,7 @@ function buildPrintHtml(application: AdmissionApplicationData["application"], co
   .span2 { grid-column: span 2; }
   .span3 { grid-column: span 3; }
 
-  .field { line-height: 1.3; }
+  .field { line-height: 1.4; }
   .field-label {
     font-size: 6.5pt;
     font-weight: 700;
@@ -229,16 +250,18 @@ function buildPrintHtml(application: AdmissionApplicationData["application"], co
     letter-spacing: 0.06em;
     color: #666;
     display: block;
+    margin-bottom: 1pt;
   }
   .field-value {
-    font-size: 8.5pt;
+    font-size: 9pt;
     font-weight: 600;
     color: #111;
     display: block;
     word-break: break-word;
+    min-height: 11pt;
   }
   .field-value.accent { color: #8f0d6b; }
-  .field-value.italic { font-style: italic; font-family: Georgia, serif; font-size: 10pt; }
+  .field-value.italic { font-style: italic; font-family: Georgia, serif; font-size: 11pt; }
   .field-value.mono { font-family: "Courier New", monospace; }
 
   /* ── DECLARATION ── */
@@ -246,20 +269,23 @@ function buildPrintHtml(application: AdmissionApplicationData["application"], co
     border: 0.75pt solid #c9a8c9;
     border-radius: 4pt;
     background: #fdf6fc;
-    padding: 5pt 7pt;
-    margin-bottom: 4pt;
+    padding: 8pt 9pt;
     page-break-inside: avoid;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
   }
   .declaration-text {
-    font-size: 7.5pt;
+    font-size: 8pt;
     color: #4a1a38;
     font-style: italic;
-    line-height: 1.5;
-    margin-bottom: 4pt;
+    line-height: 1.7;
+    margin-bottom: 8pt;
+    flex: 1;
   }
   .sig-row {
     border-top: 0.5pt dashed #ccc;
-    padding-top: 3pt;
+    padding-top: 5pt;
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 8pt;
@@ -269,9 +295,12 @@ function buildPrintHtml(application: AdmissionApplicationData["application"], co
   .official {
     border: 1.5pt dashed #8f0d6b;
     border-radius: 4pt;
-    padding: 5pt 7pt;
+    padding: 8pt 9pt;
     background: #fffcfe;
     page-break-inside: avoid;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
   }
   .official-title {
     font-size: 7.5pt;
@@ -280,19 +309,20 @@ function buildPrintHtml(application: AdmissionApplicationData["application"], co
     letter-spacing: 0.07em;
     color: #8f0d6b;
     border-bottom: 0.5pt solid #d8a8d0;
-    padding-bottom: 2pt;
-    margin-bottom: 4pt;
+    padding-bottom: 3pt;
+    margin-bottom: 6pt;
     display: flex;
     align-items: center;
     justify-content: space-between;
   }
+  .official-fields { flex: 1; }
   .endorsed-badge {
     font-size: 6.5pt;
     font-weight: 700;
     text-transform: uppercase;
     background: #14844a;
     color: #fff;
-    padding: 1pt 5pt;
+    padding: 1.5pt 6pt;
     border-radius: 3pt;
   }
   .pending-badge {
@@ -301,20 +331,21 @@ function buildPrintHtml(application: AdmissionApplicationData["application"], co
     text-transform: uppercase;
     background: #f59e0b;
     color: #fff;
-    padding: 1pt 5pt;
+    padding: 1.5pt 6pt;
     border-radius: 3pt;
   }
   .stamp-box {
     border: 1pt dashed #8f0d6b;
     border-radius: 3pt;
-    padding: 3pt 8pt;
-    font-size: 6.5pt;
+    padding: 6pt 10pt;
+    font-size: 7pt;
     font-weight: 700;
     text-transform: uppercase;
     color: #8f0d6b;
     letter-spacing: 0.06em;
     display: inline-block;
-    margin-top: 2pt;
+    text-align: center;
+    line-height: 1.5;
   }
 
   /* ── FOOTER ── */
@@ -322,13 +353,15 @@ function buildPrintHtml(application: AdmissionApplicationData["application"], co
     text-align: center;
     font-size: 6.5pt;
     color: #888;
-    margin-top: 5pt;
+    margin-top: 6pt;
     border-top: 0.5pt solid #eee;
-    padding-top: 3pt;
+    padding-top: 4pt;
+    flex-shrink: 0;
   }
 </style>
 </head>
 <body>
+<div class="page-wrap">
 
 <!-- HEADER -->
 <div class="header">
@@ -348,9 +381,10 @@ function buildPrintHtml(application: AdmissionApplicationData["application"], co
     </div>
   </div>
 </div>
+<div class="gap"></div>
 
 <!-- SECTION 1: PERSONAL DETAILS -->
-<div class="section">
+<div class="section grow">
   <div class="section-title">1. Applicant Personal Details</div>
   <div class="grid g4">
     <div class="field span2">
@@ -402,6 +436,7 @@ function buildPrintHtml(application: AdmissionApplicationData["application"], co
     </div>
   </div>
 </div>
+<div class="gap"></div>
 
 <!-- SECTION 2: EMERGENCY CONTACT & SOCIAL MEDIA -->
 <div class="section">
@@ -430,6 +465,7 @@ function buildPrintHtml(application: AdmissionApplicationData["application"], co
     </div>
   </div>
 </div>
+<div class="gap"></div>
 
 <!-- SECTION 3: PROGRAMME & PAYMENT -->
 <div class="section">
@@ -457,6 +493,7 @@ function buildPrintHtml(application: AdmissionApplicationData["application"], co
     </div>
   </div>
 </div>
+<div class="gap"></div>
 
 <!-- SECTION 4: GUARDIAN -->
 <div class="section">
@@ -476,6 +513,7 @@ function buildPrintHtml(application: AdmissionApplicationData["application"], co
     </div>
   </div>
 </div>
+<div class="gap"></div>
 
 <!-- SECTION 5: STUDENT DECLARATION -->
 <div class="declaration">
@@ -494,6 +532,7 @@ function buildPrintHtml(application: AdmissionApplicationData["application"], co
     </div>
   </div>
 </div>
+<div class="gap"></div>
 
 <!-- SECTION 6: OFFICIAL USE -->
 <div class="official">
@@ -524,6 +563,8 @@ function buildPrintHtml(application: AdmissionApplicationData["application"], co
 <div class="footer">
   BLUSH WITH TEE BEAUTY SCHOOL — Allied Filling Station, A'koon – Tarkwa &nbsp;·&nbsp; Tel: 059 770 6250 / 054 556 3536 &nbsp;·&nbsp; This document is an official school admission record.
 </div>
+
+</div><!-- end page-wrap -->
 
 <script>window.onload = function() { window.print(); };</script>
 </body>
