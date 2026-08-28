@@ -7,6 +7,7 @@ import {
   ilike,
   inArray,
   isNull,
+  ne,
   notExists,
   or,
   sql,
@@ -14,7 +15,13 @@ import {
 } from "drizzle-orm";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { courses, enrollments, studentProfiles } from "@blush/db/schema";
+import {
+  courses,
+  enrollments,
+  feeCharges,
+  people,
+  studentProfiles,
+} from "@blush/db/schema";
 import { dbOrThrow } from "../dbOrThrow";
 import { buildReference } from "../platform.utils";
 import { recordAudit } from "../services/audit";
@@ -29,6 +36,7 @@ import {
   grantStudentRole,
   resolvePerson,
 } from "../services/people";
+import { money } from "../services/money";
 import { permissionProcedure, router } from "../trpc";
 
 const STUDENT_STATUS = [
@@ -159,15 +167,26 @@ export const studentsRouter = router({
       const db = await dbOrThrow();
       const email = input.email.toLowerCase();
 
+      // An archived student still holds their email, and refusing on it is
+      // right - re-adding somebody would open a second record rather than
+      // bring back the one with all their history on it. What matters is that
+      // the message says which of the two situations this is, because they
+      // need different things done about them and only one of them is visible
+      // in the register.
       const [duplicate] = await db
-        .select({ id: studentProfiles.id, studentNumber: studentProfiles.studentNumber })
+        .select({
+          studentNumber: studentProfiles.studentNumber,
+          deletedAt: studentProfiles.deletedAt,
+        })
         .from(studentProfiles)
         .where(sql`lower(${studentProfiles.email}) = ${email}`)
         .limit(1);
       if (duplicate) {
         throw new TRPCError({
           code: "CONFLICT",
-          message: `A student with that email is already on file as ${duplicate.studentNumber}.`,
+          message: duplicate.deletedAt
+            ? `That email belongs to ${duplicate.studentNumber}, who was removed from the register. Ask an administrator to restore them rather than adding them again.`
+            : `A student with that email is already on file as ${duplicate.studentNumber}.`,
         });
       }
 
@@ -254,6 +273,294 @@ export const studentsRouter = router({
         });
 
         return { id: student.id, studentNumber, linkedAccount: Boolean(accountId) };
+      });
+    }),
+
+  /**
+   * One student's full record, profile and identity together.
+   *
+   * The register only carries what the table shows. Editing needs the rest -
+   * date of birth, address, next of kin - and those live on the shared `people`
+   * row rather than on the profile, so they are read back here rather than
+   * being dropped from the form because nobody fetched them.
+   */
+  get: permissionProcedure("students.read")
+    .input(z.object({ id: z.number().int().positive() }))
+    .query(async ({ input }) => {
+      const db = await dbOrThrow();
+
+      const [row] = await db
+        .select({
+          id: studentProfiles.id,
+          studentNumber: studentProfiles.studentNumber,
+          fullName: studentProfiles.fullName,
+          email: studentProfiles.email,
+          phone: studentProfiles.phone,
+          status: studentProfiles.status,
+          userId: studentProfiles.userId,
+          gender: people.gender,
+          birthDate: people.birthDate,
+          address: people.address,
+          emergencyContactName: people.emergencyContactName,
+          emergencyContactPhone: people.emergencyContactPhone,
+        })
+        .from(studentProfiles)
+        .leftJoin(people, eq(studentProfiles.personId, people.id))
+        .where(and(eq(studentProfiles.id, input.id), isNull(studentProfiles.deletedAt)))
+        .limit(1);
+
+      if (!row) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "That student is not on file." });
+      }
+
+      return row;
+    }),
+
+  /**
+   * Corrects a student's details.
+   *
+   * A profile and the person behind it are two rows, and both have to move
+   * together or the register and the rest of the school disagree about who
+   * somebody is (§34). The person row is updated in place rather than being
+   * re-resolved from the new contact details: `resolvePerson` is a matcher, and
+   * on an edit it would happily attach this student to whoever already owns the
+   * corrected email instead of correcting their own record.
+   *
+   * That makes the email checks the important part of this procedure. Both the
+   * student register and the `people` table refuse duplicates, so a clash is
+   * caught here and explained rather than surfacing as a constraint violation.
+   */
+  update: permissionProcedure("students.write")
+    .input(
+      z.object({
+        id: z.number().int().positive(),
+        fullName: z.string().trim().min(2).max(160),
+        email: z.string().trim().email().max(320),
+        phone: z.string().trim().min(7).max(40),
+        studentNumber: z.string().trim().min(1).max(40),
+        status: z.enum(STUDENT_STATUS),
+        gender: z.string().trim().max(32).optional(),
+        birthDate: z.coerce.date().optional(),
+        address: z.string().trim().max(1500).optional(),
+        emergencyContactName: z.string().trim().max(160).optional(),
+        emergencyContactPhone: z.string().trim().max(40).optional(),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+      const email = input.email.toLowerCase();
+
+      const [existing] = await db
+        .select()
+        .from(studentProfiles)
+        .where(and(eq(studentProfiles.id, input.id), isNull(studentProfiles.deletedAt)))
+        .limit(1);
+
+      if (!existing) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "That student is not on file." });
+      }
+
+      const [emailTaken] = await db
+        .select({ studentNumber: studentProfiles.studentNumber })
+        .from(studentProfiles)
+        .where(
+          and(
+            sql`lower(${studentProfiles.email}) = ${email}`,
+            ne(studentProfiles.id, input.id),
+            isNull(studentProfiles.deletedAt),
+          ),
+        )
+        .limit(1);
+      if (emailTaken) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: `That email is already on file for ${emailTaken.studentNumber}.`,
+        });
+      }
+
+      if (input.studentNumber !== existing.studentNumber) {
+        const [numberTaken] = await db
+          .select({ id: studentProfiles.id })
+          .from(studentProfiles)
+          .where(
+            and(
+              eq(studentProfiles.studentNumber, input.studentNumber),
+              ne(studentProfiles.id, input.id),
+            ),
+          )
+          .limit(1);
+        if (numberTaken) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: `Student number ${input.studentNumber} already belongs to another student.`,
+          });
+        }
+      }
+
+      // The same email can only belong to one live person, and that person may
+      // be known to the school in another capacity entirely - a customer, or a
+      // supplier contact. Merging two people is not something an edit should
+      // decide on its own, so it is refused with the reason.
+      if (existing.personId) {
+        const [personClash] = await db
+          .select({ fullName: people.fullName })
+          .from(people)
+          .where(
+            and(
+              sql`lower(${people.email}) = ${email}`,
+              ne(people.id, existing.personId),
+              isNull(people.deletedAt),
+            ),
+          )
+          .limit(1);
+        if (personClash) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: `That email already belongs to ${personClash.fullName} elsewhere in the school's records.`,
+          });
+        }
+      }
+
+      // Only stamped on the way into "graduated", and cleared on the way back
+      // out, so the date always means the graduation currently on record.
+      const graduatedAt =
+        input.status === "graduated" ? (existing.graduatedAt ?? new Date()) : null;
+
+      return db.transaction(async tx => {
+        const [updated] = await tx
+          .update(studentProfiles)
+          .set({
+            fullName: input.fullName,
+            email,
+            phone: input.phone,
+            studentNumber: input.studentNumber,
+            status: input.status,
+            graduatedAt,
+            updatedAt: new Date(),
+          })
+          .where(eq(studentProfiles.id, input.id))
+          .returning();
+
+        if (!updated) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "The student could not be updated.",
+          });
+        }
+
+        if (existing.personId) {
+          // An emptied optional field means "remove this", not "leave it
+          // alone" - the form always sends every field it owns.
+          await tx
+            .update(people)
+            .set({
+              fullName: input.fullName,
+              email,
+              phone: input.phone,
+              gender: input.gender || null,
+              birthDate: input.birthDate ?? null,
+              address: input.address || null,
+              emergencyContactName: input.emergencyContactName || null,
+              emergencyContactPhone: input.emergencyContactPhone || null,
+              updatedAt: new Date(),
+            })
+            .where(eq(people.id, existing.personId));
+        }
+
+        await recordAudit(tx, ctx.actor, {
+          action: "update",
+          entity: "studentProfile",
+          entityId: updated.id,
+          entityLabel: updated.studentNumber,
+          oldValue: {
+            fullName: existing.fullName,
+            email: existing.email,
+            phone: existing.phone,
+            studentNumber: existing.studentNumber,
+            status: existing.status,
+          },
+          newValue: {
+            fullName: updated.fullName,
+            email: updated.email,
+            phone: updated.phone,
+            studentNumber: updated.studentNumber,
+            status: updated.status,
+          },
+          summary: `${ctx.actor.name ?? "Staff"} updated ${updated.fullName} (${updated.studentNumber})`,
+        });
+
+        return { id: updated.id, studentNumber: updated.studentNumber };
+      });
+    }),
+
+  /**
+   * Removes a student from the register.
+   *
+   * Soft, and deliberately so. Fee charges, adjustments, payment plans and
+   * enrolments all cascade off this row, and payments merely point at it - a
+   * real DELETE would take a student's entire fee history with them, or orphan
+   * the money that was actually received. Setting `deletedAt` takes them out of
+   * every list, count and export, all of which already filter on it, while
+   * leaving the books intact.
+   *
+   * A student who still owes money is refused: writing off a debt is a finance
+   * decision, and it should not happen as a side effect of tidying the
+   * register.
+   */
+  archive: permissionProcedure("students.write")
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+
+      const [existing] = await db
+        .select()
+        .from(studentProfiles)
+        .where(and(eq(studentProfiles.id, input.id), isNull(studentProfiles.deletedAt)))
+        .limit(1);
+
+      if (!existing) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "That student is not on file." });
+      }
+
+      // Billed and paid are summed separately and reduced to money the same
+      // way the fees-owed report does it, so the two never disagree about
+      // whether a student is clear.
+      const [owing] = await db
+        .select({
+          billed: sql<string>`coalesce(sum(${feeCharges.amountDue}), 0)`,
+          paid: sql<string>`coalesce(sum(${feeCharges.amountPaid}), 0)`,
+        })
+        .from(feeCharges)
+        .where(eq(feeCharges.studentId, input.id));
+
+      const outstanding = money(owing?.billed) - money(owing?.paid);
+      if (outstanding > 0) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: `${existing.fullName} still owes GHS ${outstanding.toFixed(2)}. Settle or write off the balance before removing them.`,
+        });
+      }
+
+      return db.transaction(async tx => {
+        await tx
+          .update(studentProfiles)
+          .set({ deletedAt: new Date(), updatedAt: new Date() })
+          .where(eq(studentProfiles.id, input.id));
+
+        await recordAudit(tx, ctx.actor, {
+          action: "delete",
+          entity: "studentProfile",
+          entityId: existing.id,
+          entityLabel: existing.studentNumber,
+          oldValue: {
+            fullName: existing.fullName,
+            email: existing.email,
+            status: existing.status,
+          },
+          summary: `${ctx.actor.name ?? "Staff"} removed ${existing.fullName} (${existing.studentNumber}) from the register`,
+        });
+
+        return { id: existing.id, studentNumber: existing.studentNumber };
       });
     }),
 });

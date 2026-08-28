@@ -2,11 +2,21 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Upload } from "lucide-react";
+import { Pencil, Plus, Trash2, Upload } from "lucide-react";
 import { STUDENT_IMPORT_COLUMNS } from "@blush/shared/imports";
 import { Button } from "@blush/ui/components/ui/button";
 import { toast } from "@blush/ui/components/ui/sonner";
 import { Badge } from "@blush/ui/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@blush/ui/components/ui/alert-dialog";
 import {
   Select,
   SelectContent,
@@ -18,7 +28,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { DataTable, type Column } from "@/components/DataTable";
 import { PermissionGate } from "@/components/PermissionGate";
 import { ImportDialog } from "@/components/imports/ImportDialog";
-import { AddStudentDialog } from "@/components/students/AddStudentDialog";
+import { SaveStudentDialog } from "@/components/students/SaveStudentDialog";
 import { usePermissions } from "@/hooks/usePermissions";
 import { collectAllPages } from "@/lib/exportAll";
 import { trpc } from "@/lib/trpc";
@@ -77,7 +87,9 @@ function StudentsContent() {
   const router = useRouter();
   const { can } = usePermissions();
   const [importOpen, setImportOpen] = useState(false);
-  const [addOpen, setAddOpen] = useState(false);
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [editing, setEditing] = useState<StudentRow | null>(null);
+  const [removing, setRemoving] = useState<StudentRow | null>(null);
   const importStudents = trpc.imports.students.useMutation();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -102,6 +114,17 @@ function StudentsContent() {
   };
 
   const query = trpc.students.list.useQuery({ ...filters, page, pageSize: 25 });
+
+  const archive = trpc.students.archive.useMutation({
+    onSuccess: result => {
+      setRemoving(null);
+      toast.success(`${result.studentNumber} removed from the register.`);
+      query.refetch();
+    },
+    // The dialog stays open on failure: the commonest refusal is an unpaid
+    // balance, and that is a message about this student, not a general error.
+    onError: error => toast.error(error.message),
+  });
 
   // Narrowing to one programme and asking for the unenrolled at once returns
   // nothing, so the two controls stay mutually exclusive.
@@ -179,6 +202,47 @@ function StudentsContent() {
       cell: row => new Date(row.createdAt).toLocaleDateString("en-GB"),
       value: row => new Date(row.createdAt).toISOString().slice(0, 10),
     },
+    ...(can("students.write")
+      ? [
+          {
+            key: "actions",
+            header: "",
+            align: "right" as const,
+            cell: (row: StudentRow) => (
+              <span className="flex justify-end gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1.5"
+                  // The row itself opens the fee account, so neither button
+                  // may let its click through as well.
+                  onClick={event => {
+                    event.stopPropagation();
+                    setEditing(row);
+                    setSaveOpen(true);
+                  }}
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  Edit
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1.5 text-destructive hover:text-destructive"
+                  onClick={event => {
+                    event.stopPropagation();
+                    setRemoving(row);
+                  }}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Remove
+                </Button>
+              </span>
+            ),
+            value: () => "",
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -217,7 +281,13 @@ function StudentsContent() {
                 <Upload className="h-4 w-4" />
                 Import
               </Button>
-              <Button className="gap-2" onClick={() => setAddOpen(true)}>
+              <Button
+                className="gap-2"
+                onClick={() => {
+                  setEditing(null);
+                  setSaveOpen(true);
+                }}
+              >
                 <Plus className="h-4 w-4" />
                 Add student
               </Button>
@@ -290,14 +360,54 @@ function StudentsContent() {
         }
       />
 
-      <AddStudentDialog
-        open={addOpen}
-        onOpenChange={setAddOpen}
-        onCreated={studentNumber => {
-          toast.success(`Student added as ${studentNumber}.`);
+      <SaveStudentDialog
+        open={saveOpen}
+        onOpenChange={open => {
+          setSaveOpen(open);
+          // Cleared on close so the next "Add student" does not reopen the
+          // last edited row.
+          if (!open) setEditing(null);
+        }}
+        editing={editing}
+        onSaved={({ studentNumber, edited }) => {
+          toast.success(
+            edited ? `${studentNumber} updated.` : `Student added as ${studentNumber}.`,
+          );
           query.refetch();
         }}
       />
+
+      <AlertDialog
+        open={removing !== null}
+        onOpenChange={open => !open && setRemoving(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Remove {removing?.fullName} from the register?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              They stop appearing in student lists, counts and exports. Their fee
+              history, payments and results are kept, so this can be undone by an
+              administrator. A student who still owes money cannot be removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={archive.isPending}>Keep student</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={archive.isPending}
+              onClick={event => {
+                // Confirming keeps the dialog up until the server answers, so a
+                // refusal is read where it was asked for.
+                event.preventDefault();
+                if (removing) archive.mutate({ id: removing.id });
+              }}
+            >
+              {archive.isPending ? "Removing..." : "Remove student"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <ImportDialog
         open={importOpen}
