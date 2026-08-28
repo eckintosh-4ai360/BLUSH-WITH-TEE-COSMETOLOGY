@@ -150,8 +150,8 @@ function SettingsContent() {
         className="w-full space-y-6"
       >
         {/* Navigation Tabs Bar */}
-        <div className="overflow-x-auto pb-1">
-          <TabsList className="h-auto w-full justify-start gap-1.5 bg-muted/50 p-1.5 rounded-2xl border border-border/60">
+        <div className="w-full">
+          <TabsList className="h-auto w-full flex flex-wrap items-center justify-start gap-2.5 bg-muted/40 p-2 rounded-2xl border border-border/60">
             {CATEGORIES.map(cat => {
               const Icon = cat.icon;
               const entriesCount = groupsByCategory[cat.id]?.length;
@@ -159,16 +159,16 @@ function SettingsContent() {
                 <TabsTrigger
                   key={cat.id}
                   value={cat.id}
-                  className="data-[state=active]:bg-white data-[state=active]:text-[#8f0d6b] data-[state=active]:shadow-sm data-[state=active]:border-border/60 dark:data-[state=active]:bg-card rounded-xl py-2.5 px-3.5 text-xs font-semibold gap-2 transition-all flex items-center shrink-0"
+                  className="data-[state=active]:bg-white data-[state=active]:text-[#8f0d6b] data-[state=active]:shadow-sm data-[state=active]:border-[#8f0d6b]/25 dark:data-[state=active]:bg-card rounded-xl py-2 px-3.5 text-xs font-semibold transition-all flex items-center justify-center shrink-0 border border-transparent hover:bg-white/50 text-muted-foreground"
                 >
-                  <Icon className="h-4 w-4 shrink-0 text-[#8f0d6b]" />
-                  <span>{cat.label}</span>
+                  <Icon className="h-4 w-4 shrink-0 text-[#8f0d6b] mr-2" />
+                  <span className="whitespace-nowrap">{cat.label}</span>
                   {cat.badge ? (
-                    <span className="rounded-full bg-[#faeaf6] text-[#8f0d6b] px-2 py-0.2 text-[10px] font-bold">
+                    <span className="ml-2 inline-flex items-center rounded-full bg-[#faeaf6] text-[#8f0d6b] px-2 py-0.5 text-[10px] font-bold border border-[#8f0d6b]/20">
                       {cat.badge}
                     </span>
                   ) : entriesCount ? (
-                    <span className="rounded-full bg-muted text-muted-foreground px-1.5 py-0.2 text-[10px]">
+                    <span className="ml-2 inline-flex items-center justify-center rounded-full bg-muted-foreground/10 text-muted-foreground px-1.5 py-0.5 text-[10px] font-medium min-w-[18px]">
                       {entriesCount}
                     </span>
                   ) : null}
