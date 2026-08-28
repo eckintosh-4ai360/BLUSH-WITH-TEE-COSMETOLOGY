@@ -445,6 +445,48 @@
     backdrop-filter: blur(22px);
   }
 
+  /**
+   * The admission form preview: a sheet of paper, in both themes.
+   *
+   * This is a what-you-see-is-what-you-print view of an A4 document that comes
+   * out of a printer on white paper. Rendering it dark would make the preview
+   * lie about the thing it is previewing, so it stays a white page sitting on
+   * the dialog's own surface - the arrangement every PDF viewer settles on,
+   * dark chrome around a light page.
+   *
+   * The tokens are re-pointed rather than the colours being written on each
+   * element, because the sheet contains real components - a badge, the
+   * endorsement input, the endorse button - and those read the palette. An
+   * element's own custom properties win for its own subtree whatever `.dark`
+   * put on the document, so this needs no dark counterpart to hold.
+   */
+  .admission-sheet {
+    /* Native controls inside the sheet paint light too. */
+    color-scheme: light;
+    --background: #ffffff;
+    --foreground: #0f172a;
+    --card: #ffffff;
+    --card-foreground: #0f172a;
+    --popover: #ffffff;
+    --popover-foreground: #0f172a;
+    --primary: #8f0d6b;
+    --primary-foreground: #ffffff;
+    --secondary: #faeaf6;
+    --secondary-foreground: #8f0d6b;
+    --muted: #f1f5f9;
+    --muted-foreground: #64748b;
+    --accent: #faeaf6;
+    --accent-foreground: #8f0d6b;
+    --destructive: #dc2626;
+    --destructive-foreground: #ffffff;
+    --border: #cbd5e1;
+    --input: #cbd5e1;
+    --ring: #fe00b6;
+    --skeleton: #e2e8f0;
+    background: #ffffff;
+    color: #0f172a;
+  }
+
   .admin-glass-card {
     border-color: rgba(158, 230, 236, 0.72);
     background: linear-gradient(

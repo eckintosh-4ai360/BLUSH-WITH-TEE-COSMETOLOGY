@@ -652,8 +652,8 @@ export function ViewAdmissionFormDialog({
       <DialogContent className="max-h-[93vh] overflow-y-auto sm:max-w-4xl p-0 border-[#8f0d6b]/20">
 
         {/* Top Bar */}
-        <div className="flex items-center justify-between px-6 py-3 bg-[#fdf2fa] border-b border-[#8f0d6b]/20 rounded-t-lg">
-          <div className="flex items-center gap-2 text-xs font-semibold text-[#8f0d6b]">
+        <div className="flex items-center justify-between px-6 py-3 bg-[#fdf2fa] border-b border-[#8f0d6b]/20 rounded-t-lg dark:bg-[#1b0214] dark:border-white/10">
+          <div className="flex items-center gap-2 text-xs font-semibold text-[#8f0d6b] dark:text-[#ffb8ed]">
             <FileCheck className="h-4 w-4 text-[#fe00b6]" />
             Official Admission File — <span className="font-mono">{application.reference}</span>
           </div>
@@ -661,14 +661,14 @@ export function ViewAdmissionFormDialog({
             variant="outline"
             size="sm"
             onClick={handlePrint}
-            className="gap-1.5 rounded-full border-[#8f0d6b]/40 text-[#8f0d6b] bg-white hover:bg-[#faeaf6] text-xs h-8"
+            className="gap-1.5 rounded-full border-[#8f0d6b]/40 text-[#8f0d6b] bg-white hover:bg-[#faeaf6] text-xs h-8 dark:border-white/20 dark:bg-white/5 dark:text-[#ffb8ed] dark:hover:bg-white/10"
           >
             <Printer className="h-3.5 w-3.5" /> Print A4 Sheet
           </Button>
         </div>
 
         {/* Dossier Preview — on-screen only */}
-        <div className="p-5 sm:p-6 space-y-3 text-[10.5px] leading-snug">
+        <div className="admission-sheet p-5 sm:p-6 space-y-3 text-[10.5px] leading-snug">
 
           {/* Header */}
           <div className="rounded-xl border border-[#8f0d6b]/25 bg-gradient-to-b from-[#fdf2fa] to-white p-3.5 print:border print:p-2.5">
@@ -931,7 +931,7 @@ export function ViewAdmissionFormDialog({
               variant="outline"
               size="sm"
               onClick={handlePrint}
-              className="gap-1.5 border-[#8f0d6b]/30 text-[#8f0d6b] hover:bg-[#faeaf6]"
+              className="gap-1.5 border-[#8f0d6b]/30 text-[#8f0d6b] hover:bg-[#faeaf6] dark:border-white/20 dark:text-[#ffb8ed] dark:hover:bg-white/10"
             >
               <Printer className="h-3.5 w-3.5" /> Print A4 Sheet
             </Button>
