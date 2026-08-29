@@ -64,6 +64,13 @@
       "when": 1788031869420,
       "tag": "0008_seed_individual_courses",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1788032942566,
+      "tag": "0009_seed_general_programmes",
+      "breakpoints": true
     }
   ]
 }

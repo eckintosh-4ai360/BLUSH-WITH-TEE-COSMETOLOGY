@@ -18,6 +18,7 @@ import {
   ShieldAlert,
   Sparkles,
 } from "lucide-react";
+import { sortCourseCategories } from "@blush/shared/const";
 import { Badge } from "@blush/ui/components/ui/badge";
 import { Button } from "@blush/ui/components/ui/button";
 import PublicShell from "@/components/PublicShell";
@@ -32,7 +33,7 @@ export default function ProgramsPage() {
     courses.forEach(c => {
       if (c.category) cats.add(c.category);
     });
-    return Array.from(cats);
+    return sortCourseCategories([...cats]);
   }, [courses]);
 
   const filteredCourses = useMemo(() => {

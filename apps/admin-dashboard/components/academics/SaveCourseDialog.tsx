@@ -16,6 +16,7 @@ import { Label } from "@blush/ui/components/ui/label";
 import { Switch } from "@blush/ui/components/ui/switch";
 import { Textarea } from "@blush/ui/components/ui/textarea";
 import { toast } from "@blush/ui/components/ui/sonner";
+import { COURSE_CATEGORIES, DEFAULT_COURSE_CATEGORY } from "@blush/shared/const";
 import { trpc } from "@/lib/trpc";
 
 export type SaveableCourse = {
@@ -62,7 +63,7 @@ export function SaveCourseDialog({
 
   const [code, setCode] = useState("");
   const [title, setTitle] = useState("");
-  const [category, setCategory] = useState("Full Cosmetology");
+  const [category, setCategory] = useState<string>(DEFAULT_COURSE_CATEGORY);
   const [durationWeeks, setDurationWeeks] = useState("12");
   const [tuition, setTuition] = useState("");
   const [productFee, setProductFee] = useState("");
@@ -81,7 +82,7 @@ export function SaveCourseDialog({
     if (editing) {
       setCode(editing.code);
       setTitle(editing.title);
-      setCategory(editing.category ?? "Full Cosmetology");
+      setCategory(editing.category ?? DEFAULT_COURSE_CATEGORY);
       setDurationWeeks(String(editing.durationWeeks));
       setTuition(editing.tuition.toFixed(2));
       setProductFee(editing.productFee ? editing.productFee.toFixed(2) : "");
@@ -97,7 +98,7 @@ export function SaveCourseDialog({
     } else {
       setCode("");
       setTitle("");
-      setCategory("Full Cosmetology");
+      setCategory(DEFAULT_COURSE_CATEGORY);
       setDurationWeeks("12");
       setTuition("");
       setProductFee("");
@@ -162,7 +163,7 @@ export function SaveCourseDialog({
     const payload = {
       code: code.trim().toUpperCase(),
       title: title.trim(),
-      category: category.trim() || "Full Cosmetology",
+      category: category.trim() || DEFAULT_COURSE_CATEGORY,
       durationWeeks: Number(durationWeeks),
       tuition: Number(tuition),
       productFee: productFee.trim() ? Number(productFee) : undefined,
@@ -237,11 +238,15 @@ export function SaveCourseDialog({
                 onChange={e => setCategory(e.target.value)}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
-                <option value="Full Cosmetology">Full Cosmetology</option>
-                <option value="Individual Courses">Individual Courses</option>
-                <option value="Masterclasses">Masterclasses</option>
-                <option value="Workshops">Workshops</option>
+                {COURSE_CATEGORIES.map(option => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
               </select>
+              <p className="text-[11px] text-muted-foreground">
+                General for the full programmes, Individual Courses for single skills.
+              </p>
             </div>
 
             <div className="space-y-2">

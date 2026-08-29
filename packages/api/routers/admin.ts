@@ -18,6 +18,7 @@ import {
   storeOrders,
   studentProfiles,
 } from "@blush/db/schema";
+import { DEFAULT_COURSE_CATEGORY } from "@blush/shared/const";
 import { storageGet, storagePut } from "@blush/storage";
 import { dbOrThrow } from "../dbOrThrow";
 import { recordAudit } from "../services/audit";
@@ -683,7 +684,7 @@ export const adminNamespaceRouter = router({
             code,
             slug,
             title: input.title.trim(),
-            category: input.category?.trim() || "Full Cosmetology",
+            category: input.category?.trim() || DEFAULT_COURSE_CATEGORY,
             summary: input.summary.trim(),
             description: input.description.trim(),
             durationWeeks: input.durationWeeks,

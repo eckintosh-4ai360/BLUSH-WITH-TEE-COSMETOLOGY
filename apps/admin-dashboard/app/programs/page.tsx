@@ -32,6 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@blush/ui/components/ui/select";
+import { sortCourseCategories } from "@blush/shared/const";
 import { toast } from "@blush/ui/components/ui/sonner";
 import { formatMoney } from "@blush/ui/lib/viz";
 import DashboardLayout from "@/components/DashboardLayout";
@@ -95,7 +96,7 @@ function ProgrammesContent() {
     for (const programme of programmes) {
       if (programme.category) found.add(programme.category);
     }
-    return [...found].sort();
+    return sortCourseCategories([...found]);
   }, [programmes]);
 
   const visible = useMemo(

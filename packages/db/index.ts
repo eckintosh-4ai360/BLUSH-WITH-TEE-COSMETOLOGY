@@ -180,7 +180,7 @@ export async function initializeFoundationData(
         code: "COSM-BASIC",
         slug: "basic-cosmetology-course",
         title: "Basic Cosmetology Course",
-        category: "Full Cosmetology",
+        category: "General",
         summary: "Makeup, Wigmaking and styling (machine), Installation, Frontal pony.",
         description:
           "Develop practical confidence in fundamental beauty artistry: professional makeup, machine-assisted wigmaking, wig styling, installations, and frontal pony styling.",
@@ -196,7 +196,7 @@ export async function initializeFoundationData(
         code: "COSM-MINI",
         slug: "mini-full-cosmetology-course",
         title: "Mini Full Cosmetology Course",
-        category: "Full Cosmetology",
+        category: "General",
         summary:
           "Professional Makeup, Wigmaking and styling, Wig Installations, Frontal pony, Bridal hairstyling, Nails, Pedicure.",
         description:
@@ -213,7 +213,7 @@ export async function initializeFoundationData(
         code: "COSM-ULTIMATE",
         slug: "ultimate-full-cosmetology-course",
         title: "Ultimate Full Cosmetology Course",
-        category: "Full Cosmetology",
+        category: "General",
         summary:
           "Professional Makeup, Wigmaking & styling, Wig Installations, Frontal Pony, Bridal hairstyling, Nails, Pedicure, Lash extensions, Cluster lashes, Ombre brows.",
         description:
