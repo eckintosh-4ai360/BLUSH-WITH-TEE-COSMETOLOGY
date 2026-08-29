@@ -174,9 +174,18 @@ function AdmissionsContent() {
     {
       key: "createdAt",
       header: "Submitted",
-      optional: true,
-      cell: row => new Date(row.application.createdAt).toLocaleDateString("en-GB"),
-      value: row => new Date(row.application.createdAt).toISOString().slice(0, 10),
+      cell: row => (
+        <span className="whitespace-nowrap">
+          {new Date(row.application.createdAt).toLocaleString("en-GB", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          })}
+        </span>
+      ),
+      value: row => new Date(row.application.createdAt).toISOString(),
     },
     {
       key: "actions",
