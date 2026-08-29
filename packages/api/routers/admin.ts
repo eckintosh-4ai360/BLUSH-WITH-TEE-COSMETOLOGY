@@ -1,4 +1,4 @@
-import { SQL, and, asc, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import { SQL, and, asc, count, desc, eq, ilike, inArray, isNull, or, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
@@ -857,6 +857,83 @@ export const adminNamespaceRouter = router({
         });
 
         return { success: true };
+      });
+    }),
+
+  /**
+   * Takes a programme off the books.
+   *
+   * Soft, like removing a student, and for a stronger reason: applications,
+   * enrolments and certificates all point at a course with `on delete
+   * restrict`, so a real DELETE would either be refused by the database or,
+   * where it succeeded, cascade away every intake, module, class, assessment
+   * and fee structure attached to it. Setting `deletedAt` takes the programme
+   * out of the admin list and off the public site - both already filter on it -
+   * while every admission form that quotes it still resolves its title.
+   *
+   * A programme somebody is still studying is refused. Ending a cohort is a
+   * decision about those students, not a side effect of tidying the prospectus,
+   * and closing it to new admissions is the action that was actually wanted.
+   */
+  deleteCourse: permissionProcedure("academics.write")
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+
+      const [existing] = await db
+        .select()
+        .from(courses)
+        .where(and(eq(courses.id, input.id), isNull(courses.deletedAt)))
+        .limit(1);
+
+      if (!existing) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Programme not found." });
+      }
+
+      // Paused counts as still on the programme: a student who broke off for a
+      // term has not finished it, and their course must not disappear while
+      // they are away. Completed and withdrawn are history and do not block.
+      const [enrolled] = await db
+        .select({ total: count() })
+        .from(enrollments)
+        .where(
+          and(
+            eq(enrollments.courseId, input.id),
+            inArray(enrollments.status, ["active", "paused"]),
+          ),
+        );
+
+      const studying = Number(enrolled?.total ?? 0);
+      if (studying > 0) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: `${studying} student${studying === 1 ? " is" : "s are"} still enrolled on "${existing.title}". Close it to new admissions instead, or move them to another programme first.`,
+        });
+      }
+
+      return db.transaction(async tx => {
+        await tx
+          .update(courses)
+          // Closed as well as removed: `deletedAt` hides it from the lists that
+          // filter on it, and `isActive` is what the admission paths check.
+          .set({ deletedAt: new Date(), isActive: false, updatedAt: new Date() })
+          .where(eq(courses.id, input.id));
+
+        await recordAudit(tx, ctx.actor, {
+          action: "delete",
+          entity: "course",
+          entityId: existing.id,
+          entityLabel: `${existing.code} · ${existing.title}`,
+          oldValue: {
+            code: existing.code,
+            title: existing.title,
+            tuition: existing.tuition,
+            category: existing.category,
+          },
+          summary: `${ctx.actor.name ?? "Staff"} removed programme "${existing.title}" (${existing.code})`,
+        });
+
+        return { id: existing.id, title: existing.title };
       });
     }),
 });

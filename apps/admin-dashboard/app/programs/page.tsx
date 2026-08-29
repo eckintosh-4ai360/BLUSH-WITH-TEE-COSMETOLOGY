@@ -12,9 +12,20 @@ import {
   Power,
   Search,
   Sparkles,
+  Trash2,
   Users,
   Wallet,
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@blush/ui/components/ui/alert-dialog";
 import { Badge } from "@blush/ui/components/ui/badge";
 import { Button } from "@blush/ui/components/ui/button";
 import {
@@ -69,6 +80,11 @@ function ProgrammesContent() {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<SaveableCourse | null>(null);
+  const [removing, setRemoving] = useState<{
+    id: number;
+    title: string;
+    activeEnrollments: number;
+  } | null>(null);
 
   const query = trpc.admin.courses.useQuery({
     search: search.trim() || undefined,
@@ -85,6 +101,17 @@ function ProgrammesContent() {
       utils.admin.courses.invalidate();
       utils.content.courses.invalidate();
       utils.attendance.markableCourses.invalidate();
+    },
+    onError: error => toast.error(error.message),
+  });
+
+  const removeProgramme = trpc.admin.deleteCourse.useMutation({
+    onSuccess: result => {
+      toast.success(`"${result.title}" removed from the prospectus.`);
+      utils.admin.courses.invalidate();
+      utils.content.courses.invalidate();
+      utils.attendance.markableCourses.invalidate();
+      setRemoving(null);
     },
     onError: error => toast.error(error.message),
   });
@@ -370,9 +397,7 @@ function ProgrammesContent() {
                         variant="ghost"
                         size="sm"
                         className={`h-8 gap-1 px-2.5 text-xs ${
-                          programme.isActive
-                            ? "text-destructive hover:text-destructive"
-                            : "text-emerald-700"
+                          programme.isActive ? "text-amber-700" : "text-emerald-700"
                         }`}
                         disabled={toggleActive.isPending}
                         onClick={() =>
@@ -384,6 +409,21 @@ function ProgrammesContent() {
                       >
                         <Power className="h-3.5 w-3.5" />
                         {programme.isActive ? "Close" : "Open"}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        aria-label={`Delete ${programme.title}`}
+                        className="h-8 gap-1 px-2 text-xs text-destructive hover:text-destructive"
+                        onClick={() =>
+                          setRemoving({
+                            id: programme.id,
+                            title: programme.title,
+                            activeEnrollments: programme.activeEnrollments,
+                          })
+                        }
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>
                   ) : null}
@@ -400,6 +440,40 @@ function ProgrammesContent() {
         editing={editing}
         onSaved={() => setEditing(null)}
       />
+
+      <AlertDialog
+        open={removing !== null}
+        onOpenChange={open => !open && setRemoving(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {removing?.title}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {removing?.activeEnrollments
+                ? `${removing.activeEnrollments} student${
+                    removing.activeEnrollments === 1 ? " is" : "s are"
+                  } still enrolled on it, so this will be refused. Close it to new admissions instead, or move them to another programme first.`
+                : "It comes off the website, the application form and the admissions list. Past applications, results and certificates that name it are kept, so an administrator can restore it."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={removeProgramme.isPending}>
+              Keep programme
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={removeProgramme.isPending}
+              onClick={event => {
+                // Confirming holds the dialog open until the server answers, so
+                // a refusal is read where it was asked for.
+                event.preventDefault();
+                if (removing) removeProgramme.mutate({ id: removing.id });
+              }}
+            >
+              {removeProgramme.isPending ? "Deleting..." : "Delete programme"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

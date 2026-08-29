@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import { clinicServices, courseModules, courses, systemSettings } from "@blush/db/schema";
 import { dbOrThrow } from "../dbOrThrow";
 import { publicProcedure, router } from "../trpc";
@@ -22,7 +22,12 @@ export const contentRouter = router({
    */
   courses: publicProcedure.query(async () => {
     const db = await dbOrThrow();
-    const rows = await db.select().from(courses).where(eq(courses.isActive, true));
+    // Removed as well as closed: a programme taken off the books must not be
+    // advertised even if something later flips `isActive` back on.
+    const rows = await db
+      .select()
+      .from(courses)
+      .where(and(eq(courses.isActive, true), isNull(courses.deletedAt)));
     if (!rows.length) return [];
 
     const outlines = await db
