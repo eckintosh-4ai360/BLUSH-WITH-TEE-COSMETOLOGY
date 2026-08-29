@@ -154,6 +154,20 @@ export const admissionsRouter = router({
     }).returning({ id: applicationDocuments.id });
     return { documentId: inserted[0]?.id, url: stored.url };
   }),
+  /**
+   * An applicant checking on their own application.
+   *
+   * Public and unauthenticated, so the selected columns are the whole security
+   * boundary. What comes back is what the applicant themselves filled in, plus
+   * the decision if one has been made - enough for them to print the form they
+   * signed, which is the common reason for coming back here.
+   *
+   * What is deliberately absent is the office side of the record: the CEO
+   * endorsement and its signature, who reviewed it, the row id, the linked
+   * account. Those are the school's notes on the applicant, not the
+   * applicant's own submission, and reference-plus-email is a weak enough key
+   * that it should only unlock the latter.
+   */
   lookup: lookupLimit.input(z.object({ reference: z.string().min(6), email: z.string().email() })).query(async ({ input }) => {
     const db = await dbOrThrow();
     const rows = await db.select({
@@ -163,6 +177,34 @@ export const admissionsRouter = router({
       submittedAt: applications.submittedAt,
       decisionNote: applications.decisionNote,
       courseTitle: courses.title,
+
+      // Their own answers, so the signed form can be reprinted.
+      fullName: applications.fullName,
+      email: applications.email,
+      phone: applications.phone,
+      whatsapp: applications.whatsapp,
+      birthDate: applications.birthDate,
+      hometown: applications.hometown,
+      age: applications.age,
+      gender: applications.gender,
+      maritalStatus: applications.maritalStatus,
+      address: applications.address,
+      emergencyContact: applications.emergencyContact,
+      emergencyRelationship: applications.emergencyRelationship,
+      instagram: applications.instagram,
+      tiktok: applications.tiktok,
+      otherSocialMedia: applications.otherSocialMedia,
+      educationalLevel: applications.educationalLevel,
+      education: applications.education,
+      paymentPlan: applications.paymentPlan,
+      duration: applications.duration,
+      startDate: applications.startDate,
+      guardianName: applications.guardianName,
+      guardianAddress: applications.guardianAddress,
+      guardianPhone: applications.guardianPhone,
+      signatureData: applications.signatureData,
+      agreedToTerms: applications.agreedToTerms,
+      statement: applications.statement,
     }).from(applications).innerJoin(courses, eq(applications.courseId, courses.id)).where(and(
       eq(applications.reference, input.reference),
       eq(applications.email, input.email.toLowerCase()),

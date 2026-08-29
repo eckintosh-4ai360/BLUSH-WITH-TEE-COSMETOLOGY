@@ -102,6 +102,7 @@ function ApplyFormContent() {
   const upload = trpc.admissions.uploadDocument.useMutation();
 
   const [lookupInput, setLookupInput] = useState<{ reference: string; email: string } | null>(null);
+  const [lookupError, setLookupError] = useState("");
   const lookup = trpc.admissions.lookup.useQuery(
     lookupInput ?? { reference: "APP-000000", email: "placeholder@example.com" },
     { enabled: Boolean(lookupInput) }
@@ -277,18 +278,27 @@ function ApplyFormContent() {
     }
   }
 
-  function printAdmissionForm() {
-    if (!success) return;
-
+  /**
+   * Opens the signed admission form in a window of its own.
+   *
+   * Used both straight after submitting and later from the status tracker -
+   * plenty of applicants close the confirmation without printing, and the
+   * school still expects the form on day one.
+   */
+  function openAdmissionForm(
+    form: AdmissionFormData["application"],
+    courseTitle: string,
+    onBlocked: (message: string) => void,
+  ) {
     const html = buildAdmissionFormHtml(
-      success.form,
-      success.courseTitle,
+      form,
+      courseTitle,
       `${window.location.origin}/logo.png`,
     );
 
     const win = window.open("", "_blank", "width=850,height=1100");
     if (!win) {
-      setError("Your browser blocked the print window. Allow pop-ups and try again.");
+      onBlocked("Your browser blocked the print window. Allow pop-ups and try again.");
       return;
     }
 
@@ -338,6 +348,7 @@ function ApplyFormContent() {
                 onSubmit={event => {
                   event.preventDefault();
                   const form = new FormData(event.currentTarget);
+                  setLookupError("");
                   setLookupInput({
                     reference: String(form.get("reference")).trim().toUpperCase(),
                     email: String(form.get("lookupEmail")).trim().toLowerCase(),
@@ -379,7 +390,31 @@ function ApplyFormContent() {
                     {lookup.data.courseTitle}
                   </p>
                   <ApplicationStatusTracker status={lookup.data.status} />
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="mt-4 w-full rounded-full border-[#8f0d6b]/25 bg-white text-[#8f0d6b] hover:bg-[#faeaf6]"
+                    onClick={() =>
+                      lookup.data &&
+                      openAdmissionForm(
+                        { ...lookup.data, id: undefined },
+                        lookup.data.courseTitle,
+                        setLookupError,
+                      )
+                    }
+                  >
+                    <Printer className="mr-2 h-4 w-4 text-[#fe00b6]" />
+                    Print Admission Form
+                  </Button>
+                  <p className="mt-2 text-center text-[11px] text-[#8f0d6b]/70">
+                    Bring a printed copy with you on your first day.
+                  </p>
                 </div>
+              )}
+
+              {lookupError && (
+                <p className="mt-3 text-xs font-semibold text-[#e01a4f]">{lookupError}</p>
               )}
               {lookup.error && (
                 <p className="mt-3 text-xs font-semibold text-[#e01a4f]">
@@ -527,7 +562,10 @@ function ApplyFormContent() {
 
                 <div className="flex items-center justify-center gap-3 flex-wrap pt-4">
                   <Button
-                    onClick={printAdmissionForm}
+                    onClick={() =>
+                      success &&
+                      openAdmissionForm(success.form, success.courseTitle, setError)
+                    }
                     variant="outline"
                     className="rounded-full border-[#8f0d6b]/30 text-[#8f0d6b] gap-2"
                   >
