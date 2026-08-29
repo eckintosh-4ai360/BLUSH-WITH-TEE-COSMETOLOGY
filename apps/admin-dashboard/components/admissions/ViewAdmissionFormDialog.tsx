@@ -61,11 +61,25 @@ export type AdmissionApplicationData = {
     createdAt: Date | string;
   };
   courseTitle: string;
+  /** Fees as quoted to this applicant, not necessarily today's price. */
+  courseTuition?: number | string | null;
+  courseProductFee?: number | string | null;
 };
 
 // ─── Utility ─────────────────────────────────────────────────────────────────
 function d(val: string | null | undefined, fallback = "—") {
   return val && val.trim() ? val : fallback;
+}
+
+/** Amounts read as money on screen and on the printed sheet alike. */
+function cedis(value: number | string | null | undefined): string | null {
+  if (value === null || value === undefined || value === "") return null;
+  const amount = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(amount) || amount <= 0) return null;
+  return `GH₵ ${amount.toLocaleString("en-GB", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 }
 
 export function ViewAdmissionFormDialog({
@@ -103,7 +117,9 @@ export function ViewAdmissionFormDialog({
 
   if (!data) return null;
 
-  const { application, courseTitle } = data;
+  const { application, courseTitle, courseTuition, courseProductFee } = data;
+  const tuition = cedis(courseTuition);
+  const productFee = cedis(courseProductFee);
 
   const fmtDate = (v: Date | string | null | undefined) =>
     v ? new Date(v).toLocaleDateString("en-GB") : "—";
@@ -120,7 +136,10 @@ export function ViewAdmissionFormDialog({
 
   function handlePrint() {
     const logoUrl = `${window.location.origin}/logo.png`;
-    const html = buildAdmissionFormHtml(application, courseTitle, logoUrl);
+    const html = buildAdmissionFormHtml(application, courseTitle, logoUrl, {
+      tuition: courseTuition,
+      productFee: courseProductFee,
+    });
     const win = window.open("", "_blank", "width=850,height=1100");
     if (!win) {
       toast.error("Pop-up blocked. Please allow pop-ups to print.");
@@ -306,6 +325,16 @@ export function ViewAdmissionFormDialog({
               <div className="col-span-2">
                 <span className="text-slate-500 block text-[9px] uppercase">Payment Plan</span>
                 <span className="font-semibold">{d(application.paymentPlan, "Full Payment")}</span>
+              </div>
+              <div>
+                <span className="text-slate-500 block text-[9px] uppercase">Tuition Fee</span>
+                <span className="font-bold text-xs text-[#8f0d6b]">{tuition ?? "—"}</span>
+              </div>
+              <div>
+                <span className="text-slate-500 block text-[9px] uppercase">
+                  Tools &amp; Product Kit
+                </span>
+                <span className="font-semibold">{productFee ?? "Not applicable"}</span>
               </div>
             </div>
           </div>

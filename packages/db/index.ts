@@ -4,6 +4,7 @@ import { Pool } from "pg";
 import { ENV } from "@blush/env";
 import {
   clinicServices,
+  courseModules,
   courses,
   InsertUser,
   inventoryItems,
@@ -127,6 +128,44 @@ export async function closeDb(): Promise<void> {
     _db = null;
   }
 }
+
+/**
+ * The syllabus of the three main programmes, as the school advertises it.
+ *
+ * Kept as rows rather than folded into `description`, so the office can edit a
+ * single line from the Programmes screen and both the public site and the
+ * application form show the change. Migration 0007 installs the same list into
+ * databases seeded before this existed.
+ */
+const FOUNDATION_OUTLINES: Record<string, string[]> = {
+  "COSM-BASIC": [
+    "Makeup",
+    "Wigmaking and styling (machine)",
+    "Installation",
+    "Frontal pony",
+  ],
+  "COSM-MINI": [
+    "Professional Makeup",
+    "Wigmaking and styling",
+    "Wig Installations",
+    "Frontal pony",
+    "Bridal hairstyling",
+    "Nails",
+    "Pedicure",
+  ],
+  "COSM-ULTIMATE": [
+    "Professional Makeup",
+    "Wigmaking and styling",
+    "Wig Installations",
+    "Frontal Pony",
+    "Bridal hairstyling",
+    "Nails",
+    "Pedicure",
+    "Lash extensions",
+    "Cluster lashes",
+    "Ombre brows",
+  ],
+};
 
 export async function initializeFoundationData(
   db: NonNullable<Awaited<ReturnType<typeof getDb>>>
@@ -334,6 +373,21 @@ export async function initializeFoundationData(
         isFeatured: true,
       },
     ]);
+
+    const seeded = await db
+      .select({ id: courses.id, code: courses.code })
+      .from(courses);
+
+    const outlineRows = seeded.flatMap(course =>
+      (FOUNDATION_OUTLINES[course.code] ?? []).map((title, index) => ({
+        courseId: course.id,
+        code: `M${String(index + 1).padStart(2, "0")}`,
+        title,
+        sequence: index + 1,
+      })),
+    );
+
+    if (outlineRows.length) await db.insert(courseModules).values(outlineRows);
   }
 
   const [existingInventory] = await db

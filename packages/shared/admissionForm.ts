@@ -51,6 +51,10 @@ export type AdmissionFormData = {
     createdAt: Date | string;
   };
   courseTitle: string;
+  /** Tuition quoted for the programme, as agreed on this form. */
+  tuition?: number | string | null;
+  /** Tools and product kit, where the programme charges for one. */
+  productFee?: number | string | null;
 };
 
 /** An empty field prints as a dash rather than as a gap. */
@@ -58,11 +62,30 @@ function d(val: string | null | undefined, fallback = "\u2014") {
   return val && val.trim() ? val : fallback;
 }
 
+/**
+ * A figure the applicant can check against a receipt: "GH¢ 13,000.00".
+ *
+ * Returns null rather than a zero for anything unset, so a programme with no
+ * product fee prints no product fee line at all.
+ */
+function cedis(value: number | string | null | undefined): string | null {
+  if (value === null || value === undefined || value === "") return null;
+  const amount = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(amount) || amount <= 0) return null;
+  return `GH\u00a2 ${amount.toLocaleString("en-GB", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
 export function buildAdmissionFormHtml(
   application: AdmissionFormData["application"],
   courseTitle: string,
   logoAbsUrl: string,
+  fees?: { tuition?: number | string | null; productFee?: number | string | null },
 ) {
+  const tuition = cedis(fees?.tuition);
+  const productFee = cedis(fees?.productFee);
   const fmtDate = (v: Date | string | null | undefined) =>
     v ? new Date(v).toLocaleDateString("en-GB") : "—";
 
@@ -481,9 +504,13 @@ export function buildAdmissionFormHtml(
       <span class="field-label">Payment Plan</span>
       <span class="field-value">${d(application.paymentPlan, "Full Payment")}</span>
     </div>
-    <div class="field span2">
-      <span class="field-label">&nbsp;</span>
-      <span class="field-value">&nbsp;</span>
+    <div class="field">
+      <span class="field-label">Tuition Fee</span>
+      <span class="field-value accent" style="font-weight:800">${d(tuition)}</span>
+    </div>
+    <div class="field">
+      <span class="field-label">Tools &amp; Product Kit</span>
+      <span class="field-value">${productFee ?? "Not applicable"}</span>
     </div>
   </div>
 </div>

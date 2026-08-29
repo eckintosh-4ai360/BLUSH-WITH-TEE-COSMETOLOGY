@@ -1,5 +1,5 @@
-import { eq } from "drizzle-orm";
-import { clinicServices, courses, systemSettings } from "@blush/db/schema";
+import { and, asc, eq, inArray } from "drizzle-orm";
+import { clinicServices, courseModules, courses, systemSettings } from "@blush/db/schema";
 import { dbOrThrow } from "../dbOrThrow";
 import { publicProcedure, router } from "../trpc";
 
@@ -12,9 +12,44 @@ import { publicProcedure, router } from "../trpc";
  * anonymous page load. Seeding belongs in `pnpm db:seed`, run deliberately.
  */
 export const contentRouter = router({
+  /**
+   * The prospectus, as both the public site and the admissions desk read it.
+   *
+   * `outline` is the syllabus the school advertises - "Makeup", "Wigmaking and
+   * styling", "Frontal pony" - carried as rows rather than as prose inside
+   * `description`, so the office can edit a single line of it and both apps
+   * show the change.
+   */
   courses: publicProcedure.query(async () => {
     const db = await dbOrThrow();
-    return db.select().from(courses).where(eq(courses.isActive, true));
+    const rows = await db.select().from(courses).where(eq(courses.isActive, true));
+    if (!rows.length) return [];
+
+    const outlines = await db
+      .select({
+        courseId: courseModules.courseId,
+        title: courseModules.title,
+      })
+      .from(courseModules)
+      .where(
+        and(
+          inArray(
+            courseModules.courseId,
+            rows.map(row => row.id),
+          ),
+          eq(courseModules.isActive, true),
+        ),
+      )
+      .orderBy(asc(courseModules.sequence), asc(courseModules.id));
+
+    const byCourse = new Map<number, string[]>();
+    for (const item of outlines) {
+      const list = byCourse.get(item.courseId);
+      if (list) list.push(item.title);
+      else byCourse.set(item.courseId, [item.title]);
+    }
+
+    return rows.map(row => ({ ...row, outline: byCourse.get(row.id) ?? [] }));
   }),
   clinicServices: publicProcedure.query(async () => {
     const db = await dbOrThrow();

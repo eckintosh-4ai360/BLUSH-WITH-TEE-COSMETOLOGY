@@ -145,6 +145,9 @@ function ApplyFormContent() {
     applicantName: string;
     /** Everything that was submitted, kept so it can be printed. */
     form: AdmissionFormData["application"];
+    /** The fees quoted for the programme they chose. */
+    tuition: number | string | null;
+    productFee: number | string | null;
   } | null>(null);
   const [error, setError] = useState("");
 
@@ -237,6 +240,8 @@ function ApplyFormContent() {
         email: email.trim(),
         courseTitle: result.courseTitle || selectedCourse?.title || "Cosmetology Programme",
         applicantName: fullName.trim(),
+        tuition: selectedCourse?.tuition ?? null,
+        productFee: selectedCourse?.productFee ?? null,
         form: {
           reference: result.reference,
           fullName: fullName.trim(),
@@ -289,11 +294,13 @@ function ApplyFormContent() {
     form: AdmissionFormData["application"],
     courseTitle: string,
     onBlocked: (message: string) => void,
+    fees?: { tuition?: number | string | null; productFee?: number | string | null },
   ) {
     const html = buildAdmissionFormHtml(
       form,
       courseTitle,
       `${window.location.origin}/logo.png`,
+      fees,
     );
 
     const win = window.open("", "_blank", "width=850,height=1100");
@@ -401,6 +408,10 @@ function ApplyFormContent() {
                         { ...lookup.data, id: undefined },
                         lookup.data.courseTitle,
                         setLookupError,
+                        {
+                          tuition: lookup.data.tuition,
+                          productFee: lookup.data.productFee,
+                        },
                       )
                     }
                   >
@@ -564,7 +575,10 @@ function ApplyFormContent() {
                   <Button
                     onClick={() =>
                       success &&
-                      openAdmissionForm(success.form, success.courseTitle, setError)
+                      openAdmissionForm(success.form, success.courseTitle, setError, {
+                        tuition: success.tuition,
+                        productFee: success.productFee,
+                      })
                     }
                     variant="outline"
                     className="rounded-full border-[#8f0d6b]/30 text-[#8f0d6b] gap-2"
@@ -869,6 +883,20 @@ function ApplyFormContent() {
                         <div className="rounded-xl bg-amber-500/10 px-3 py-2 text-xs text-amber-900 flex items-center justify-between">
                           <span>Required Tools & Product Kit Fee (School Store):</span>
                           <b>GH₵ {Number(selectedCourse.productFee).toLocaleString()}</b>
+                        </div>
+                      ) : null}
+
+                      {selectedCourse.outline.length ? (
+                        <div className="rounded-xl border border-[#8f0d6b]/10 bg-white/70 p-2.5 text-[11px] text-[#692156]">
+                          <b className="text-[#8f0d6b]">What this programme covers:</b>
+                          <ul className="mt-1.5 grid gap-x-3 gap-y-1 sm:grid-cols-2">
+                            {selectedCourse.outline.map(item => (
+                              <li key={item} className="flex items-start gap-1.5">
+                                <span aria-hidden className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-[#fe00b6]" />
+                                <span>{item}</span>
+                              </li>
+                            ))}
+                          </ul>
                         </div>
                       ) : null}
 

@@ -16,6 +16,7 @@ const ADMIN_SECTIONS = new Set([
   "inventory",
   "operations",
   "orders",
+  "programs",
   "purchases",
   "reports",
   "settings",

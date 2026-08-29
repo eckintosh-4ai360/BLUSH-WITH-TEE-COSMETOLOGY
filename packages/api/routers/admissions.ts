@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { applicationDocuments, applications, courses } from "@blush/db/schema";
@@ -84,6 +84,10 @@ export const admissionsRouter = router({
         education: input.education,
         courseId: input.courseId,
         paymentPlan: input.paymentPlan,
+        // The quote the applicant is signing against. Copied now so a later
+        // price revision cannot rewrite an admission form already in a folder.
+        tuition: course.tuition,
+        productFee: course.productFee,
         duration: input.duration || `${course.durationWeeks} weeks`,
         startDate: input.startDate,
         guardianName: input.guardianName,
@@ -177,6 +181,11 @@ export const admissionsRouter = router({
       submittedAt: applications.submittedAt,
       decisionNote: applications.decisionNote,
       courseTitle: courses.title,
+
+      // The fees as quoted at the time, falling back to the programme's
+      // current price for applications filed before the quote was recorded.
+      tuition: sql<string | null>`coalesce(${applications.tuition}, ${courses.tuition})`,
+      productFee: sql<string | null>`coalesce(${applications.productFee}, ${courses.productFee})`,
 
       // Their own answers, so the signed form can be reprinted.
       fullName: applications.fullName,

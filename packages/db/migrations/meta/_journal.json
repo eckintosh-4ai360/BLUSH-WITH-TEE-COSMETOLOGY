@@ -50,6 +50,13 @@
       "when": 1787891531106,
       "tag": "0006_add_secretary_role",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1788031502350,
+      "tag": "0007_add_programme_outline_and_fee_snapshot",
+      "breakpoints": true
     }
   ]
 }

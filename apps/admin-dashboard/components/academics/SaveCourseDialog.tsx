@@ -34,7 +34,18 @@ export type SaveableCourse = {
   toiletries?: string | null;
   isFeatured?: boolean;
   isActive?: boolean;
+  /** The advertised syllabus, in the order it is listed. */
+  outline?: string[];
 };
+
+/** One item per line, blank lines ignored, so pasting a list just works. */
+function parseOutline(text: string): string[] {
+  return text
+    .split("\n")
+    .map(line => line.replace(/^\s*[-*\u2022]\s*/, "").trim())
+    .filter(Boolean)
+    .slice(0, 40);
+}
 
 export function SaveCourseDialog({
   open,
@@ -58,6 +69,7 @@ export function SaveCourseDialog({
   const [schedule, setSchedule] = useState("Monday - Saturday (8am - 5pm)");
   const [certification, setCertification] = useState("");
   const [summary, setSummary] = useState("");
+  const [outline, setOutline] = useState("");
   const [description, setDescription] = useState("");
   const [requirements, setRequirements] = useState("");
   const [toiletries, setToiletries] = useState("");
@@ -76,6 +88,7 @@ export function SaveCourseDialog({
       setSchedule(editing.schedule ?? "Monday - Saturday (8am - 5pm)");
       setCertification(editing.certification ?? "");
       setSummary(editing.summary ?? "");
+      setOutline((editing.outline ?? []).join("\n"));
       setDescription(editing.description ?? "");
       setRequirements(editing.requirements ?? "");
       setToiletries(editing.toiletries ?? "");
@@ -91,6 +104,7 @@ export function SaveCourseDialog({
       setSchedule("Monday - Saturday (8am - 5pm)");
       setCertification("");
       setSummary("");
+      setOutline("");
       setDescription("");
       setRequirements("");
       setToiletries("One big size Omo, One big size Dettol, One big size paper roll, 2 big wet wipes, 1 full pack of blade");
@@ -125,6 +139,7 @@ export function SaveCourseDialog({
   });
 
   const isPending = createCourse.isPending || updateCourse.isPending;
+  const outlineCount = useMemo(() => parseOutline(outline).length, [outline]);
 
   const validation = useMemo(() => {
     if (code.trim().length < 2) return "Enter a valid programme code (e.g. ESTH-ADV).";
@@ -159,6 +174,7 @@ export function SaveCourseDialog({
       toiletries: toiletries.trim() || undefined,
       isFeatured,
       isActive,
+      outline: parseOutline(outline),
     };
 
     if (editing) {
@@ -306,6 +322,23 @@ export function SaveCourseDialog({
               value={summary}
               onChange={e => setSummary(e.target.value)}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="prog-outline">Course Outline</Label>
+            <Textarea
+              id="prog-outline"
+              rows={6}
+              placeholder={"Makeup\nWigmaking and styling (machine)\nInstallation\nFrontal pony"}
+              value={outline}
+              onChange={e => setOutline(e.target.value)}
+              className="font-mono text-xs"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              One skill per line, in the order they are taught. This is the list applicants
+              see on the website and on the application form
+              {outlineCount ? ` — ${outlineCount} listed` : ""}.
+            </p>
           </div>
 
           <div className="space-y-2">

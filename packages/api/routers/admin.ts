@@ -1,10 +1,11 @@
-import { SQL, and, count, desc, eq, ilike, or, sql } from "drizzle-orm";
+import { SQL, and, asc, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
   applicationDocuments,
   applications,
   assessments,
+  courseModules,
   courses,
   enrollments,
   expenses,
@@ -36,6 +37,54 @@ import {
 import { announce } from "../services/messaging/announce";
 import { flushInBackground } from "../services/messaging/dispatch";
 import { adminProcedure, permissionProcedure, router } from "../trpc";
+
+/** One syllabus line, as the school advertises it. */
+const outlineInput = z.array(z.string().trim().min(1).max(180)).max(40).optional();
+
+/**
+ * Rewrites a programme's syllabus to exactly `outline`, in that order.
+ *
+ * Matched by position rather than cleared and re-inserted, because a module row
+ * is what a class and an assessment point at. Dropping and recreating the set
+ * would blank `classes.moduleId` and `assessments.moduleId` across a term's
+ * records every time somebody corrected a spelling here.
+ */
+async function saveOutline(
+  tx: Parameters<Parameters<Awaited<ReturnType<typeof dbOrThrow>>["transaction"]>[0]>[0],
+  courseId: number,
+  outline: string[],
+): Promise<void> {
+  const titles = outline.map(title => title.trim()).filter(Boolean);
+
+  const existing = await tx
+    .select({ id: courseModules.id, sequence: courseModules.sequence })
+    .from(courseModules)
+    .where(eq(courseModules.courseId, courseId))
+    .orderBy(asc(courseModules.sequence), asc(courseModules.id));
+
+  for (const [index, title] of titles.entries()) {
+    const sequence = index + 1;
+    const row = existing[index];
+    if (row) {
+      await tx
+        .update(courseModules)
+        .set({ title, sequence, isActive: true })
+        .where(eq(courseModules.id, row.id));
+    } else {
+      await tx.insert(courseModules).values({
+        courseId,
+        code: `M${String(sequence).padStart(2, "0")}`,
+        title,
+        sequence,
+      });
+    }
+  }
+
+  const surplus = existing.slice(titles.length).map(row => row.id);
+  if (surplus.length) {
+    await tx.delete(courseModules).where(inArray(courseModules.id, surplus));
+  }
+}
 
 export const adminNamespaceRouter = router({
   dashboard: adminProcedure.query(async () => {
@@ -93,7 +142,14 @@ export const adminNamespaceRouter = router({
 
       const [rows, [totalRow]] = await Promise.all([
         db
-          .select({ application: applications, courseTitle: courses.title })
+          .select({
+            application: applications,
+            courseTitle: courses.title,
+            // What the applicant was quoted; the programme's current price
+            // stands in for rows filed before the quote was recorded.
+            courseTuition: sql<string | null>`coalesce(${applications.tuition}, ${courses.tuition})`,
+            courseProductFee: sql<string | null>`coalesce(${applications.productFee}, ${courses.productFee})`,
+          })
           .from(applications)
           .innerJoin(courses, eq(applications.courseId, courses.id))
           .where(where)
@@ -189,7 +245,13 @@ export const adminNamespaceRouter = router({
       const email = input.email.toLowerCase();
 
       const [course] = await db
-        .select({ id: courses.id, title: courses.title, durationWeeks: courses.durationWeeks })
+        .select({
+          id: courses.id,
+          title: courses.title,
+          durationWeeks: courses.durationWeeks,
+          tuition: courses.tuition,
+          productFee: courses.productFee,
+        })
         .from(courses)
         .where(and(eq(courses.id, input.courseId), eq(courses.isActive, true)))
         .limit(1);
@@ -236,6 +298,11 @@ export const adminNamespaceRouter = router({
             education: input.education,
             courseId: input.courseId,
             paymentPlan: input.paymentPlan,
+            // The quote this form is signed against, copied for the same reason
+            // as on a public submission: a later price revision must not change
+            // what an admission form already in a folder says.
+            tuition: course.tuition,
+            productFee: course.productFee,
             duration: input.duration || `${course.durationWeeks} weeks`,
             startDate: input.startDate,
             guardianName: input.guardianName,
@@ -541,11 +608,32 @@ export const adminNamespaceRouter = router({
         .groupBy(courses.id)
         .orderBy(desc(courses.createdAt));
 
+      const outlines = rows.length
+        ? await db
+            .select({ courseId: courseModules.courseId, title: courseModules.title })
+            .from(courseModules)
+            .where(
+              inArray(
+                courseModules.courseId,
+                rows.map(row => row.id),
+              ),
+            )
+            .orderBy(asc(courseModules.sequence), asc(courseModules.id))
+        : [];
+
+      const outlineByCourse = new Map<number, string[]>();
+      for (const item of outlines) {
+        const list = outlineByCourse.get(item.courseId);
+        if (list) list.push(item.title);
+        else outlineByCourse.set(item.courseId, [item.title]);
+      }
+
       return rows.map(row => ({
         ...row,
         tuition: money(row.tuition),
         productFee: row.productFee ? money(row.productFee) : null,
         activeEnrollments: Number(row.activeEnrollments ?? 0),
+        outline: outlineByCourse.get(row.id) ?? [],
       }));
     }),
 
@@ -567,6 +655,7 @@ export const adminNamespaceRouter = router({
         isFeatured: z.boolean().default(false),
         isActive: z.boolean().default(true),
         slug: z.string().trim().max(180).optional(),
+        outline: outlineInput,
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -616,6 +705,8 @@ export const adminNamespaceRouter = router({
           });
         }
 
+        if (input.outline) await saveOutline(tx, created.id, input.outline);
+
         await recordAudit(tx, ctx.actor, {
           action: "create",
           entity: "course",
@@ -648,6 +739,7 @@ export const adminNamespaceRouter = router({
         isFeatured: z.boolean().default(false),
         isActive: z.boolean().default(true),
         slug: z.string().trim().max(180).optional(),
+        outline: outlineInput,
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -713,6 +805,8 @@ export const adminNamespaceRouter = router({
             message: "Could not update programme.",
           });
         }
+
+        if (input.outline) await saveOutline(tx, updated.id, input.outline);
 
         await recordAudit(tx, ctx.actor, {
           action: "update",

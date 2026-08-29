@@ -4,6 +4,7 @@ import {
   date,
   index,
   integer,
+  numeric,
   pgTable,
   serial,
   text,
@@ -49,6 +50,17 @@ export const applications = pgTable(
       .references(() => courses.id, { onDelete: "restrict" }),
     intakeId: integer("intakeId").references(() => intakes.id, { onDelete: "set null" }),
     paymentPlan: varchar("paymentPlan", { length: 80 }),
+    /**
+     * The fees quoted when this application was signed.
+     *
+     * Copied rather than read back through `courseId`, for the same reason the
+     * contact columns are copies: the office reprints this form months later,
+     * and a programme whose price has since been revised must not rewrite what
+     * the applicant agreed to. Null on rows filed before the quote was
+     * recorded, which fall back to the programme's current price.
+     */
+    tuition: numeric("tuition", { precision: 10, scale: 2 }),
+    productFee: numeric("productFee", { precision: 10, scale: 2 }),
     duration: varchar("duration", { length: 80 }),
     startDate: date("startDate", { mode: "date" }),
     guardianName: varchar("guardianName", { length: 160 }),

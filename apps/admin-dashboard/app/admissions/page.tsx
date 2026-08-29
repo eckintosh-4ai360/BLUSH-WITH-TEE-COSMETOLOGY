@@ -81,6 +81,9 @@ type ApplicationRow = {
     createdAt: Date;
   };
   courseTitle: string;
+  /** Fees as quoted to this applicant; today's price stands in for old rows. */
+  courseTuition: string | null;
+  courseProductFee: string | null;
 };
 
 export default function AdminAdmissionsPage() {

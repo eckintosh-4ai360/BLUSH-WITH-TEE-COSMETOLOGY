@@ -1,39 +1,23 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import Link from "next/link";
 import {
   Award,
   BookOpen,
   Calendar,
   CheckCircle2,
-  Clock,
   GraduationCap,
   Layers,
-  Pencil,
-  Plus,
-  Power,
-  Search,
-  Sparkles,
   Users,
 } from "lucide-react";
 import { Badge } from "@blush/ui/components/ui/badge";
 import { Button } from "@blush/ui/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@blush/ui/components/ui/card";
-import { Input } from "@blush/ui/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@blush/ui/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@blush/ui/components/ui/tabs";
 import { toast } from "@blush/ui/components/ui/sonner";
-import { formatMoney } from "@blush/ui/lib/viz";
 import DashboardLayout from "@/components/DashboardLayout";
 import { PermissionGate } from "@/components/PermissionGate";
-import { SaveCourseDialog, type SaveableCourse } from "@/components/academics/SaveCourseDialog";
-import { usePermissions } from "@/hooks/usePermissions";
 import { trpc } from "@/lib/trpc";
 
 export default function AdminAcademicPage() {
@@ -47,20 +31,13 @@ export default function AdminAcademicPage() {
 }
 
 function AcademicsContent() {
-  const { can } = usePermissions();
   const utils = trpc.useUtils();
 
-  const [activeTab, setActiveTab] = useState("programmes");
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
-  const [courseDialogOpen, setCourseDialogOpen] = useState(false);
-  const [editingCourse, setEditingCourse] = useState<SaveableCourse | null>(null);
+  const [activeTab, setActiveTab] = useState("enrolments");
 
-  // Queries
-  const coursesQuery = trpc.admin.courses.useQuery({
-    search: search.trim() || undefined,
-    status: statusFilter,
-  });
+  // Queries. Programmes themselves are created and priced on the Programmes
+  // screen; what is needed here is only the count and the list to enrol into.
+  const coursesQuery = trpc.admin.courses.useQuery({ status: "all" });
 
   const studentsQuery = trpc.admin.students.useQuery();
   const activeCourses = trpc.content.courses.useQuery();
@@ -137,25 +114,23 @@ function AcademicsContent() {
             Academic Workspace
           </p>
           <h1 className="mt-1 font-serif text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-            Programmes & Curriculum
+            Enrolment &amp; Assessment
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Manage academic programmes called during admission, assign student cohorts, and configure course assessments.
+            Place students onto a programme and set the assessments they are marked against.
           </p>
         </div>
 
-        {can("academics.write") ? (
-          <Button
-            onClick={() => {
-              setEditingCourse(null);
-              setCourseDialogOpen(true);
-            }}
-            className="gap-2 self-start rounded-full bg-[#22b8bd] text-white shadow-md hover:bg-[#1ba3a7] dark:bg-[#3fd0d8] dark:text-[#04252a] dark:hover:bg-[#5adbe2] sm:self-auto"
-          >
-            <Plus className="h-4 w-4" />
-            Add Programme
-          </Button>
-        ) : null}
+        <Button
+          asChild
+          variant="outline"
+          className="gap-2 self-start rounded-full sm:self-auto"
+        >
+          <Link href="/programs">
+            <BookOpen className="h-4 w-4" />
+            Manage programmes &amp; fees
+          </Link>
+        </Button>
       </div>
 
       {/* KPI Stats Tiles */}
@@ -219,11 +194,7 @@ function AcademicsContent() {
 
       {/* Main Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 max-w-md rounded-2xl bg-muted/60 p-1">
-          <TabsTrigger value="programmes" className="rounded-xl gap-1.5">
-            <BookOpen className="h-4 w-4" />
-            Programmes
-          </TabsTrigger>
+        <TabsList className="grid w-full max-w-xs grid-cols-2 rounded-2xl bg-muted/60 p-1">
           <TabsTrigger value="enrolments" className="rounded-xl gap-1.5">
             <Users className="h-4 w-4" />
             Enrolment
@@ -233,217 +204,6 @@ function AcademicsContent() {
             Assessments
           </TabsTrigger>
         </TabsList>
-
-        {/* Tab 1: Programmes Directory */}
-        <TabsContent value="programmes" className="space-y-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search by code, title, certification..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                className="pl-9 bg-white/80 dark:bg-white/5"
-              />
-            </div>
-
-            <div className="flex items-center gap-3">
-              <Select
-                value={statusFilter}
-                onValueChange={(val: "all" | "active" | "inactive") => setStatusFilter(val)}
-              >
-                <SelectTrigger className="w-[140px] bg-white/80 dark:bg-white/5">
-                  <SelectValue placeholder="Status filter" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All statuses</SelectItem>
-                  <SelectItem value="active">Active only</SelectItem>
-                  <SelectItem value="inactive">Inactive only</SelectItem>
-                </SelectContent>
-              </Select>
-
-              {can("academics.write") ? (
-                <Button
-                  size="sm"
-                  onClick={() => {
-                    setEditingCourse(null);
-                    setCourseDialogOpen(true);
-                  }}
-                  className="gap-1.5"
-                >
-                  <Plus className="h-4 w-4" />
-                  New programme
-                </Button>
-              ) : null}
-            </div>
-          </div>
-
-          {coursesQuery.isLoading ? (
-            <div className="rounded-3xl border border-border/50 bg-white/60 p-12 dark:bg-white/4 text-center text-sm text-muted-foreground">
-              Loading programmes...
-            </div>
-          ) : allCourses.length === 0 ? (
-            <div className="rounded-3xl border border-dashed border-border bg-white/40 p-12 dark:bg-white/4 text-center">
-              <BookOpen className="mx-auto h-10 w-10 text-muted-foreground/60" />
-              <h3 className="mt-3 font-serif text-lg font-semibold text-foreground">
-                No programmes found
-              </h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {search || statusFilter !== "all"
-                  ? "No programmes match your filter criteria."
-                  : "No academic programmes have been created yet."}
-              </p>
-              {can("academics.write") ? (
-                <Button
-                  onClick={() => {
-                    setEditingCourse(null);
-                    setCourseDialogOpen(true);
-                  }}
-                  className="mt-4 gap-2"
-                >
-                  <Plus className="h-4 w-4" />
-                  Create First Programme
-                </Button>
-              ) : null}
-            </div>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {allCourses.map(course => (
-                <Card
-                  key={course.id}
-                  className={`flex flex-col justify-between border-border/70 bg-white/80 shadow-sm transition-all hover:shadow-md dark:bg-white/5 ${
-                    !course.isActive ? "opacity-70 bg-slate-50/70" : ""
-                  }`}
-                >
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <Badge variant="outline" className="font-mono text-xs font-bold uppercase text-primary border-primary/20 bg-primary/5">
-                          {course.code}
-                        </Badge>
-                        {course.category ? (
-                          <Badge variant="secondary" className="text-[10px] uppercase tracking-wider font-semibold">
-                            {course.category}
-                          </Badge>
-                        ) : null}
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        {course.isFeatured ? (
-                          <Badge className="bg-amber-500/15 text-amber-800 dark:text-amber-300 text-[10px] gap-1">
-                            <Sparkles className="h-3 w-3" />
-                            Featured
-                          </Badge>
-                        ) : null}
-                        <Badge
-                          className={
-                            course.isActive
-                              ? "bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-500/15"
-                              : "bg-slate-500/15 text-slate-700 dark:text-slate-300 hover:bg-slate-500/15"
-                          }
-                        >
-                          {course.isActive ? "Active in Admissions" : "Inactive"}
-                        </Badge>
-                      </div>
-                    </div>
-                    <CardTitle className="mt-2 text-lg font-bold text-foreground">
-                      {course.title}
-                    </CardTitle>
-                    <CardDescription className="line-clamp-2 text-xs">
-                      {course.summary}
-                    </CardDescription>
-                  </CardHeader>
-
-                  <CardContent className="space-y-3 pt-0">
-                    <div className="grid grid-cols-2 gap-2 rounded-xl bg-muted/40 p-3 text-xs">
-                      <div>
-                        <span className="text-muted-foreground block text-[11px]">Tuition Fee</span>
-                        <span className="font-semibold text-foreground">
-                          {formatMoney(course.tuition)}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground block text-[11px]">Duration</span>
-                        <span className="font-semibold text-foreground flex items-center gap-1">
-                          <Clock className="h-3 w-3 text-muted-foreground" />
-                          {course.durationWeeks} Weeks
-                        </span>
-                      </div>
-                    </div>
-
-                    {course.productFee ? (
-                      <div className="rounded-lg bg-amber-500/10 px-3 py-1.5 text-xs text-amber-900 dark:text-amber-200 flex items-center justify-between">
-                        <span>Tools / Product Fee:</span>
-                        <span className="font-bold">{formatMoney(course.productFee)}</span>
-                      </div>
-                    ) : null}
-
-                    {course.schedule ? (
-                      <p className="text-xs text-muted-foreground flex items-center gap-1.5 truncate">
-                        <Calendar className="h-3.5 w-3.5 shrink-0 text-primary/70" />
-                        <span className="truncate">{course.schedule}</span>
-                      </p>
-                    ) : null}
-
-                    {course.certification ? (
-                      <p className="text-xs text-muted-foreground flex items-center gap-1.5 truncate">
-                        <Award className="h-3.5 w-3.5 shrink-0 text-primary/70" />
-                        <span className="truncate">{course.certification}</span>
-                      </p>
-                    ) : null}
-
-                    {course.toiletries ? (
-                      <p className="text-[11px] text-muted-foreground bg-muted/30 rounded-md p-2 line-clamp-2">
-                        <b className="text-foreground/80">Toiletries:</b> {course.toiletries}
-                      </p>
-                    ) : null}
-
-                    <div className="flex items-center justify-between border-t border-border/50 pt-3">
-                      <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Users className="h-3.5 w-3.5" />
-                        <b>{course.activeEnrollments}</b> active students
-                      </span>
-
-                      {can("academics.write") ? (
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 gap-1 px-2.5 text-xs"
-                            onClick={() => {
-                              setEditingCourse(course);
-                              setCourseDialogOpen(true);
-                            }}
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                            Edit
-                          </Button>
-
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className={`h-8 gap-1 px-2.5 text-xs ${
-                              course.isActive ? "text-destructive hover:text-destructive" : "text-emerald-700"
-                            }`}
-                            disabled={toggleCourse.isPending}
-                            onClick={() =>
-                              toggleCourse.mutate({
-                                id: course.id,
-                                isActive: !course.isActive,
-                              })
-                            }
-                          >
-                            <Power className="h-3.5 w-3.5" />
-                            {course.isActive ? "Deactivate" : "Activate"}
-                          </Button>
-                        </div>
-                      ) : null}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </TabsContent>
 
         {/* Tab 2: Enrolment */}
         <TabsContent value="enrolments" className="space-y-6">
@@ -668,17 +428,6 @@ function AcademicsContent() {
           </div>
         </TabsContent>
       </Tabs>
-
-      {/* Save / Edit Course Modal */}
-      <SaveCourseDialog
-        open={courseDialogOpen}
-        onOpenChange={setCourseDialogOpen}
-        editing={editingCourse}
-        onSaved={() => {
-          coursesQuery.refetch();
-          activeCourses.refetch();
-        }}
-      />
     </div>
   );
 }

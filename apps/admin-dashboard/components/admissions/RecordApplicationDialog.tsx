@@ -23,6 +23,7 @@ import {
 import { Textarea } from "@blush/ui/components/ui/textarea";
 import { SaveCourseDialog } from "@/components/academics/SaveCourseDialog";
 import { usePermissions } from "@/hooks/usePermissions";
+import { describeDuration } from "@/lib/describeDuration";
 import { trpc } from "@/lib/trpc";
 
 /**
@@ -441,9 +442,24 @@ export function RecordApplicationDialog({
               </div>
 
               {selectedCourse ? (
-                <div className="rounded-lg bg-primary/5 p-3 text-xs space-y-1 text-foreground border border-primary/20">
-                  <p><b>Duration:</b> {selectedCourse.durationWeeks} weeks</p>
+                <div className="space-y-2 rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs text-foreground">
+                  <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-primary/15 pb-2">
+                    <span className="font-semibold">Fees for this programme</span>
+                    <span className="font-serif text-base font-bold text-primary">
+                      GHS {Number(selectedCourse.tuition).toLocaleString()}
+                    </span>
+                  </div>
+                  {selectedCourse.productFee ? (
+                    <p>
+                      <b>Tools &amp; product kit:</b> GHS{" "}
+                      {Number(selectedCourse.productFee).toLocaleString()}
+                    </p>
+                  ) : null}
+                  <p><b>Duration:</b> {describeDuration(selectedCourse.durationWeeks)}</p>
                   <p><b>Schedule:</b> {selectedCourse.schedule || "Monday - Saturday (8am - 5pm)"}</p>
+                  {selectedCourse.outline.length ? (
+                    <p><b>Covers:</b> {selectedCourse.outline.join(", ")}</p>
+                  ) : null}
                   {selectedCourse.toiletries ? (
                     <p><b>Toiletries:</b> {selectedCourse.toiletries}</p>
                   ) : null}

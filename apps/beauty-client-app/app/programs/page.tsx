@@ -141,15 +141,26 @@ export default function ProgramsPage() {
                   {course.summary}
                 </p>
 
-                {/* Modules / Features */}
+                {/* What the programme actually teaches, as the school lists it */}
                 <div className="mt-4 space-y-2 rounded-2xl bg-[#faeaf6]/40 p-3.5 text-xs text-[#692156]">
                   <p className="font-semibold text-[#8f0d6b] flex items-center gap-1">
                     <BookOpen className="h-3.5 w-3.5 text-[#fe00b6]" />
-                    Syllabus Highlights
+                    What You Will Learn
                   </p>
-                  <p className="line-clamp-3 text-[11px] leading-relaxed">
-                    {course.description}
-                  </p>
+                  {course.outline.length ? (
+                    <ul className="grid gap-x-3 gap-y-1 sm:grid-cols-2">
+                      {course.outline.map(item => (
+                        <li key={item} className="flex items-start gap-1.5 text-[11px] leading-relaxed">
+                          <CheckCircle2 className="mt-[1px] h-3 w-3 shrink-0 text-[#fe00b6]" />
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="line-clamp-3 text-[11px] leading-relaxed">
+                      {course.description}
+                    </p>
+                  )}
                 </div>
 
                 {/* Toiletries requirement if any */}
