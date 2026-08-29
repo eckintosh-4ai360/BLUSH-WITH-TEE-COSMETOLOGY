@@ -33,6 +33,15 @@ describe("describeDuration", () => {
     expect(describeDuration(1)).toBe("1 week");
   });
 
+  it("reads the individual courses the way the price list does", () => {
+    // Professional Makeup (Beginner) and Nails are both sold as two months.
+    expect(describeDuration(8)).toBe("2 months");
+    // Wigmaking & Styling and Ombre Brows are sold as one month.
+    expect(describeDuration(4)).toBe("1 month");
+    // The short installation and lash courses are sold in weeks.
+    expect(describeDuration(2)).toBe("2 weeks");
+  });
+
   it("falls back to weeks when the length is not whole months", () => {
     expect(describeDuration(2)).toBe("2 weeks");
     expect(describeDuration(10)).toBe("10 weeks");
