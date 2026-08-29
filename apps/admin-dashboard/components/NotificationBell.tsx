@@ -10,6 +10,7 @@ import {
   PopoverTrigger,
 } from "@blush/ui/components/ui/popover";
 import { ScrollArea } from "@blush/ui/components/ui/scroll-area";
+import { notificationDestination } from "@/lib/notificationDestination";
 import { trpc } from "@/lib/trpc";
 
 const RELATIVE = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
@@ -58,9 +59,10 @@ export function NotificationBell() {
   const unread = notifications.data?.unreadCount ?? 0;
   const rows = notifications.data?.rows ?? [];
 
-  const open = (id: number, readAt: Date | null, link: string | null) => {
-    if (!readAt) markRead.mutate({ ids: [id] });
-    if (link) router.push(link);
+  const open = (row: (typeof rows)[number]) => {
+    if (!row.readAt) markRead.mutate({ ids: [row.id] });
+    const destination = notificationDestination(row);
+    if (destination) router.push(destination);
   };
 
   return (
@@ -127,7 +129,7 @@ export function NotificationBell() {
                 <li key={row.id}>
                   <button
                     type="button"
-                    onClick={() => open(row.id, row.readAt, row.link)}
+                    onClick={() => open(row)}
                     className="flex w-full gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/60"
                   >
                     <span
