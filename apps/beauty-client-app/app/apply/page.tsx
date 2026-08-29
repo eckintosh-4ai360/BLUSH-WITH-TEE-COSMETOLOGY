@@ -2,6 +2,10 @@
 
 import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import {
+  buildAdmissionFormHtml,
+  type AdmissionFormData,
+} from "@blush/shared/admission-form";
 import Link from "next/link";
 import {
   AlertCircle,
@@ -138,6 +142,8 @@ function ApplyFormContent() {
     email: string;
     courseTitle: string;
     applicantName: string;
+    /** Everything that was submitted, kept so it can be printed. */
+    form: AdmissionFormData["application"];
   } | null>(null);
   const [error, setError] = useState("");
 
@@ -230,6 +236,36 @@ function ApplyFormContent() {
         email: email.trim(),
         courseTitle: result.courseTitle || selectedCourse?.title || "Cosmetology Programme",
         applicantName: fullName.trim(),
+        form: {
+          reference: result.reference,
+          fullName: fullName.trim(),
+          email: email.trim().toLowerCase(),
+          phone: phone.trim(),
+          whatsapp: whatsapp.trim() || null,
+          birthDate: birthDate || null,
+          hometown: hometown.trim() || null,
+          age: age.trim() ? Number(age) : null,
+          gender: gender || null,
+          maritalStatus: maritalStatus || null,
+          address: address.trim() || null,
+          emergencyContact: emergencyContact.trim() || null,
+          emergencyRelationship: emergencyRelationship.trim() || null,
+          instagram: instagram.trim() || null,
+          tiktok: tiktok.trim() || null,
+          otherSocialMedia: otherSocialMedia.trim() || null,
+          educationalLevel: educationalLevel || null,
+          paymentPlan: paymentPlan || null,
+          duration: selectedCourse ? `${selectedCourse.durationWeeks} weeks` : null,
+          startDate: startDate || null,
+          guardianName: guardianName.trim() || null,
+          guardianAddress: guardianAddress.trim() || null,
+          guardianPhone: guardianPhone.trim() || null,
+          signatureData: signatureName.trim(),
+          agreedToTerms: true,
+          statement: statement.trim() || null,
+          status: "submitted",
+          createdAt: new Date(),
+        },
       });
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (reason) {
@@ -239,6 +275,26 @@ function ApplyFormContent() {
           : "Your application could not be submitted. Please try again."
       );
     }
+  }
+
+  function printAdmissionForm() {
+    if (!success) return;
+
+    const html = buildAdmissionFormHtml(
+      success.form,
+      success.courseTitle,
+      `${window.location.origin}/logo.png`,
+    );
+
+    const win = window.open("", "_blank", "width=850,height=1100");
+    if (!win) {
+      setError("Your browser blocked the print window. Allow pop-ups and try again.");
+      return;
+    }
+
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
   }
 
   return (
@@ -471,11 +527,11 @@ function ApplyFormContent() {
 
                 <div className="flex items-center justify-center gap-3 flex-wrap pt-4">
                   <Button
-                    onClick={() => window.print()}
+                    onClick={printAdmissionForm}
                     variant="outline"
                     className="rounded-full border-[#8f0d6b]/30 text-[#8f0d6b] gap-2"
                   >
-                    <Printer className="h-4 w-4" /> Print Application Slip
+                    <Printer className="h-4 w-4" /> Print Admission Form
                   </Button>
                   <Button
                     onClick={() => {

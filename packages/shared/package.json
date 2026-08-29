@@ -9,7 +9,8 @@
     ".": "./index.ts",
     "./const": "./const.ts",
     "./permissions": "./permissions.ts",
-    "./imports": "./imports.ts"
+    "./imports": "./imports.ts",
+    "./admission-form": "./admissionForm.ts"
   },
   "dependencies": {
     "@blush/db": "workspace:*"
