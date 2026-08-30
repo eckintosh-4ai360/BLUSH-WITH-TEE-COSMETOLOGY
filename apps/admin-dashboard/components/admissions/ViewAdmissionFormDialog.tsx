@@ -15,7 +15,9 @@ import { Button } from "@blush/ui/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
+  DialogTitle,
 } from "@blush/ui/components/ui/dialog";
 import { Input } from "@blush/ui/components/ui/input";
 import { toast } from "@blush/ui/components/ui/sonner";
@@ -168,10 +170,10 @@ export function ViewAdmissionFormDialog({
 
         {/* Top Bar */}
         <div className="flex items-center justify-between px-6 py-3 bg-[#fdf2fa] border-b border-[#8f0d6b]/20 rounded-t-lg dark:bg-[#1b0214] dark:border-white/10">
-          <div className="flex items-center gap-2 text-xs font-semibold text-[#8f0d6b] dark:text-[#ffb8ed]">
+          <DialogTitle className="flex items-center gap-2 text-xs font-semibold text-[#8f0d6b] dark:text-[#ffb8ed]">
             <FileCheck className="h-4 w-4 text-[#fe00b6]" />
             Official Admission File — <span className="font-mono">{application.reference}</span>
-          </div>
+          </DialogTitle>
           <Button
             variant="outline"
             size="sm"
@@ -181,6 +183,11 @@ export function ViewAdmissionFormDialog({
             <Printer className="h-3.5 w-3.5" /> Print A4 Sheet
           </Button>
         </div>
+
+        <DialogDescription className="sr-only">
+          {application.fullName}&apos;s admission form for {courseTitle}, submitted{" "}
+          {submitted}.
+        </DialogDescription>
 
         {/* Dossier Preview — on-screen only */}
         <div className="admission-sheet p-5 sm:p-6 space-y-3 text-[10.5px] leading-snug">
