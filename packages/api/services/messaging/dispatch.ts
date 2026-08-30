@@ -141,6 +141,12 @@ export async function queueMessages(
 export async function flush(
   db: DbExecutor,
   limit = BATCH_SIZE,
+  /**
+   * Narrows the drain to one message. Used by the hand-pressed sends, where
+   * the person is waiting on the outcome of their own message and a backlog
+   * of older ones must not be what the batch spends itself on.
+   */
+  onlyId?: number,
 ): Promise<{ sent: number; failed: number; skipped: number }> {
   const config = await readMessagingConfig(db);
   const tally = { sent: 0, failed: 0, skipped: 0 };
@@ -153,6 +159,7 @@ export async function flush(
         eq(notificationDeliveries.status, "queued"),
         inArray(notificationDeliveries.channel, ["email", "sms"]),
         lt(notificationDeliveries.attempts, MAX_ATTEMPTS),
+        onlyId ? eq(notificationDeliveries.id, onlyId) : undefined,
       ),
     )
     .orderBy(asc(notificationDeliveries.createdAt))

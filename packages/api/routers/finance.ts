@@ -8,6 +8,7 @@ import {
   feeAdjustments,
   feeCharges,
   feeStructures,
+  notificationDeliveries,
   payments,
   revenueTransactions,
   studentProfiles,
@@ -15,8 +16,10 @@ import {
 import { dbOrThrow } from "../dbOrThrow";
 import { buildReference } from "../platform.utils";
 import { recordAudit } from "../services/audit";
-import { announce } from "../services/messaging/announce";
-import { flushInBackground } from "../services/messaging/dispatch";
+import { announce, firstName, schoolName } from "../services/messaging/announce";
+import { readMessagingConfig } from "../services/messaging/config";
+import { flush, flushInBackground, render } from "../services/messaging/dispatch";
+import { describeSmsConfig, normaliseMsisdn, smsSegments } from "../services/messaging/sms";
 import { allocatePayment, assertRefundable, studentAccountSummary } from "../services/fees";
 import { fromMinor, money, toAmountString, toMinor } from "../services/money";
 import { notify, staffRecipients } from "../services/notify";
@@ -43,6 +46,72 @@ const EXPENSE_CATEGORIES = [
 /** Postgres unique-violation, raised when a duplicate reference is booked. */
 const isUniqueViolation = (error: unknown) =>
   typeof error === "object" && error !== null && (error as { code?: string }).code === "23505";
+
+const cedis = (value: number) => `GHS ${value.toFixed(2)}`;
+
+/**
+ * Works out the arrears text message for one student, and whether it can go.
+ *
+ * The balance is recomputed here rather than taken from the caller: the amount
+ * a student is told they owe must come from the ledger, not from a number a
+ * browser sent back. Everything else - the wording, the number format, the
+ * provider - is the shared messaging configuration, so a school that has
+ * reworded the reminder gets its own words here too.
+ *
+ * `blocker` is the single reason this cannot be sent right now, phrased for
+ * the person about to press the button. It is null when the message will go.
+ */
+async function buildFeeReminder(db: Awaited<ReturnType<typeof dbOrThrow>>, studentId: number) {
+  const [student] = await db
+    .select({
+      id: studentProfiles.id,
+      studentNumber: studentProfiles.studentNumber,
+      fullName: studentProfiles.fullName,
+      phone: studentProfiles.phone,
+    })
+    .from(studentProfiles)
+    .where(and(eq(studentProfiles.id, studentId), isNull(studentProfiles.deletedAt)))
+    .limit(1);
+  if (!student) throw new TRPCError({ code: "NOT_FOUND", message: "Student was not found." });
+
+  const [summary, config, school] = await Promise.all([
+    studentAccountSummary(db, studentId),
+    readMessagingConfig(db),
+    schoolName(db),
+  ]);
+
+  const destination = normaliseMsisdn(student.phone);
+  const message = render(config.events.templates.outstanding_fee?.sms ?? "", {
+    school,
+    name: firstName(student.fullName),
+    fullName: student.fullName,
+    reference: student.studentNumber,
+    amount: cedis(summary.outstanding),
+  });
+
+  // Deliberately not gated on `masterEnabled` or the per-event SMS switch.
+  // Those govern what the system sends on its own; this message exists because
+  // a member of staff asked for it by name. What is still respected is whether
+  // SMS works at all - an unconfigured provider cannot be clicked past.
+  const blocker =
+    summary.outstanding <= 0
+      ? "This account has nothing outstanding."
+      : !destination
+        ? "No usable phone number is on file for this student."
+        : !config.sms.enabled
+          ? "SMS is switched off. Turn it on under Settings > Messaging."
+          : (describeSmsConfig(config.sms) ??
+            (message.trim() ? null : "The fee reminder template is empty."));
+
+  return {
+    student,
+    outstanding: summary.outstanding,
+    destination,
+    message,
+    segments: smsSegments(message),
+    blocker,
+  };
+}
 
 export const financeRouter = router({
   /* ---------------------------------------------------------------------- */
@@ -242,6 +311,81 @@ export const financeRouter = router({
         Number(total?.total ?? 0),
         input,
       );
+    }),
+
+  /* ---------------------------------------------------------------------- */
+  /* Arrears reminders                                                      */
+  /* ---------------------------------------------------------------------- */
+
+  /**
+   * Exactly what the student would receive, before anybody sends it.
+   *
+   * A text message cannot be recalled, so the wording, the number it goes to
+   * and the figure it quotes are all shown first and come from the same code
+   * that does the sending.
+   */
+  feeReminderPreview: permissionProcedure("fees.write")
+    .input(z.object({ studentId: z.number().int().positive() }))
+    .query(async ({ input }) => {
+      const db = await dbOrThrow();
+      return buildFeeReminder(db, input.studentId);
+    }),
+
+  /** Texts one student what they owe. */
+  sendFeeReminder: permissionProcedure("fees.write")
+    .input(z.object({ studentId: z.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+      const reminder = await buildFeeReminder(db, input.studentId);
+      if (reminder.blocker) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: reminder.blocker });
+      }
+
+      const [delivery] = await db
+        .insert(notificationDeliveries)
+        .values({
+          type: "outstanding_fee",
+          channel: "sms",
+          destination: reminder.destination,
+          recipientName: reminder.student.fullName.slice(0, 160),
+          subject: "Fee reminder",
+          body: reminder.message,
+          status: "queued",
+        })
+        .returning({ id: notificationDeliveries.id });
+      if (!delivery?.id) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "The reminder could not be queued." });
+      }
+
+      await recordAudit(db, ctx.actor, {
+        action: "notify",
+        entity: "studentAccount",
+        entityId: reminder.student.id,
+        entityLabel: reminder.student.fullName,
+        newValue: { channel: "sms", amount: reminder.outstanding },
+        summary: `${ctx.actor.name ?? "Staff"} texted ${reminder.student.fullName} about ${cedis(reminder.outstanding)} in arrears`,
+      });
+
+      // Sent in the foreground, unlike the automatic messages: somebody is
+      // watching the button and is owed a real answer rather than "queued".
+      // Narrowed to this row so a backlog of older messages cannot be what the
+      // batch spends itself on while they wait.
+      await flush(db, 1, delivery.id);
+
+      const [sent] = await db
+        .select({ status: notificationDeliveries.status, error: notificationDeliveries.error })
+        .from(notificationDeliveries)
+        .where(eq(notificationDeliveries.id, delivery.id))
+        .limit(1);
+
+      return {
+        // Reported from the row itself, so a provider that refused the message
+        // is not announced as a success.
+        status: sent?.status ?? "queued",
+        error: sent?.status === "sent" ? null : (sent?.error ?? null),
+        destination: reminder.destination,
+        outstanding: reminder.outstanding,
+      };
     }),
 
   createCharge: permissionProcedure("fees.write")

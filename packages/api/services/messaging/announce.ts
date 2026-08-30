@@ -84,7 +84,7 @@ export async function announce(
  * Messages are addressed the way a person at the desk would say it. The full
  * name stays available as `{{fullName}}` for the templates that want it.
  */
-function firstName(fullName: string): string {
+export function firstName(fullName: string): string {
   const first = fullName.trim().split(/\s+/)[0];
   return first || fullName.trim();
 }
@@ -97,7 +97,7 @@ export function resetSchoolNameCache(): void {
   cachedSchoolName = null;
 }
 
-async function schoolName(db: DbExecutor): Promise<string> {
+export async function schoolName(db: DbExecutor): Promise<string> {
   if (cachedSchoolName) return cachedSchoolName;
 
   const [row] = await db

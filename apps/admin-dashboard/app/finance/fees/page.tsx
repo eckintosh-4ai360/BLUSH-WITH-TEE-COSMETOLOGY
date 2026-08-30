@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Receipt } from "lucide-react";
+import { MessageSquare, Receipt } from "lucide-react";
 import { Badge } from "@blush/ui/components/ui/badge";
 import { Button } from "@blush/ui/components/ui/button";
 import { toast } from "@blush/ui/components/ui/sonner";
@@ -11,6 +11,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { DataTable, type Column } from "@/components/DataTable";
 import { PermissionGate } from "@/components/PermissionGate";
 import { RecordPaymentDialog } from "@/components/finance/RecordPaymentDialog";
+import { SendFeeReminderDialog } from "@/components/finance/SendFeeReminderDialog";
 import { usePermissions } from "@/hooks/usePermissions";
 import { collectAllPages } from "@/lib/exportAll";
 import { trpc } from "@/lib/trpc";
@@ -43,6 +44,7 @@ function OutstandingFeesContent() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [payingStudentId, setPayingStudentId] = useState<number | null>(null);
+  const [remindingStudentId, setRemindingStudentId] = useState<number | null>(null);
 
   const utils = trpc.useUtils();
 
@@ -97,22 +99,44 @@ function OutstandingFeesContent() {
       ),
       value: row => row.outstanding,
     },
-    ...(can("payments.write")
+    ...(can("payments.write") || can("fees.write")
       ? [
           {
             key: "actions",
             header: "",
             align: "right" as const,
             cell: (row: OwingRow) => (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="gap-1.5"
-                onClick={() => setPayingStudentId(row.studentId)}
-              >
-                <Receipt className="h-3.5 w-3.5" />
-                Record
-              </Button>
+              <span className="flex justify-end gap-1">
+                {can("fees.write") ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1.5"
+                    // The row click opens the student; this must not do both.
+                    onClick={event => {
+                      event.stopPropagation();
+                      setRemindingStudentId(row.studentId);
+                    }}
+                  >
+                    <MessageSquare className="h-3.5 w-3.5" />
+                    Remind
+                  </Button>
+                ) : null}
+                {can("payments.write") ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1.5"
+                    onClick={event => {
+                      event.stopPropagation();
+                      setPayingStudentId(row.studentId);
+                    }}
+                  >
+                    <Receipt className="h-3.5 w-3.5" />
+                    Record
+                  </Button>
+                ) : null}
+              </span>
             ),
             value: () => "",
           },
@@ -147,6 +171,18 @@ function OutstandingFeesContent() {
           )
         }
         emptyMessage="Every student is up to date."
+      />
+
+      <SendFeeReminderDialog
+        studentId={remindingStudentId}
+        onOpenChange={open => !open && setRemindingStudentId(null)}
+        onSent={result => {
+          setRemindingStudentId(null);
+          // Only "sent" is a send. A row left "queued" was refused by the
+          // provider and still has retries, which is a failure to report now.
+          if (result.status === "sent") toast.success("The reminder was sent.");
+          else toast.error(result.error ?? "The reminder could not be delivered.");
+        }}
       />
 
       <RecordPaymentDialog
