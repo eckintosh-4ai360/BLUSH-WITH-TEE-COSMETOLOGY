@@ -1,4 +1,17 @@
-import { SQL, and, asc, count, desc, eq, ilike, inArray, isNull, or, sql } from "drizzle-orm";
+import {
+  SQL,
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  getTableColumns,
+  ilike,
+  inArray,
+  isNull,
+  or,
+  sql,
+} from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
@@ -8,6 +21,7 @@ import {
   courseModules,
   courses,
   enrollments,
+  expenseCategories,
   expenses,
   feeCharges,
   inventoryItems,
@@ -22,6 +36,9 @@ import { DEFAULT_COURSE_CATEGORY } from "@blush/shared/const";
 import { storageGet, storagePut } from "@blush/storage";
 import { dbOrThrow } from "../dbOrThrow";
 import { recordAudit } from "../services/audit";
+import { ensurePlatformBootstrapped } from "../services/bootstrap";
+import { allocatePayment, studentAccountSummary } from "../services/fees";
+import { likePattern } from "../services/pagination";
 import {
   findStudentAccountForEmail,
   grantStudentRole,
@@ -41,6 +58,29 @@ import { adminProcedure, permissionProcedure, router } from "../trpc";
 
 /** One syllabus line, as the school advertises it. */
 const outlineInput = z.array(z.string().trim().min(1).max(180)).max(40).optional();
+
+/**
+ * The values `expenses.category` can hold. The configurable `expenseCategories`
+ * table is the real list; this is only here to keep the legacy enum column
+ * populated with the matching value when one exists.
+ */
+const LEGACY_EXPENSE_CATEGORIES = [
+  "rent",
+  "utilities",
+  "salaries",
+  "transport",
+  "equipment",
+  "beauty_products",
+  "maintenance",
+  "marketing",
+  "stationery",
+  "cleaning",
+  "other",
+] as const;
+
+function isLegacyExpenseCategory(key: string): key is (typeof LEGACY_EXPENSE_CATEGORIES)[number] {
+  return (LEGACY_EXPENSE_CATEGORIES as readonly string[]).includes(key);
+}
 
 /**
  * Rewrites a programme's syllabus to exactly `outline`, in that order.
@@ -494,14 +534,118 @@ export const adminNamespaceRouter = router({
 
   expenses: adminProcedure.query(async () => {
     const db = await dbOrThrow();
-    return db.select().from(expenses).orderBy(desc(expenses.expenseDate));
+    return db
+      .select({ ...getTableColumns(expenses), categoryName: expenseCategories.name })
+      .from(expenses)
+      .leftJoin(expenseCategories, eq(expenses.categoryId, expenseCategories.id))
+      .orderBy(desc(expenses.expenseDate));
   }),
 
-  addExpense: adminProcedure.input(z.object({ title: z.string().min(2).max(180), category: z.enum(["rent", "utilities", "salaries", "transport", "equipment", "beauty_products", "maintenance", "marketing", "stationery", "cleaning", "other"]), amount: z.number().positive(), expenseDate: z.coerce.date(), vendor: z.string().max(160).optional(), paymentMethod: z.enum(["cash", "mobile_money", "bank", "card", "online"]), note: z.string().max(2000).optional() })).mutation(async ({ input, ctx }) => {
+  /** The pick list behind the expense form, seeded rows and staff-added alike. */
+  expenseCategories: adminProcedure.query(async () => {
     const db = await dbOrThrow();
-    const [expense] = await db.insert(expenses).values({ ...input, amount: input.amount.toFixed(2), recordedByUserId: ctx.user.id }).returning({ id: expenses.id });
-    return { id: expense?.id };
+    // The seeded categories are this list, so an installation whose first stop
+    // is /finance rather than the dashboard must not find the dropdown empty.
+    await ensurePlatformBootstrapped(db);
+    return db
+      .select({ id: expenseCategories.id, key: expenseCategories.key, name: expenseCategories.name })
+      .from(expenseCategories)
+      .where(eq(expenseCategories.isActive, true))
+      .orderBy(asc(expenseCategories.name));
   }),
+
+  /**
+   * Adds a category the seed list did not anticipate, so "Other" is a starting
+   * point rather than a dead end.
+   */
+  addExpenseCategory: adminProcedure
+    .input(z.object({ name: z.string().trim().min(2).max(120) }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+      const name = input.name.trim();
+      const key = slugify(name).replaceAll("-", "_").slice(0, 48);
+
+      // Two admins naming the same category at once must not turn into a
+      // unique-key crash for whoever lost the race; both end up on one row.
+      const [created] = await db
+        .insert(expenseCategories)
+        .values({ key, name })
+        .onConflictDoNothing({ target: expenseCategories.key })
+        .returning({ id: expenseCategories.id, key: expenseCategories.key, name: expenseCategories.name });
+      if (created) {
+        await recordAudit(db, ctx.actor, {
+          action: "create",
+          entity: "expenseCategory",
+          entityId: created.id,
+          entityLabel: created.name,
+          summary: `${ctx.actor.name ?? "Staff"} added the "${created.name}" expense category`,
+        });
+        return created;
+      }
+
+      const [existing] = await db
+        .select({ id: expenseCategories.id, key: expenseCategories.key, name: expenseCategories.name, isActive: expenseCategories.isActive })
+        .from(expenseCategories)
+        .where(eq(expenseCategories.key, key))
+        .limit(1);
+      if (!existing) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "The category could not be saved." });
+      }
+      // Re-adding a retired name brings it back, rather than failing on a row
+      // the person cannot see and cannot do anything about.
+      if (!existing.isActive) {
+        await db
+          .update(expenseCategories)
+          .set({ isActive: true })
+          .where(eq(expenseCategories.id, existing.id));
+      }
+      return { id: existing.id, key: existing.key, name: existing.name };
+    }),
+
+  addExpense: adminProcedure
+    .input(
+      z.object({
+        title: z.string().min(2).max(180),
+        /** A `key` from `expenseCategories`, which staff can add to. */
+        category: z.string().trim().min(1).max(48),
+        amount: z.number().positive(),
+        expenseDate: z.coerce.date(),
+        vendor: z.string().max(160).optional(),
+        paymentMethod: z.enum(["cash", "mobile_money", "bank", "card", "online"]),
+        note: z.string().max(2000).optional(),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+
+      const [category] = await db
+        .select({ id: expenseCategories.id, key: expenseCategories.key })
+        .from(expenseCategories)
+        .where(and(eq(expenseCategories.key, input.category), eq(expenseCategories.isActive, true)))
+        .limit(1);
+      if (!category) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "That expense category no longer exists." });
+      }
+
+      const [expense] = await db
+        .insert(expenses)
+        .values({
+          title: input.title,
+          // `expenses.category` is a Postgres enum that cannot grow to fit a
+          // name someone typed today, so anything outside it is filed as
+          // "other" there and identified by `categoryId` instead.
+          category: isLegacyExpenseCategory(category.key) ? category.key : "other",
+          categoryId: category.id,
+          amount: input.amount.toFixed(2),
+          expenseDate: input.expenseDate,
+          vendor: input.vendor,
+          paymentMethod: input.paymentMethod,
+          note: input.note,
+          recordedByUserId: ctx.user.id,
+        })
+        .returning({ id: expenses.id });
+      return { id: expense?.id };
+    }),
 
   financeSummary: adminProcedure.query(async () => {
     const db = await dbOrThrow();
@@ -515,16 +659,135 @@ export const adminNamespaceRouter = router({
     return { income, outgoings, net: income - outgoings, outstandingFees: money(outstanding?.total), storeRevenue: money(storeRevenue?.total) };
   }),
 
-  recordStudentPayment: adminProcedure.input(z.object({ studentId: z.number().int().positive(), feeChargeId: z.number().int().positive().optional(), amount: z.number().positive(), paymentMethod: z.enum(["cash", "mobile_money", "bank", "card", "online"]), transactionReference: z.string().max(120).optional() })).mutation(async ({ input, ctx }) => {
-    const db = await dbOrThrow();
-    const [payment] = await db.insert(payments).values({ reference: buildReference("PAY"), studentId: input.studentId, feeChargeId: input.feeChargeId, amount: input.amount.toFixed(2), paymentMethod: input.paymentMethod, transactionReference: input.transactionReference, recordedByUserId: ctx.user.id, status: "completed" }).returning({ id: payments.id });
-    if (input.feeChargeId) {
-      const [charge] = await db.select().from(feeCharges).where(eq(feeCharges.id, input.feeChargeId)).limit(1);
-      if (charge && input.amount >= money(charge.amountDue)) await db.update(feeCharges).set({ status: "paid" }).where(eq(feeCharges.id, charge.id));
-      else if (charge) await db.update(feeCharges).set({ status: "partially_paid" }).where(eq(feeCharges.id, charge.id));
-    }
-    return { id: payment?.id };
-  }),
+  /**
+   * Name-or-number lookup for the payment form. A student number is the thing
+   * on the receipt, but a person at the desk is a name first, so both resolve.
+   */
+  searchStudents: adminProcedure
+    .input(z.object({ term: z.string().trim().min(1).max(80) }))
+    .query(async ({ input }) => {
+      const db = await dbOrThrow();
+      const pattern = likePattern(input.term);
+      return db
+        .select({
+          id: studentProfiles.id,
+          studentNumber: studentProfiles.studentNumber,
+          fullName: studentProfiles.fullName,
+          status: studentProfiles.status,
+        })
+        .from(studentProfiles)
+        .where(
+          and(
+            isNull(studentProfiles.deletedAt),
+            or(
+              ilike(studentProfiles.fullName, pattern),
+              ilike(studentProfiles.studentNumber, pattern),
+              ilike(studentProfiles.email, pattern),
+              ilike(studentProfiles.phone, pattern),
+            ),
+          ),
+        )
+        .orderBy(asc(studentProfiles.fullName))
+        .limit(10);
+    }),
+
+  /** What a chosen student still owes, and the charges the money can go to. */
+  studentFees: adminProcedure
+    .input(z.object({ studentId: z.number().int().positive() }))
+    .query(async ({ input }) => {
+      const db = await dbOrThrow();
+
+      const [student] = await db
+        .select({
+          id: studentProfiles.id,
+          studentNumber: studentProfiles.studentNumber,
+          fullName: studentProfiles.fullName,
+        })
+        .from(studentProfiles)
+        .where(and(eq(studentProfiles.id, input.studentId), isNull(studentProfiles.deletedAt)))
+        .limit(1);
+      if (!student) throw new TRPCError({ code: "NOT_FOUND", message: "Student was not found." });
+
+      const [summary, charges] = await Promise.all([
+        studentAccountSummary(db, input.studentId),
+        db
+          .select({
+            id: feeCharges.id,
+            description: feeCharges.description,
+            feeType: feeCharges.feeType,
+            amountDue: feeCharges.amountDue,
+            amountPaid: feeCharges.amountPaid,
+            dueDate: feeCharges.dueDate,
+            status: feeCharges.status,
+          })
+          .from(feeCharges)
+          .where(
+            and(
+              eq(feeCharges.studentId, input.studentId),
+              inArray(feeCharges.status, ["open", "partially_paid"]),
+            ),
+          )
+          .orderBy(asc(feeCharges.dueDate), asc(feeCharges.id)),
+      ]);
+
+      return {
+        student,
+        summary,
+        charges: charges.map(charge => ({
+          ...charge,
+          amountDue: money(charge.amountDue),
+          amountPaid: money(charge.amountPaid),
+          balance: money(charge.amountDue) - money(charge.amountPaid),
+        })),
+      };
+    }),
+
+  recordStudentPayment: adminProcedure
+    .input(
+      z.object({
+        studentId: z.number().int().positive(),
+        feeChargeId: z.number().int().positive().optional(),
+        amount: z.number().positive(),
+        paymentMethod: z.enum(["cash", "mobile_money", "bank", "card", "online"]),
+        transactionReference: z.string().max(120).optional(),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+      const amountMinor = Math.round(input.amount * 100);
+
+      return db.transaction(async tx => {
+        const [payment] = await tx
+          .insert(payments)
+          .values({
+            reference: buildReference("PAY"),
+            studentId: input.studentId,
+            feeChargeId: input.feeChargeId,
+            amount: input.amount.toFixed(2),
+            paymentMethod: input.paymentMethod,
+            transactionReference: input.transactionReference,
+            recordedByUserId: ctx.user.id,
+            status: "completed",
+          })
+          .returning({ id: payments.id });
+        if (!payment?.id) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Payment could not be recorded." });
+        }
+
+        // Shared with the finance module rather than reimplemented: it writes
+        // the allocation rows and moves `amountPaid`, so the charge list this
+        // form reads back is not left claiming the money is still owed. An
+        // overpayment cascades to the student's other open charges.
+        await allocatePayment(tx, {
+          paymentId: payment.id,
+          studentId: input.studentId,
+          amountMinor,
+          preferredFeeChargeId: input.feeChargeId ?? null,
+        });
+
+        return { id: payment.id };
+      });
+    }),
 
   recordStorePayment: adminProcedure.input(z.object({ orderId: z.number().int().positive(), amount: z.number().positive(), paymentMethod: z.enum(["cash", "mobile_money", "bank", "card", "online"]), transactionReference: z.string().max(120).optional() })).mutation(async ({ input, ctx }) => {
     const db = await dbOrThrow();
