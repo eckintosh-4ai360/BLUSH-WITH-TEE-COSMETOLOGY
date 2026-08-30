@@ -4,9 +4,11 @@ import {
   desc,
   eq,
   exists,
+  gte,
   ilike,
   inArray,
   isNull,
+  lte,
   ne,
   notExists,
   or,
@@ -16,6 +18,7 @@ import {
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import {
+  certificates,
   courses,
   enrollments,
   feeCharges,
@@ -25,6 +28,8 @@ import {
 import { dbOrThrow } from "../dbOrThrow";
 import { buildReference } from "../platform.utils";
 import { recordAudit } from "../services/audit";
+import { announce } from "../services/messaging/announce";
+import { flushInBackground } from "../services/messaging/dispatch";
 import {
   listInputSchema,
   likePattern,
@@ -75,7 +80,12 @@ export const studentsRouter = router({
 
       const where = and(
         isNull(studentProfiles.deletedAt),
-        input.status ? eq(studentProfiles.status, input.status) : undefined,
+        // Graduates keep their record but leave this register - they are read
+        // from `graduates` instead. Asking for them by name in the status
+        // filter still works, so nobody is ever hidden from a direct question.
+        input.status
+          ? eq(studentProfiles.status, input.status)
+          : ne(studentProfiles.status, "graduated"),
         input.courseId
           ? exists(enrolmentOf(eq(enrollments.courseId, input.courseId)))
           : undefined,
@@ -494,6 +504,315 @@ export const studentsRouter = router({
     }),
 
   /**
+   * The graduates register.
+   *
+   * Everyone whose studies are finished, kept apart from the students still
+   * being taught. It is the same `studentProfiles` row throughout - graduating
+   * moves a student between the two lists rather than copying them into a
+   * second table, so their fees, results and certificates stay attached to the
+   * one record and nothing has to be reconciled afterwards.
+   */
+  graduates: permissionProcedure("students.read")
+    .input(
+      listInputSchema.extend({
+        courseId: z.number().int().positive().optional(),
+      }),
+    )
+    .query(async ({ input }) => {
+      const db = await dbOrThrow();
+      const { limit, offset } = paginationBounds(input);
+
+      const where = and(
+        isNull(studentProfiles.deletedAt),
+        eq(studentProfiles.status, "graduated"),
+        input.courseId
+          ? exists(
+              db
+                .select({ one: sql`1` })
+                .from(enrollments)
+                .where(
+                  and(
+                    eq(enrollments.studentId, studentProfiles.id),
+                    eq(enrollments.courseId, input.courseId),
+                  ),
+                ),
+            )
+          : undefined,
+        input.dateFrom ? gte(studentProfiles.graduatedAt, input.dateFrom) : undefined,
+        input.dateTo ? lte(studentProfiles.graduatedAt, input.dateTo) : undefined,
+        input.search
+          ? or(
+              ilike(studentProfiles.fullName, likePattern(input.search)),
+              ilike(studentProfiles.studentNumber, likePattern(input.search)),
+              ilike(studentProfiles.email, likePattern(input.search)),
+              ilike(studentProfiles.phone, likePattern(input.search)),
+            )
+          : undefined,
+      );
+
+      const [rows, [total]] = await Promise.all([
+        db
+          .select()
+          .from(studentProfiles)
+          .where(where)
+          // A record graduated before this register existed can carry no date;
+          // it belongs at the end of the list rather than the top of it.
+          .orderBy(sql`${studentProfiles.graduatedAt} desc nulls last`)
+          .limit(limit)
+          .offset(offset),
+        db.select({ total: count() }).from(studentProfiles).where(where),
+      ]);
+
+      // Programmes and awards are read for the page only, the same way the
+      // student register does it.
+      const ids = rows.map(row => row.id);
+      const [programmes, awards] = ids.length
+        ? await Promise.all([
+            db
+              .select({
+                id: enrollments.id,
+                studentId: enrollments.studentId,
+                courseId: enrollments.courseId,
+                courseTitle: courses.title,
+                status: enrollments.status,
+                completedAt: enrollments.completedAt,
+              })
+              .from(enrollments)
+              .innerJoin(courses, eq(enrollments.courseId, courses.id))
+              .where(inArray(enrollments.studentId, ids))
+              .orderBy(desc(enrollments.enrolledAt)),
+            db
+              .select({
+                id: certificates.id,
+                studentId: certificates.studentId,
+                certificateNumber: certificates.certificateNumber,
+                courseTitle: courses.title,
+                finalGrade: certificates.finalGrade,
+              })
+              .from(certificates)
+              .innerJoin(courses, eq(certificates.courseId, courses.id))
+              .where(and(inArray(certificates.studentId, ids), eq(certificates.status, "issued")))
+              .orderBy(desc(certificates.issuedAt)),
+          ])
+        : [[], []];
+
+      return paginate(
+        rows.map(row => ({
+          ...row,
+          programmes: programmes.filter(programme => programme.studentId === row.id),
+          certificates: awards.filter(award => award.studentId === row.id),
+        })),
+        Number(total?.total ?? 0),
+        input,
+      );
+    }),
+
+  /**
+   * Graduates a student.
+   *
+   * Three things happen together, because leaving any of them out puts the
+   * records in a state somebody has to notice and repair by hand. The student
+   * moves to the graduates register; every programme they were still on is
+   * closed as completed, which is also what makes them eligible for a
+   * certificate (§37); and they are told.
+   *
+   * Two refusals. Somebody who was never enrolled has nothing to graduate
+   * from - that is a data-entry mistake rather than a graduation. And a
+   * student who still owes money is refused for the same reason removing them
+   * is: writing off a debt is a finance decision, and it should not happen as
+   * a side effect of a ceremony.
+   */
+  graduate: permissionProcedure("students.write")
+    .input(
+      z.object({
+        id: z.number().int().positive(),
+        /** The ceremony date, when it was not today. */
+        graduatedAt: z.coerce.date().optional(),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+
+      const [student] = await db
+        .select()
+        .from(studentProfiles)
+        .where(and(eq(studentProfiles.id, input.id), isNull(studentProfiles.deletedAt)))
+        .limit(1);
+
+      if (!student) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "That student is not on file." });
+      }
+
+      if (student.status === "graduated") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `${student.fullName} has already graduated.`,
+        });
+      }
+
+      if (student.status === "withdrawn") {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: `${student.fullName} withdrew from the school. Put them back on the register before graduating them.`,
+        });
+      }
+
+      const graduatedAt = input.graduatedAt ?? new Date();
+      if (graduatedAt.getTime() > Date.now()) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "A graduation date cannot be in the future.",
+        });
+      }
+
+      const enrolments = await db
+        .select({
+          id: enrollments.id,
+          status: enrollments.status,
+          courseTitle: courses.title,
+        })
+        .from(enrollments)
+        .innerJoin(courses, eq(enrollments.courseId, courses.id))
+        .where(eq(enrollments.studentId, input.id));
+
+      if (!enrolments.length) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: `${student.fullName} has never been enrolled on a programme, so there is nothing to graduate from.`,
+        });
+      }
+
+      const outstanding = await outstandingBalance(db, input.id);
+      if (outstanding > 0) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: `${student.fullName} still owes GHS ${outstanding.toFixed(2)}. Settle or waive the balance before graduating them.`,
+        });
+      }
+
+      // Paused counts as open here: graduation closes the student's file, and
+      // a programme left half-finished behind them would keep them counted
+      // among the people still being taught.
+      const open = enrolments.filter(
+        enrolment => enrolment.status === "active" || enrolment.status === "paused",
+      );
+
+      const result = await db.transaction(async tx => {
+        await tx
+          .update(studentProfiles)
+          .set({ status: "graduated", graduatedAt, updatedAt: new Date() })
+          .where(eq(studentProfiles.id, input.id));
+
+        if (open.length) {
+          await tx
+            .update(enrollments)
+            .set({ status: "completed", completedAt: graduatedAt, progressPercent: 100 })
+            .where(
+              inArray(
+                enrollments.id,
+                open.map(enrolment => enrolment.id),
+              ),
+            );
+        }
+
+        await recordAudit(tx, ctx.actor, {
+          action: "graduate",
+          entity: "studentProfile",
+          entityId: student.id,
+          entityLabel: student.studentNumber,
+          oldValue: { status: student.status },
+          newValue: {
+            status: "graduated",
+            graduatedAt,
+            completedProgrammes: open.map(enrolment => enrolment.courseTitle),
+          },
+          summary: `${ctx.actor.name ?? "Staff"} graduated ${student.fullName} (${student.studentNumber})`,
+        });
+
+        await announce(tx, {
+          type: "general",
+          recipient: {
+            name: student.fullName,
+            email: student.email,
+            phone: student.phone,
+            userId: student.userId,
+          },
+          title: "Congratulations on your graduation",
+          body: "Your studies are complete. Your certificate appears in your portal once it has been issued.",
+          facts: {
+            reference: student.studentNumber,
+            course: enrolments.map(enrolment => enrolment.courseTitle).join(", "),
+          },
+          entityType: "studentProfile",
+          entityId: student.id,
+          link: "/portal",
+        });
+
+        return {
+          id: student.id,
+          studentNumber: student.studentNumber,
+          fullName: student.fullName,
+          completedProgrammes: open.length,
+        };
+      });
+
+      // After the commit: the congratulations must describe a graduation that
+      // is actually on file.
+      flushInBackground(db);
+      return result;
+    }),
+
+  /**
+   * Puts a graduate back on the student register.
+   *
+   * The undo for a graduation recorded against the wrong person. Completed
+   * enrolments are left completed - a graduate who genuinely returns to study
+   * is a new enrolment rather than an old one reopened, and it carries its own
+   * fees.
+   */
+  reinstate: permissionProcedure("students.write")
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+
+      const [student] = await db
+        .select()
+        .from(studentProfiles)
+        .where(and(eq(studentProfiles.id, input.id), isNull(studentProfiles.deletedAt)))
+        .limit(1);
+
+      if (!student) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "That student is not on file." });
+      }
+
+      if (student.status !== "graduated") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `${student.fullName} is already on the student register.`,
+        });
+      }
+
+      return db.transaction(async tx => {
+        await tx
+          .update(studentProfiles)
+          .set({ status: "active", graduatedAt: null, updatedAt: new Date() })
+          .where(eq(studentProfiles.id, input.id));
+
+        await recordAudit(tx, ctx.actor, {
+          action: "update",
+          entity: "studentProfile",
+          entityId: student.id,
+          entityLabel: student.studentNumber,
+          oldValue: { status: "graduated", graduatedAt: student.graduatedAt },
+          newValue: { status: "active", graduatedAt: null },
+          summary: `${ctx.actor.name ?? "Staff"} returned ${student.fullName} (${student.studentNumber}) to the student register`,
+        });
+
+        return { id: student.id, studentNumber: student.studentNumber };
+      });
+    }),
+
+  /**
    * Removes a student from the register.
    *
    * Soft, and deliberately so. Fee charges, adjustments, payment plans and
@@ -522,18 +841,7 @@ export const studentsRouter = router({
         throw new TRPCError({ code: "NOT_FOUND", message: "That student is not on file." });
       }
 
-      // Billed and paid are summed separately and reduced to money the same
-      // way the fees-owed report does it, so the two never disagree about
-      // whether a student is clear.
-      const [owing] = await db
-        .select({
-          billed: sql<string>`coalesce(sum(${feeCharges.amountDue}), 0)`,
-          paid: sql<string>`coalesce(sum(${feeCharges.amountPaid}), 0)`,
-        })
-        .from(feeCharges)
-        .where(eq(feeCharges.studentId, input.id));
-
-      const outstanding = money(owing?.billed) - money(owing?.paid);
+      const outstanding = await outstandingBalance(db, input.id);
       if (outstanding > 0) {
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
@@ -564,3 +872,26 @@ export const studentsRouter = router({
       });
     }),
 });
+
+
+/**
+ * What a student still owes, across every fee charge on their account.
+ *
+ * Billed and paid are summed separately and reduced to money the same way the
+ * fees-owed report does it, so no two places disagree about whether a student
+ * is clear. Both graduating and removing a student ask this question.
+ */
+async function outstandingBalance(
+  db: Awaited<ReturnType<typeof dbOrThrow>>,
+  studentId: number,
+): Promise<number> {
+  const [owing] = await db
+    .select({
+      billed: sql<string>`coalesce(sum(${feeCharges.amountDue}), 0)`,
+      paid: sql<string>`coalesce(sum(${feeCharges.amountPaid}), 0)`,
+    })
+    .from(feeCharges)
+    .where(eq(feeCharges.studentId, studentId));
+
+  return money(owing?.billed) - money(owing?.paid);
+}

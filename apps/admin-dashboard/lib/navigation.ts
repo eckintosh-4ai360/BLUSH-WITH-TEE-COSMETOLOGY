@@ -1,4 +1,5 @@
 import {
+  Award,
   BadgeCheck,
   BookOpen,
   Boxes,
@@ -76,6 +77,12 @@ export const NAV_SECTIONS: NavSection[] = [
         permissions: ["admissions.read"],
       },
       { label: "Students", path: "/students", icon: Users, permissions: ["students.read"] },
+      {
+        label: "Graduates",
+        path: "/students/graduates",
+        icon: Award,
+        permissions: ["students.read"],
+      },
       {
         label: "Programmes",
         path: "/programs",

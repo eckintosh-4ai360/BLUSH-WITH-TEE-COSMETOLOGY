@@ -26,6 +26,14 @@ import { trpc } from "@/lib/trpc";
 
 const STATUS = ["active", "suspended", "completed", "graduated", "withdrawn"] as const;
 
+/**
+ * Graduating closes a student's programmes and moves them off the register, so
+ * it is its own action rather than a value on this dropdown. It is still shown
+ * for somebody who has already graduated, because a form must be able to
+ * display the status its record actually holds.
+ */
+const SELECTABLE_STATUS = STATUS.filter(item => item !== "graduated");
+
 const NO_COURSE = "none";
 
 /** Only the identity is needed to open the dialog; the rest is fetched. */
@@ -269,7 +277,7 @@ export function SaveStudentDialog({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {STATUS.map(item => (
+                    {(status === "graduated" ? STATUS : SELECTABLE_STATUS).map(item => (
                       <SelectItem key={item} value={item} className="capitalize">
                         {item}
                       </SelectItem>

@@ -184,7 +184,7 @@ export default function AdminOverviewPage() {
               label="Graduated"
               value={compactNumber(students.graduated)}
               icon={BadgeCheck}
-              href="/students?status=graduated"
+              href="/students/graduates"
               isLoading={loading}
             />
             <StatTile

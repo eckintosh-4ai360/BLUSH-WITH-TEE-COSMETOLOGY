@@ -62,6 +62,36 @@ certificate number, product SKU, or a person by name, email or phone.
 **The bell** collects new applications, orders, payments and low-stock alerts.
 Clicking one opens the record.
 
+## Students and graduates
+
+*School → Students* is everyone currently being taught. *School → Graduates* is
+everyone who has finished. They are the same records throughout — graduating
+moves a student from one list to the other, and nothing is copied, retyped or
+left behind.
+
+**Graduate** beside a student asks for the graduation date, defaulting to
+today, and says which programmes it will close. Confirming it marks those
+programmes completed, moves the student to *Graduates*, and tells them.
+
+Two things stop a graduation, both on purpose. A student who was never enrolled
+on a programme has nothing to graduate from. And a student who still owes money
+is refused — settle or waive the balance on *Fees owed* first, because writing
+off a debt is a decision somebody should make deliberately rather than by
+graduating around it.
+
+Completing a programme is also what makes a certificate available to issue, so
+a graduate appears under *Certificates → Issue certificate* straight away, and
+*Graduates* shows who is still waiting for theirs.
+
+**Return to register** on a graduate undoes a graduation recorded against the
+wrong person: they become active again and the graduation date is cleared.
+Completed programmes stay completed, and a certificate already issued is
+untouched — revoke it separately if it should not stand.
+
+Graduates keep their portal sign-in, their fee history and their results.
+*Remove* is a different thing entirely: it takes somebody off the register
+without their having finished.
+
 ## Money
 
 ### Recording a payment

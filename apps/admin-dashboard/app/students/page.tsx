@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Pencil, Plus, Trash2, Upload } from "lucide-react";
+import { GraduationCap, Pencil, Plus, Trash2, Upload } from "lucide-react";
 import { STUDENT_IMPORT_COLUMNS } from "@blush/shared/imports";
 import { Button } from "@blush/ui/components/ui/button";
 import { toast } from "@blush/ui/components/ui/sonner";
@@ -28,18 +28,21 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { DataTable, type Column } from "@/components/DataTable";
 import { PermissionGate } from "@/components/PermissionGate";
 import { ImportDialog } from "@/components/imports/ImportDialog";
+import {
+  GraduateStudentDialog,
+  type GraduatingStudent,
+} from "@/components/students/GraduateStudentDialog";
 import { SaveStudentDialog } from "@/components/students/SaveStudentDialog";
 import { usePermissions } from "@/hooks/usePermissions";
 import { collectAllPages } from "@/lib/exportAll";
 import { trpc } from "@/lib/trpc";
 
-const STATUS = [
-  "active",
-  "suspended",
-  "completed",
-  "graduated",
-  "withdrawn",
-] as const;
+/**
+ * The statuses a student on this register can hold. Graduated is deliberately
+ * absent: graduates are read from their own page, and this filter would only
+ * ever return an empty table.
+ */
+const STATUS = ["active", "suspended", "completed", "withdrawn"] as const;
 
 /** Status tones: state, never reused as a chart series colour. */
 const STATUS_TONE: Record<string, string> = {
@@ -90,6 +93,7 @@ function StudentsContent() {
   const [saveOpen, setSaveOpen] = useState(false);
   const [editing, setEditing] = useState<StudentRow | null>(null);
   const [removing, setRemoving] = useState<StudentRow | null>(null);
+  const [graduating, setGraduating] = useState<GraduatingStudent | null>(null);
   const importStudents = trpc.imports.students.useMutation();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -224,6 +228,18 @@ function StudentsContent() {
                 >
                   <Pencil className="h-3.5 w-3.5" />
                   Edit
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={event => {
+                    event.stopPropagation();
+                    setGraduating(row);
+                  }}
+                >
+                  <GraduationCap className="h-3.5 w-3.5" />
+                  Graduate
                 </Button>
                 <Button
                   variant="ghost"
@@ -373,6 +389,16 @@ function StudentsContent() {
           toast.success(
             edited ? `${studentNumber} updated.` : `Student added as ${studentNumber}.`,
           );
+          query.refetch();
+        }}
+      />
+
+      <GraduateStudentDialog
+        open={graduating !== null}
+        onOpenChange={open => !open && setGraduating(null)}
+        student={graduating}
+        onGraduated={({ fullName }) => {
+          toast.success(`${fullName} has graduated.`);
           query.refetch();
         }}
       />
