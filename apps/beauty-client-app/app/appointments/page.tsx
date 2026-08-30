@@ -13,7 +13,11 @@ export default function AppointmentsPage() {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
+    // Held before the await: React clears `currentTarget` once the handler
+    // returns, so resetting through it afterwards throws - and the throw would
+    // be caught below and reported as a failed booking that in fact succeeded.
+    const form = event.currentTarget;
+    const data = new FormData(form);
     try {
       const result = await book.mutateAsync({
         serviceId: Number(data.get("serviceId")),
@@ -24,7 +28,7 @@ export default function AppointmentsPage() {
         note: String(data.get("note") || "") || undefined,
       });
       setNotice(`Your clinic request ${result.reference} has been received. The academy will confirm your appointment shortly.`);
-      event.currentTarget.reset();
+      form.reset();
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "The appointment request could not be sent.");
     }

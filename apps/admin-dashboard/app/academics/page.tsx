@@ -74,7 +74,10 @@ function AcademicsContent() {
 
   async function submitEnrollment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
+    // Held before the await: React clears `currentTarget` once the handler
+    // returns, so reading it after the round trip would be reading null.
+    const form = event.currentTarget;
+    const data = new FormData(form);
     await createEnrollment.mutateAsync({
       studentId: Number(data.get("studentId")),
       courseId: Number(data.get("courseId")),
@@ -82,12 +85,13 @@ function AcademicsContent() {
         ? new Date(String(data.get("completion")))
         : undefined,
     });
-    event.currentTarget.reset();
+    form.reset();
   }
 
   async function submitAssessment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const data = new FormData(form);
     await createAssessment.mutateAsync({
       courseId: Number(data.get("courseId")),
       title: String(data.get("title")),
@@ -95,7 +99,7 @@ function AcademicsContent() {
       totalScore: Number(data.get("totalScore")),
       dueDate: data.get("dueDate") ? new Date(String(data.get("dueDate"))) : undefined,
     });
-    event.currentTarget.reset();
+    form.reset();
   }
 
   const allCourses = coursesQuery.data ?? [];
