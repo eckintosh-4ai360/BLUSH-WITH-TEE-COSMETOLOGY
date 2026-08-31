@@ -224,9 +224,9 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
 
       {/* overflow-hidden is what actually holds the corner radius: every child,
           the header included, is clipped to the panel's rounded shape. */}
-      <SidebarInset className="admin-content-panel min-h-0 overflow-hidden bg-transparent md:peer-data-[variant=inset]:rounded-[1.5rem] md:peer-data-[variant=inset]:shadow-[0_24px_70px_rgba(88,140,151,0.18)] dark:md:peer-data-[variant=inset]:shadow-[0_24px_70px_rgba(0,0,0,0.45)]">
+      <SidebarInset className="admin-content-panel min-h-0 overflow-hidden bg-transparent lg:peer-data-[variant=inset]:rounded-[1.5rem] lg:peer-data-[variant=inset]:shadow-[0_24px_70px_rgba(88,140,151,0.18)] dark:lg:peer-data-[variant=inset]:shadow-[0_24px_70px_rgba(0,0,0,0.45)]">
         <header className="flex h-16 shrink-0 items-center gap-3 border-b border-white/60 bg-white/35 px-3 backdrop-blur-xl sm:px-5 dark:border-white/8 dark:bg-white/4">
-          <SidebarTrigger className="h-9 w-9 shrink-0 rounded-lg md:hidden" />
+          <SidebarTrigger className="h-9 w-9 shrink-0 rounded-lg lg:hidden" />
           {/* Named for every reader, shown once there is room to spare. */}
           <p className="sr-only shrink-0 text-base font-semibold text-foreground lg:not-sr-only">
             {activeLabel ?? "Dashboard"}

@@ -27,7 +27,7 @@ export default function PublicShell({ children }: { children: React.ReactNode })
   return (
     <div className="min-h-screen overflow-x-clip bg-[#fdf8fc] text-[#2d0423]">
       <header className="sticky top-0 z-50 w-full border-b border-[#8f0d6b]/10 bg-white shadow-[0_4px_25px_rgba(143,13,107,0.06)]">
-        <div className="container flex h-20 items-center justify-between gap-4">
+        <div className="container flex h-20 items-center justify-between gap-3 xl:gap-4">
           <Link href="/" className="group flex items-center gap-3">
             <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full border border-[#fe00b6]/40 bg-white p-0.5 shadow-[0_6px_18px_rgba(143,13,107,0.14)] transition-all duration-300 group-hover:scale-105">
               <Image
@@ -39,23 +39,34 @@ export default function PublicShell({ children }: { children: React.ReactNode })
               />
             </div>
             <div className="flex flex-col">
-              <span className="block font-serif text-lg font-bold tracking-tight text-[#8f0d6b]">
+              {/* The name is a name: wrapping it to "Blush With / Tee" reads as
+                  two things. It shrinks a step instead, and the strapline is
+                  dropped in the band where the full nav is competing for the
+                  same row. */}
+              <span className="block whitespace-nowrap font-serif text-base font-bold tracking-tight text-[#8f0d6b] sm:text-lg">
                 Blush With Tee
               </span>
-              <span className="block text-[8.5px] font-semibold uppercase tracking-[0.24em] text-[#fe00b6]">
+              <span className="block whitespace-nowrap text-[8.5px] font-semibold uppercase tracking-[0.24em] text-[#fe00b6] lg:hidden xl:block">
                 School of Cosmetology
               </span>
             </div>
           </Link>
 
-          <nav className="hidden items-center gap-6 lg:flex" aria-label="Primary navigation">
+          {/* gap and tracking both open up at xl. At 1024-1279 - iPad landscape -
+              the seven links, the brand and the call to action have to share
+              960px, and the roomy desktop spacing is what pushed "Student
+              Clinic" onto a second line. */}
+          <nav
+            className="hidden items-center gap-4 lg:flex xl:gap-6"
+            aria-label="Primary navigation"
+          >
             {links.map(link => {
               const active = pathname === link.path;
               return (
                 <Link
                   key={link.path}
                   href={link.path}
-                  className={`text-[11px] font-semibold uppercase tracking-[0.18em] transition-all duration-200 ${
+                  className={`whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.1em] transition-all duration-200 xl:tracking-[0.18em] ${
                     active ? "text-[#fe00b6] font-bold" : "text-[#691152] hover:text-[#fe00b6]"
                   }`}
                 >
@@ -66,8 +77,12 @@ export default function PublicShell({ children }: { children: React.ReactNode })
           </nav>
 
           <div className="hidden items-center gap-3 sm:flex">
+            {/* Between lg and xl the primary nav is already on this row and
+                there is no width left for a second button. "Apply Now" is the
+                one that earns the space; the portal link is a tap away in the
+                menu and in the footer. */}
             {user ? (
-              <Link href="/portal">
+              <Link href="/portal" className="lg:hidden xl:block">
                 <Button
                   variant="outline"
                   className="rounded-full border-[#8f0d6b]/25 bg-white px-4 text-xs font-semibold text-[#8f0d6b] transition-all duration-300 hover:bg-[#faeaf6]"
@@ -78,7 +93,7 @@ export default function PublicShell({ children }: { children: React.ReactNode })
             ) : (
               <Button
                 variant="ghost"
-                className="rounded-full text-xs font-medium text-[#8f0d6b] transition-colors duration-300 hover:bg-[#faeaf6]"
+                className="rounded-full text-xs font-medium text-[#8f0d6b] transition-colors duration-300 hover:bg-[#faeaf6] lg:hidden xl:inline-flex"
                 onClick={() => startLogin()}
               >
                 Sign in

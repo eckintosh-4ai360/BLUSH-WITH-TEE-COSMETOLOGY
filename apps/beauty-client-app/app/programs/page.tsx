@@ -97,7 +97,10 @@ export default function ProgramsPage() {
         </div>
 
         {/* Courses Grid */}
-        <section className="mt-8 grid gap-8 lg:grid-cols-3">
+        {/* Two up on a tablet, three only once there is room for them: at 1024
+            a third column squeezes the cards until the badges and titles break
+            onto extra lines. */}
+        <section className="mt-8 grid gap-8 sm:grid-cols-2 xl:grid-cols-3">
           {isLoading ? (
             [1, 2, 3, 4, 5, 6].map(x => (
               <div

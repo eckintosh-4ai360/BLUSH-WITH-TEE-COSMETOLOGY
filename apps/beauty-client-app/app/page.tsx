@@ -173,7 +173,7 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="mt-16 grid gap-6 md:grid-cols-3">
+          <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {pathways.map(path => (
               <article
                 key={path.number}
@@ -244,7 +244,7 @@ export default function Home() {
             </h2>
           </div>
 
-          <div className="mt-16 grid gap-6 md:grid-cols-3">
+          <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {testimonials.map(item => (
               <figure
                 key={item.name}

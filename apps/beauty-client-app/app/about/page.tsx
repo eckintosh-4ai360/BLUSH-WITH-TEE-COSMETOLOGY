@@ -19,7 +19,7 @@ export default function AboutPage() {
           </p>
         </section>
 
-        <section className="mt-16 grid gap-6 md:grid-cols-3">
+        <section className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           <div className="rounded-3xl border border-[#8f0d6b]/15 bg-white/80 p-8 shadow-[0_12px_36px_rgba(143,13,107,.06)]">
             <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#faeaf6] text-[#fe00b6]">
               <Sparkles className="h-5 w-5" />

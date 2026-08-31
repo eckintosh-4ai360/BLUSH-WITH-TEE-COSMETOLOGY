@@ -24,7 +24,9 @@ export default function GalleryPage() {
           </p>
         </div>
 
-        <section className="mt-16 grid auto-rows-[220px] grid-cols-2 gap-5 md:auto-rows-[280px] md:grid-cols-4">
+        {/* Four across only from lg. At 768 a quarter-row tile is ~170px wide
+            and the captions it carries spill straight out of it. */}
+        <section className="mt-16 grid auto-rows-[220px] grid-cols-2 gap-5 md:auto-rows-[260px] lg:auto-rows-[280px] lg:grid-cols-4">
           {moments.map((moment, index) => (
             <article
               key={`${moment.title}-${index}`}
@@ -41,7 +43,7 @@ export default function GalleryPage() {
                 <p className="text-[10px] font-bold uppercase tracking-[.22em] text-[#ffb8ed]">
                   BWT Studio Work
                 </p>
-                <h2 className="mt-1.5 font-serif text-xl font-bold text-white sm:text-2xl drop-shadow-sm">
+                <h2 className="mt-1.5 font-serif text-lg font-bold text-white drop-shadow-sm sm:text-xl xl:text-2xl">
                   {moment.title}
                 </h2>
               </div>

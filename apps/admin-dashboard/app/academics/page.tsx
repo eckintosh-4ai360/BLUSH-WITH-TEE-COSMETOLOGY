@@ -138,7 +138,7 @@ function AcademicsContent() {
       </div>
 
       {/* KPI Stats Tiles */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card className="border-border/60 bg-white/70 shadow-sm backdrop-blur dark:bg-white/5">
           <CardContent className="flex items-center gap-4 p-5">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
