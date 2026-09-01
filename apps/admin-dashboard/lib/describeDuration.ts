@@ -22,3 +22,20 @@ export function describeDuration(weeks: number): string {
 function plural(count: number, unit: string): string {
   return `${count} ${unit}${count === 1 ? "" : "s"}`;
 }
+
+/**
+ * The distinct lengths on offer, shortest first, ready for a filter menu.
+ *
+ * Built from the programmes themselves rather than a fixed list, so a filter
+ * never offers a length nothing is taught in - and a new programme of a new
+ * length appears without anyone remembering to add it here.
+ */
+export function durationFilterOptions(
+  programmes: { durationWeeks: number }[] | undefined,
+): { weeks: number; label: string }[] {
+  const weeks = [...new Set((programmes ?? []).map(item => item.durationWeeks))]
+    .filter(value => Number.isFinite(value) && value > 0)
+    .sort((a, b) => a - b);
+
+  return weeks.map(value => ({ weeks: value, label: describeDuration(value) }));
+}

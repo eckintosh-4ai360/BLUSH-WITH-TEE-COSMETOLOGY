@@ -35,7 +35,7 @@ import {
 import { SaveStudentDialog } from "@/components/students/SaveStudentDialog";
 import { usePermissions } from "@/hooks/usePermissions";
 import { collectAllPages } from "@/lib/exportAll";
-import { describeDuration } from "@/lib/describeDuration";
+import { describeDuration, durationFilterOptions } from "@/lib/describeDuration";
 import { trpc } from "@/lib/trpc";
 
 /**
@@ -101,6 +101,7 @@ function StudentsContent() {
   const [status, setStatus] = useState("all");
   const [course, setCourse] = useState("all");
   const [enrolment, setEnrolment] = useState("all");
+  const [duration, setDuration] = useState("all");
 
   const utils = trpc.useUtils();
   const courses = trpc.content.courses.useQuery();
@@ -112,6 +113,7 @@ function StudentsContent() {
     search: search || undefined,
     status: status === "all" ? undefined : (status as (typeof STATUS)[number]),
     courseId: course === "all" ? undefined : Number(course),
+    durationWeeks: duration === "all" ? undefined : Number(duration),
     enrolment:
       enrolment === "all"
         ? undefined
@@ -132,10 +134,25 @@ function StudentsContent() {
   });
 
   // Narrowing to one programme and asking for the unenrolled at once returns
-  // nothing, so the two controls stay mutually exclusive.
+  // nothing, so the two controls stay mutually exclusive. Length belongs to
+  // the same group: a named programme already fixes its length, and a student
+  // with no enrolment has no length at all, so any pairing of the three is
+  // either a repeat or a guaranteed empty table.
   const onCourseChange = (value: string) => {
     setCourse(value);
-    if (value !== "all") setEnrolment("all");
+    if (value !== "all") {
+      setEnrolment("all");
+      setDuration("all");
+    }
+    setPage(1);
+  };
+
+  const onDurationChange = (value: string) => {
+    setDuration(value);
+    if (value !== "all") {
+      setCourse("all");
+      setEnrolment("all");
+    }
     setPage(1);
   };
 
@@ -336,6 +353,23 @@ function StudentsContent() {
               </SelectContent>
             </Select>
 
+            <Select value={duration} onValueChange={onDurationChange}>
+              <SelectTrigger
+                className="w-[11rem]"
+                aria-label="Filter by programme length"
+              >
+                <SelectValue placeholder="Any length" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Any length</SelectItem>
+                {durationFilterOptions(courses.data).map(option => (
+                  <SelectItem key={option.weeks} value={String(option.weeks)}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
             <Select value={course} onValueChange={onCourseChange}>
               <SelectTrigger
                 className="w-[15rem]"
@@ -357,7 +391,10 @@ function StudentsContent() {
               value={enrolment}
               onValueChange={value => {
                 setEnrolment(value);
-                if (value !== "all") setCourse("all");
+                if (value !== "all") {
+                  setCourse("all");
+                  setDuration("all");
+                }
                 setPage(1);
               }}
             >

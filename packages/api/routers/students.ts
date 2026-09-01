@@ -62,6 +62,8 @@ export const studentsRouter = router({
       listInputSchema.extend({
         status: z.enum(STUDENT_STATUS).optional(),
         courseId: z.number().int().positive().optional(),
+        /** Programme length in weeks, as the courses themselves record it. */
+        durationWeeks: z.number().int().positive().optional(),
         enrolment: z.enum(ENROLMENT_FILTER).optional(),
       })
     )
@@ -88,6 +90,23 @@ export const studentsRouter = router({
           : ne(studentProfiles.status, "graduated"),
         input.courseId
           ? exists(enrolmentOf(eq(enrollments.courseId, input.courseId)))
+          : undefined,
+        // Length is a property of the programme, not the enrolment, so this
+        // one has to reach through to `courses`. Still an EXISTS: a student on
+        // two six-month programmes is one row in the register, not two.
+        input.durationWeeks
+          ? exists(
+              db
+                .select({ one: sql`1` })
+                .from(enrollments)
+                .innerJoin(courses, eq(enrollments.courseId, courses.id))
+                .where(
+                  and(
+                    eq(enrollments.studentId, studentProfiles.id),
+                    eq(courses.durationWeeks, input.durationWeeks),
+                  ),
+                ),
+            )
           : undefined,
         input.enrolment === "enrolled" ? exists(enrolmentOf()) : undefined,
         input.enrolment === "unenrolled" ? notExists(enrolmentOf()) : undefined,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describeDuration } from "./describeDuration";
+import { describeDuration, durationFilterOptions } from "./describeDuration";
 
 /**
  * These are the three programmes the school actually sells, and the words on
@@ -50,5 +50,34 @@ describe("describeDuration", () => {
   it("prints a dash rather than a nonsense length", () => {
     expect(describeDuration(0)).toBe("\u2014");
     expect(describeDuration(Number.NaN)).toBe("\u2014");
+  });
+});
+
+describe("durationFilterOptions", () => {
+  it("offers each length once, shortest first", () => {
+    // Two programmes share the 8-week length; the filter should list it once.
+    expect(
+      durationFilterOptions([
+        { durationWeeks: 24 },
+        { durationWeeks: 8 },
+        { durationWeeks: 48 },
+        { durationWeeks: 8 },
+      ]),
+    ).toEqual([
+      { weeks: 8, label: "2 months" },
+      { weeks: 24, label: "6 months" },
+      { weeks: 48, label: "1 year" },
+    ]);
+  });
+
+  it("has nothing to offer before the programmes have loaded", () => {
+    expect(durationFilterOptions(undefined)).toEqual([]);
+    expect(durationFilterOptions([])).toEqual([]);
+  });
+
+  it("leaves out a length that would render as a dash", () => {
+    expect(durationFilterOptions([{ durationWeeks: 0 }, { durationWeeks: 12 }])).toEqual([
+      { weeks: 12, label: "3 months" },
+    ]);
   });
 });

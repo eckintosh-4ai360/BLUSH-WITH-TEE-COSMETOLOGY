@@ -22,6 +22,7 @@ import {
 } from "@/components/admissions/ViewAdmissionFormDialog";
 import { usePermissions } from "@/hooks/usePermissions";
 import { collectAllPages } from "@/lib/exportAll";
+import { durationFilterOptions } from "@/lib/describeDuration";
 import { trpc } from "@/lib/trpc";
 
 const STATUS = [
@@ -102,6 +103,7 @@ function AdmissionsContent() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState("all");
+  const [duration, setDuration] = useState("all");
   const [recordOpen, setRecordOpen] = useState(false);
   const [viewFormApp, setViewFormApp] = useState<AdmissionApplicationData | null>(null);
 
@@ -110,9 +112,11 @@ function AdmissionsContent() {
   const filters = {
     search: search || undefined,
     status: status === "all" ? undefined : (status as (typeof STATUS)[number]),
+    durationWeeks: duration === "all" ? undefined : Number(duration),
   };
 
   const query = trpc.admin.applications.useQuery({ ...filters, page, pageSize: 25 });
+  const courses = trpc.content.courses.useQuery();
 
   const review = trpc.admin.reviewApplication.useMutation({
     onSuccess: () => {
@@ -267,25 +271,50 @@ function AdmissionsContent() {
         }
         emptyMessage="No applications match these filters."
         filters={
-          <Select
-            value={status}
-            onValueChange={value => {
-              setStatus(value);
-              setPage(1);
-            }}
-          >
-            <SelectTrigger className="w-[11rem]" aria-label="Filter by status">
-              <SelectValue placeholder="All statuses" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All statuses</SelectItem>
-              {STATUS.map(item => (
-                <SelectItem key={item} value={item} className="capitalize">
-                  {item.replaceAll("_", " ")}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <>
+            <Select
+              value={status}
+              onValueChange={value => {
+                setStatus(value);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="w-[11rem]" aria-label="Filter by status">
+                <SelectValue placeholder="All statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                {STATUS.map(item => (
+                  <SelectItem key={item} value={item} className="capitalize">
+                    {item.replaceAll("_", " ")}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select
+              value={duration}
+              onValueChange={value => {
+                setDuration(value);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger
+                className="w-[11rem]"
+                aria-label="Filter by programme length"
+              >
+                <SelectValue placeholder="Any length" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Any length</SelectItem>
+                {durationFilterOptions(courses.data).map(option => (
+                  <SelectItem key={option.weeks} value={String(option.weeks)}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </>
         }
         actions={
           can("admissions.write") ? (

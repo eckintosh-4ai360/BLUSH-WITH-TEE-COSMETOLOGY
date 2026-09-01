@@ -159,14 +159,17 @@ export const adminNamespaceRouter = router({
         status: z
           .enum(["draft", "submitted", "under_review", "more_information", "approved", "rejected"])
           .optional(),
+        /** Length of the programme applied for, in weeks. */
+        durationWeeks: z.number().int().positive().optional(),
       })
     )
     .query(async ({ input }) => {
       const db = await dbOrThrow();
-      const { page = 1, pageSize = 20, search, status } = input;
+      const { page = 1, pageSize = 20, search, status, durationWeeks } = input;
 
       const conditions: SQL[] = [];
       if (status) conditions.push(eq(applications.status, status));
+      if (durationWeeks) conditions.push(eq(courses.durationWeeks, durationWeeks));
       if (search && search.trim()) {
         const pattern = `%${search.trim()}%`;
         conditions.push(
@@ -197,7 +200,14 @@ export const adminNamespaceRouter = router({
           .orderBy(desc(applications.createdAt))
           .limit(pageSize)
           .offset(offset),
-        db.select({ total: count() }).from(applications).where(where),
+        // Joined here as well as above because the duration filter asks about
+        // the course. `courseId` is non-null with a restricted delete, so every
+        // application has exactly one course and the join adds no rows.
+        db
+          .select({ total: count() })
+          .from(applications)
+          .innerJoin(courses, eq(applications.courseId, courses.id))
+          .where(where),
       ]);
 
       const total = Number(totalRow?.total ?? 0);
