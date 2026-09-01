@@ -9,6 +9,7 @@ import {
   ilike,
   inArray,
   isNull,
+  ne,
   or,
   sql,
 } from "drizzle-orm";
@@ -222,9 +223,17 @@ export const adminNamespaceRouter = router({
     return Promise.all(documents.map(async document => ({ ...document, url: (await storageGet(document.storageKey)).url })));
   }),
 
+  /**
+   * The students who can still be placed on a programme.
+   *
+   * Scoped the same way the register is: a removed record is gone, and a
+   * graduate has finished with the school and is read from the graduates
+   * screen instead. Both were being offered by the enrolment picker, which is
+   * the only caller.
+   */
   students: adminProcedure.query(async () => {
     const db = await dbOrThrow();
-    const rows = await db.select({ student: studentProfiles, enrollment: enrollments, courseTitle: courses.title }).from(studentProfiles).leftJoin(enrollments, eq(studentProfiles.id, enrollments.studentId)).leftJoin(courses, eq(enrollments.courseId, courses.id)).orderBy(desc(studentProfiles.createdAt), desc(enrollments.enrolledAt));
+    const rows = await db.select({ student: studentProfiles, enrollment: enrollments, courseTitle: courses.title }).from(studentProfiles).leftJoin(enrollments, eq(studentProfiles.id, enrollments.studentId)).leftJoin(courses, eq(enrollments.courseId, courses.id)).where(and(isNull(studentProfiles.deletedAt), ne(studentProfiles.status, "graduated"))).orderBy(desc(studentProfiles.createdAt), desc(enrollments.enrolledAt));
     type Row = (typeof rows)[number];
     const byStudent = new Map<number, { student: Row["student"]; enrollments: { enrollment: NonNullable<Row["enrollment"]>; courseTitle: Row["courseTitle"] }[] }>();
     for (const row of rows) {
@@ -237,6 +246,26 @@ export const adminNamespaceRouter = router({
 
   createEnrollment: adminProcedure.input(z.object({ studentId: z.number().int().positive(), courseId: z.number().int().positive(), expectedCompletionDate: z.coerce.date().optional() })).mutation(async ({ input }) => {
     const db = await dbOrThrow();
+
+    // Leaving a removed or graduated student out of the picker is presentation;
+    // this is the check that holds. A form opened before the student graduated
+    // is still sitting on someone's screen with the old list in it.
+    const [student] = await db
+      .select({ id: studentProfiles.id, status: studentProfiles.status })
+      .from(studentProfiles)
+      .where(and(eq(studentProfiles.id, input.studentId), isNull(studentProfiles.deletedAt)))
+      .limit(1);
+
+    if (!student) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "That student is no longer on the register." });
+    }
+    if (student.status === "graduated") {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "That student has graduated and cannot be placed on a programme.",
+      });
+    }
+
     const [enrollment] = await db.insert(enrollments).values({ studentId: input.studentId, courseId: input.courseId, expectedCompletionDate: input.expectedCompletionDate }).returning({ id: enrollments.id });
     return { id: enrollment?.id };
   }),
