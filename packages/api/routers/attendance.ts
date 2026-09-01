@@ -6,6 +6,7 @@ import {
   courses,
   enrollments,
   studentProfiles,
+  users,
 } from "@blush/db/schema";
 import { dbOrThrow } from "../dbOrThrow";
 import { recordAudit } from "../services/audit";
@@ -27,6 +28,9 @@ import { permissionProcedure, router } from "../trpc";
  */
 
 const ATTENDANCE_STATUS = ["present", "late", "absent", "excused"] as const;
+
+/** A year at a time. Long enough for a full intake, short enough to stay one query. */
+const MAX_HISTORY_DAYS = 366;
 
 /**
  * A calendar day, not an instant.
@@ -219,6 +223,84 @@ export const attendanceRouter = router({
       });
 
       return { saved: input.entries.length };
+    }),
+
+  /**
+   * Every mark in a window, one row per student per day.
+   *
+   * Flat rather than summarised because this is what gets exported: a
+   * spreadsheet of marks can be pivoted into whatever shape the reader wants,
+   * where a pre-summarised one cannot be taken apart again. Absences sort to
+   * the front of a day so the exception is the first thing read.
+   */
+  history: permissionProcedure("attendance.read")
+    .input(
+      z
+        .object({
+          /** Omitted means every programme, for a whole-school export. */
+          courseId: z.number().int().positive().optional(),
+          from: classDateInput,
+          to: classDateInput,
+        })
+        .refine(value => value.from <= value.to, {
+          message: "The start date comes after the end date.",
+          path: ["from"],
+        })
+        .refine(
+          value =>
+            (value.to.getTime() - value.from.getTime()) / 86_400_000 <= MAX_HISTORY_DAYS,
+          {
+            message: `A range covers at most ${MAX_HISTORY_DAYS} days. Export a shorter window.`,
+            path: ["to"],
+          },
+        ),
+    )
+    .query(async ({ input }) => {
+      const db = await dbOrThrow();
+
+      const rows = await db
+        .select({
+          classDate: attendanceRecords.classDate,
+          status: attendanceRecords.status,
+          note: attendanceRecords.note,
+          studentNumber: studentProfiles.studentNumber,
+          fullName: studentProfiles.fullName,
+          courseTitle: courses.title,
+          markedBy: users.name,
+        })
+        .from(attendanceRecords)
+        .innerJoin(enrollments, eq(attendanceRecords.enrollmentId, enrollments.id))
+        .innerJoin(studentProfiles, eq(enrollments.studentId, studentProfiles.id))
+        .innerJoin(courses, eq(enrollments.courseId, courses.id))
+        .leftJoin(users, eq(attendanceRecords.recordedByUserId, users.id))
+        .where(
+          and(
+            gte(attendanceRecords.classDate, input.from),
+            lte(attendanceRecords.classDate, input.to),
+            input.courseId ? eq(enrollments.courseId, input.courseId) : undefined,
+            sql`${studentProfiles.deletedAt} is null`,
+          ),
+        )
+        .orderBy(
+          desc(attendanceRecords.classDate),
+          // Anything other than "present" first within a day.
+          sql`(${attendanceRecords.status} = 'present')`,
+          asc(studentProfiles.fullName),
+        );
+
+      const totals = { present: 0, late: 0, absent: 0, excused: 0 };
+      for (const row of rows) totals[row.status] += 1;
+
+      return {
+        rows: rows.map(row => ({
+          ...row,
+          classDate: row.classDate.toISOString().slice(0, 10),
+        })),
+        totals,
+        // Distinct days actually marked, so an empty Sunday is not counted as
+        // a day the school failed to take a register.
+        daysMarked: new Set(rows.map(row => row.classDate.toISOString().slice(0, 10))).size,
+      };
     }),
 
   /**

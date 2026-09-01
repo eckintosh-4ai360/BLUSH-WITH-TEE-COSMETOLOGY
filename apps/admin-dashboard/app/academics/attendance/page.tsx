@@ -1,10 +1,24 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CalendarCheck, Check, Loader2, Save } from "lucide-react";
+import {
+  CalendarCheck,
+  Check,
+  ChevronDown,
+  FileDown,
+  FileText,
+  Loader2,
+  Save,
+} from "lucide-react";
 import { Badge } from "@blush/ui/components/ui/badge";
 import { Button } from "@blush/ui/components/ui/button";
 import { Card } from "@blush/ui/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@blush/ui/components/ui/dropdown-menu";
 import { Input } from "@blush/ui/components/ui/input";
 import { Label } from "@blush/ui/components/ui/label";
 import {
@@ -16,9 +30,18 @@ import {
 } from "@blush/ui/components/ui/select";
 import { Skeleton } from "@blush/ui/components/ui/skeleton";
 import { toast } from "@blush/ui/components/ui/sonner";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@blush/ui/components/ui/table";
 import DashboardLayout from "@/components/DashboardLayout";
 import { PermissionGate } from "@/components/PermissionGate";
 import { usePermissions } from "@/hooks/usePermissions";
+import { downloadCsv, downloadPdf, type ExportColumn } from "@/lib/exportTable";
 import { trpc } from "@/lib/trpc";
 
 const STATUSES = ["present", "late", "absent", "excused"] as const;
@@ -36,6 +59,25 @@ const STATUS_TONE: Record<Status, string> = {
 function today() {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
+/** The same format as `today`, `count` days back. */
+function daysAgo(count: number) {
+  const date = new Date();
+  date.setDate(date.getDate() - count);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+/** Reads a plain date as words, without letting a timezone shift the day. */
+function readableDate(value: string) {
+  const [year, month, day] = value.split("-").map(Number) as [number, number, number];
+  return new Date(Date.UTC(year, month - 1, day)).toLocaleDateString("en-GB", {
+    timeZone: "UTC",
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 export default function AttendancePage() {
@@ -222,12 +264,37 @@ function AttendanceContent() {
               ) : null}
             </div>
 
-            {writable ? (
-              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => markAll("present")}>
-                <Check className="h-3.5 w-3.5" />
-                Mark all present
-              </Button>
-            ) : null}
+            <div className="flex items-center gap-2">
+              <ExportMenu
+                label="Export day"
+                disabled={!students.length}
+                fileName={() => `attendance-${classDate}`}
+                title={`Attendance - ${register.data?.course.title ?? ""}`}
+                columns={DAY_COLUMNS}
+                rows={() => students}
+                meta={() => [
+                  { label: "Programme", value: register.data?.course.title ?? "" },
+                  { label: "Date", value: readableDate(classDate) },
+                ]}
+                onBeforeExport={() => {
+                  // The file has to match the record, not the screen: exporting
+                  // marks that were never saved would hand someone a register
+                  // the system does not actually hold.
+                  if (dirty) {
+                    toast.error("Save the register first so the export matches the record.");
+                    return false;
+                  }
+                  return true;
+                }}
+              />
+
+              {writable ? (
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => markAll("present")}>
+                  <Check className="h-3.5 w-3.5" />
+                  Mark all present
+                </Button>
+              ) : null}
+            </div>
           </div>
 
           <Card className="divide-y divide-border/60 p-0">
@@ -318,6 +385,12 @@ function AttendanceContent() {
           ) : null}
 
           <RecentDays courseId={Number(courseId)} onPick={setClassDate} />
+
+          <AttendanceHistory
+            courses={courses.data ?? []}
+            initialCourseId={courseId}
+            onPickDay={setClassDate}
+          />
         </>
       )}
     </div>
@@ -364,6 +437,281 @@ function RecentDays({
           );
         })}
       </div>
+    </Card>
+  );
+}
+
+type DayRow = {
+  studentNumber: string;
+  fullName: string;
+  status: string | null;
+  note: string | null;
+};
+
+/** A student with no row for the day is unmarked, which is not the same as present. */
+const DAY_COLUMNS: ExportColumn<DayRow>[] = [
+  { key: "studentNumber", header: "Student number" },
+  { key: "fullName", header: "Student" },
+  { key: "status", header: "Status", value: row => row.status ?? "not marked" },
+  { key: "note", header: "Note", value: row => row.note ?? "" },
+];
+
+type HistoryRow = {
+  classDate: string;
+  courseTitle: string;
+  studentNumber: string;
+  fullName: string;
+  status: string;
+  note: string | null;
+  markedBy: string | null;
+};
+
+const HISTORY_COLUMNS: ExportColumn<HistoryRow>[] = [
+  { key: "classDate", header: "Date" },
+  { key: "courseTitle", header: "Programme" },
+  { key: "studentNumber", header: "Student number" },
+  { key: "fullName", header: "Student" },
+  { key: "status", header: "Status" },
+  { key: "note", header: "Note", value: row => row.note ?? "" },
+  { key: "markedBy", header: "Marked by", value: row => row.markedBy ?? "" },
+];
+
+type ExportMeta = { label: string; value: string };
+
+/**
+ * CSV or PDF from one button, so the two never drift apart.
+ *
+ * The caller decides what a file contains; this only decides which writer runs.
+ */
+function ExportMenu<T>({
+  label,
+  disabled,
+  fileName,
+  title,
+  columns,
+  rows,
+  meta,
+  onBeforeExport,
+}: {
+  label: string;
+  disabled?: boolean;
+  fileName: () => string;
+  title: string;
+  columns: ExportColumn<T>[];
+  rows: () => T[];
+  meta: () => ExportMeta[];
+  /** Returning false calls the export off, having said why. */
+  onBeforeExport?: () => boolean;
+}) {
+  const [busy, setBusy] = useState(false);
+
+  const run = (write: (name: string, data: T[], lines: ExportMeta[]) => void | Promise<void>) =>
+    async () => {
+      if (onBeforeExport && !onBeforeExport()) return;
+      setBusy(true);
+      try {
+        await write(fileName(), rows(), meta());
+      } catch (cause) {
+        toast.error(
+          cause instanceof Error ? cause.message : "That export could not be produced.",
+        );
+      } finally {
+        setBusy(false);
+      }
+    };
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="sm" className="gap-2" disabled={disabled || busy}>
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
+          {label}
+          <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem
+          onClick={run((name, data, lines) => downloadCsv(name, columns, data, lines))}
+        >
+          <FileDown className="h-4 w-4" />
+          Export as CSV
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={run((name, data, lines) => downloadPdf(name, title, columns, data, lines))}
+        >
+          <FileText className="h-4 w-4" />
+          Export as PDF
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+/**
+ * Attendance over a window rather than a single day.
+ *
+ * The register above answers "who is here today". This answers "what happened
+ * across March", which is the question a file is usually wanted for.
+ */
+function AttendanceHistory({
+  courses,
+  initialCourseId,
+  onPickDay,
+}: {
+  courses: { id: number; title: string }[];
+  initialCourseId: string;
+  onPickDay: (date: string) => void;
+}) {
+  const [courseId, setCourseId] = useState(initialCourseId || "all");
+  const [from, setFrom] = useState(daysAgo(6));
+  const [to, setTo] = useState(today());
+
+  const query = trpc.attendance.history.useQuery({
+    courseId: courseId === "all" ? undefined : Number(courseId),
+    from,
+    to,
+  });
+
+  const rows = query.data?.rows ?? [];
+  const totals = query.data?.totals;
+
+  const programmeName =
+    courseId === "all"
+      ? "All programmes"
+      : (courses.find(course => String(course.id) === courseId)?.title ?? "");
+
+  return (
+    <Card className="space-y-4 p-5">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold">Attendance history</h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Every mark in the window, newest day first. Absences lead each day.
+          </p>
+        </div>
+
+        <ExportMenu
+          label="Export range"
+          disabled={!rows.length}
+          fileName={() => `attendance-${from}-to-${to}`}
+          title="Attendance history"
+          columns={HISTORY_COLUMNS}
+          rows={() => rows}
+          meta={() => [
+            { label: "Programme", value: programmeName },
+            { label: "From", value: readableDate(from) },
+            { label: "To", value: readableDate(to) },
+          ]}
+        />
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div className="space-y-2">
+          <Label htmlFor="history-course">Programme</Label>
+          <Select value={courseId} onValueChange={setCourseId}>
+            <SelectTrigger id="history-course">
+              <SelectValue placeholder="All programmes" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All programmes</SelectItem>
+              {courses.map(course => (
+                <SelectItem key={course.id} value={String(course.id)}>
+                  {course.title}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="history-from">From</Label>
+          <Input
+            id="history-from"
+            type="date"
+            value={from}
+            max={to}
+            onChange={event => setFrom(event.target.value)}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="history-to">To</Label>
+          <Input
+            id="history-to"
+            type="date"
+            value={to}
+            min={from}
+            max={today()}
+            onChange={event => setTo(event.target.value)}
+          />
+        </div>
+      </div>
+
+      {totals ? (
+        <div className="flex flex-wrap gap-2">
+          <Badge variant="outline">{query.data?.daysMarked ?? 0} days marked</Badge>
+          <Badge variant="outline">{totals.present} present</Badge>
+          <Badge variant="outline">{totals.late} late</Badge>
+          <Badge variant="outline">{totals.absent} absent</Badge>
+          <Badge variant="outline">{totals.excused} excused</Badge>
+        </div>
+      ) : null}
+
+      {query.isLoading ? (
+        <div className="space-y-2">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <Skeleton key={index} className="h-10 w-full" />
+          ))}
+        </div>
+      ) : query.error ? (
+        <p role="alert" className="text-sm text-destructive">
+          {query.error.message}
+        </p>
+      ) : !rows.length ? (
+        <p className="py-8 text-center text-sm text-muted-foreground">
+          No attendance was marked in this window.
+        </p>
+      ) : (
+        <div className="max-h-96 overflow-auto rounded-xl border border-border/60">
+          <Table>
+            <TableHeader className="sticky top-0 bg-card">
+              <TableRow>
+                <TableHead>Date</TableHead>
+                <TableHead>Student</TableHead>
+                <TableHead>Programme</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Note</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((row, index) => (
+                <TableRow key={`${row.classDate}-${row.studentNumber}-${index}`}>
+                  <TableCell>
+                    <button
+                      type="button"
+                      onClick={() => onPickDay(row.classDate)}
+                      className="underline-offset-2 hover:underline"
+                    >
+                      {readableDate(row.classDate)}
+                    </button>
+                  </TableCell>
+                  <TableCell>
+                    <span className="block font-medium text-foreground">{row.fullName}</span>
+                    <span className="text-xs text-muted-foreground">{row.studentNumber}</span>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{row.courseTitle}</TableCell>
+                  <TableCell>
+                    <Badge className={`capitalize ${STATUS_TONE[row.status as Status] ?? ""}`}>
+                      {row.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{row.note ?? "-"}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
     </Card>
   );
 }
