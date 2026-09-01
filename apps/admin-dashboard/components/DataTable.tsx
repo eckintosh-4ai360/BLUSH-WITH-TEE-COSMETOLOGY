@@ -37,6 +37,12 @@ import { downloadCsv, downloadPdf } from "@/lib/exportTable";
 
 export type Column<T> = {
   key: string;
+  /**
+   * The column heading. An empty one marks the column as chrome rather than
+   * data - a row's action buttons, say. Chrome has no name to offer in the
+   * column menu and no value to write into an export, so it is left out of
+   * both and always renders.
+   */
   header: string;
   /** How the cell renders. Defaults to the raw value at `key`. */
   cell?: (row: T) => ReactNode;
@@ -141,6 +147,12 @@ export function DataTable<T>({
     [columns, hidden],
   );
 
+  const named = useMemo(() => columns.filter(column => column.header.trim()), [columns]);
+
+  // An action column exports as a blank heading over a blank cell, because the
+  // buttons in it are not a value. Only named columns reach the file.
+  const exportable = useMemo(() => visible.filter(column => column.header.trim()), [visible]);
+
   const rows = data?.rows ?? [];
   const showSkeleton = isLoading && !data;
 
@@ -210,7 +222,7 @@ export function DataTable<T>({
           <DropdownMenuContent align="end" className="w-48">
             <DropdownMenuLabel>Show columns</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            {columns.map(column => (
+            {named.map(column => (
               <DropdownMenuCheckboxItem
                 key={column.key}
                 checked={!hidden.has(column.key)}
@@ -256,7 +268,7 @@ export function DataTable<T>({
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={() =>
-                  runExport(all => downloadCsv(exportFileName, visible, all))
+                  runExport(all => downloadCsv(exportFileName, exportable, all))
                 }
               >
                 <FileDown className="h-4 w-4" />
@@ -264,7 +276,7 @@ export function DataTable<T>({
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() =>
-                  runExport(all => downloadPdf(exportFileName, pdfTitle ?? title, visible, all))
+                  runExport(all => downloadPdf(exportFileName, pdfTitle ?? title, exportable, all))
                 }
               >
                 <FileText className="h-4 w-4" />
