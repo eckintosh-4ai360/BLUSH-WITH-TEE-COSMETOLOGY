@@ -14,6 +14,7 @@ import {
 import { Badge } from "@blush/ui/components/ui/badge";
 import { Button } from "@blush/ui/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@blush/ui/components/ui/card";
+import { Skeleton } from "@blush/ui/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@blush/ui/components/ui/tabs";
 import { toast } from "@blush/ui/components/ui/sonner";
 import DashboardLayout from "@/components/DashboardLayout";
@@ -28,6 +29,15 @@ export default function AdminAcademicPage() {
       </PermissionGate>
     </DashboardLayout>
   );
+}
+
+/**
+ * A count only means something once it has been counted. Rendering `0` while
+ * the query is still out reads as a real answer, then contradicts itself.
+ */
+function StatValue({ value, loading }: { value: number; loading: boolean }) {
+  if (loading) return <Skeleton className="mt-1 h-7 w-12" />;
+  return <p className="font-serif text-2xl font-bold text-foreground">{value}</p>;
 }
 
 function AcademicsContent() {
@@ -148,7 +158,7 @@ function AcademicsContent() {
               <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 Total Programmes
               </p>
-              <p className="font-serif text-2xl font-bold text-foreground">{totalProgrammes}</p>
+              <StatValue value={totalProgrammes} loading={coursesQuery.isLoading} />
             </div>
           </CardContent>
         </Card>
@@ -162,7 +172,7 @@ function AcademicsContent() {
               <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 Active Admissions
               </p>
-              <p className="font-serif text-2xl font-bold text-foreground">{activeCount}</p>
+              <StatValue value={activeCount} loading={coursesQuery.isLoading} />
             </div>
           </CardContent>
         </Card>
@@ -176,7 +186,7 @@ function AcademicsContent() {
               <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 Active Enrolments
               </p>
-              <p className="font-serif text-2xl font-bold text-foreground">{totalEnrolments}</p>
+              <StatValue value={totalEnrolments} loading={staffEnrollments.isLoading} />
             </div>
           </CardContent>
         </Card>
@@ -190,7 +200,7 @@ function AcademicsContent() {
               <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 Assessments Set Up
               </p>
-              <p className="font-serif text-2xl font-bold text-foreground">{totalAssessments}</p>
+              <StatValue value={totalAssessments} loading={staffAssessments.isLoading} />
             </div>
           </CardContent>
         </Card>
@@ -277,7 +287,13 @@ function AcademicsContent() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {staffEnrollments.data && staffEnrollments.data.length > 0 ? (
+                  {staffEnrollments.isLoading ? (
+                    <div className="space-y-3">
+                      {Array.from({ length: 4 }).map((_, index) => (
+                        <Skeleton key={index} className="h-12 w-full rounded-xl" />
+                      ))}
+                    </div>
+                  ) : staffEnrollments.data && staffEnrollments.data.length > 0 ? (
                     <div className="divide-y divide-border/60">
                       {staffEnrollments.data.map(({ enrollment, studentName, courseTitle }) => (
                         <div
@@ -396,7 +412,13 @@ function AcademicsContent() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {staffAssessments.data && staffAssessments.data.length > 0 ? (
+                  {staffAssessments.isLoading ? (
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {Array.from({ length: 4 }).map((_, index) => (
+                        <Skeleton key={index} className="h-28 w-full rounded-2xl" />
+                      ))}
+                    </div>
+                  ) : staffAssessments.data && staffAssessments.data.length > 0 ? (
                     <div className="grid gap-3 sm:grid-cols-2">
                       {staffAssessments.data.map(assessment => (
                         <div

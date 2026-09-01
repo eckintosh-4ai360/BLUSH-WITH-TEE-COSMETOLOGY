@@ -17,7 +17,21 @@ const redirectToLoginIfUnauthorized = (error: unknown) => {
 
 export function TrpcProvider({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => {
-    const client = new QueryClient();
+    const client = new QueryClient({
+      defaultOptions: {
+        queries: {
+          // Screens share the same lists (students, courses, staff), so a
+          // short freshness window lets a second visit paint from cache
+          // instead of showing the skeleton again. Mutations invalidate the
+          // keys they touch, so edits still land immediately.
+          staleTime: 30_000,
+          gcTime: 30 * 60_000,
+          // A failed list should say so rather than sit under a skeleton
+          // through three backed-off retries.
+          retry: 1,
+        },
+      },
+    });
     client.getQueryCache().subscribe(event => {
       if (event.type === "updated" && event.action.type === "error") {
         const error = event.query.state.error;

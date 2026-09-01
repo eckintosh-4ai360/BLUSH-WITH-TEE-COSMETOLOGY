@@ -51,6 +51,12 @@ export default function DashboardLayout({
 }) {
   const { loading, user } = useAuth();
 
+  // Started up here so it leaves in the same batch as `auth.me`. Mounted
+  // below the auth check instead, it would not begin until that call came
+  // back, and the page's own queries would not begin until it did - three
+  // round trips of skeleton before the first row is asked for.
+  usePermissions();
+
   // A signed-out visitor is sent to the sign-in page rather than shown a dead
   // end, and comes back to the page they were trying to reach.
   useEffect(() => {
