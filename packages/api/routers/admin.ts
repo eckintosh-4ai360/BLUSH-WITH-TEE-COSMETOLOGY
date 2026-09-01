@@ -270,6 +270,63 @@ export const adminNamespaceRouter = router({
     return { id: enrollment?.id };
   }),
 
+  /**
+   * Takes an enrolment off the active register.
+   *
+   * Marked withdrawn rather than deleted. `attendanceRecords` cascades from
+   * `enrollmentId`, so removing the row would take the student's attendance
+   * history with it, and certificates and fee charges would quietly lose the
+   * enrolment they were raised against.
+   */
+  removeEnrollment: adminProcedure
+    .input(z.object({ enrollmentId: z.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+
+      const [existing] = await db
+        .select({
+          id: enrollments.id,
+          status: enrollments.status,
+          studentNumber: studentProfiles.studentNumber,
+          studentName: studentProfiles.fullName,
+          courseTitle: courses.title,
+        })
+        .from(enrollments)
+        .innerJoin(studentProfiles, eq(enrollments.studentId, studentProfiles.id))
+        .innerJoin(courses, eq(enrollments.courseId, courses.id))
+        .where(eq(enrollments.id, input.enrollmentId))
+        .limit(1);
+
+      if (!existing) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "That enrolment is no longer on file." });
+      }
+
+      if (existing.status !== "active") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "That enrolment is already off the active register.",
+        });
+      }
+
+      return db.transaction(async tx => {
+        await tx
+          .update(enrollments)
+          .set({ status: "withdrawn" })
+          .where(eq(enrollments.id, existing.id));
+
+        await recordAudit(tx, ctx.actor, {
+          action: "withdraw_enrolment",
+          entity: "enrollment",
+          entityId: existing.id,
+          entityLabel: `${existing.studentNumber} - ${existing.courseTitle}`,
+          oldValue: { status: existing.status },
+          newValue: { status: "withdrawn" },
+        });
+
+        return { studentName: existing.studentName, courseTitle: existing.courseTitle };
+      });
+    }),
+
   createAssessment: adminProcedure.input(z.object({ courseId: z.number().int().positive(), title: z.string().min(2).max(180), assessmentType: z.enum(["theory", "practical", "project", "exam"]), totalScore: z.number().int().min(1).max(1000), dueDate: z.coerce.date().optional() })).mutation(async ({ input }) => {
     const db = await dbOrThrow();
     const [assessment] = await db.insert(assessments).values(input).returning({ id: assessments.id });

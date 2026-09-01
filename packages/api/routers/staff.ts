@@ -1,4 +1,4 @@
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
@@ -77,7 +77,10 @@ export const staffRouter = router({
   }),
   enrollments: staffProcedure.query(async () => {
     const db = await dbOrThrow();
-    return db.select({ enrollment: enrollments, studentName: studentProfiles.fullName, courseTitle: courses.title }).from(enrollments).innerJoin(studentProfiles, eq(enrollments.studentId, studentProfiles.id)).innerJoin(courses, eq(enrollments.courseId, courses.id)).where(eq(enrollments.status, "active"));
+    // A student removed from the register takes their enrolments with them:
+    // the row survives the soft delete, so it has to be excluded here or the
+    // register keeps teaching someone who is no longer on file.
+    return db.select({ enrollment: enrollments, studentName: studentProfiles.fullName, courseTitle: courses.title }).from(enrollments).innerJoin(studentProfiles, eq(enrollments.studentId, studentProfiles.id)).innerJoin(courses, eq(enrollments.courseId, courses.id)).where(and(eq(enrollments.status, "active"), isNull(studentProfiles.deletedAt)));
   }),
   assessments: staffProcedure.query(async () => {
     const db = await dbOrThrow();

@@ -9,8 +9,19 @@ import {
   CheckCircle2,
   GraduationCap,
   Layers,
+  Trash2,
   Users,
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@blush/ui/components/ui/alert-dialog";
 import { Badge } from "@blush/ui/components/ui/badge";
 import { Button } from "@blush/ui/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@blush/ui/components/ui/card";
@@ -44,6 +55,11 @@ function AcademicsContent() {
   const utils = trpc.useUtils();
 
   const [activeTab, setActiveTab] = useState("enrolments");
+  const [removing, setRemoving] = useState<{
+    id: number;
+    studentName: string;
+    courseTitle: string | null;
+  } | null>(null);
 
   // Queries. Programmes themselves are created and priced on the Programmes
   // screen; what is needed here is only the count and the list to enrol into.
@@ -71,6 +87,18 @@ function AcademicsContent() {
       utils.staff.enrollments.invalidate();
       utils.admin.courses.invalidate();
     },
+    onError: err => toast.error(err.message),
+  });
+
+  const removeEnrollment = trpc.admin.removeEnrollment.useMutation({
+    onSuccess: result => {
+      setRemoving(null);
+      toast.success(`${result.studentName} taken off ${result.courseTitle}.`);
+      utils.staff.enrollments.invalidate();
+      utils.admin.students.invalidate();
+    },
+    // The dialog stays open on failure so the refusal is read where it was
+    // asked for, the same way removing a student behaves.
     onError: err => toast.error(err.message),
   });
 
@@ -298,15 +326,33 @@ function AcademicsContent() {
                       {staffEnrollments.data.map(({ enrollment, studentName, courseTitle }) => (
                         <div
                           key={enrollment.id}
-                          className="flex items-center justify-between py-3 first:pt-0 last:pb-0"
+                          className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
                         >
-                          <div>
+                          <div className="min-w-0">
                             <p className="font-semibold text-sm text-foreground">{studentName}</p>
                             <p className="text-xs text-muted-foreground">{courseTitle}</p>
                           </div>
-                          <Badge className="bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 capitalize">
-                            {enrollment.status}
-                          </Badge>
+                          <div className="flex shrink-0 items-center gap-2">
+                            <Badge className="bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 capitalize">
+                              {enrollment.status}
+                            </Badge>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                              aria-label={`Remove ${studentName} from ${courseTitle ?? "this programme"}`}
+                              onClick={() =>
+                                setRemoving({
+                                  id: enrollment.id,
+                                  studentName,
+                                  courseTitle,
+                                })
+                              }
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -454,6 +500,38 @@ function AcademicsContent() {
           </div>
         </TabsContent>
       </Tabs>
+
+      <AlertDialog
+        open={removing !== null}
+        onOpenChange={open => !open && setRemoving(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Take {removing?.studentName} off {removing?.courseTitle}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              The enrolment is marked withdrawn and leaves the active register.
+              Attendance, results and anything already billed against it are
+              kept, so the record of what happened stays intact.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={removeEnrollment.isPending}>
+              Keep enrolment
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={removeEnrollment.isPending}
+              onClick={event => {
+                event.preventDefault();
+                if (removing) removeEnrollment.mutate({ enrollmentId: removing.id });
+              }}
+            >
+              {removeEnrollment.isPending ? "Removing..." : "Remove enrolment"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
