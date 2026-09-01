@@ -868,11 +868,37 @@ export const studentsRouter = router({
         });
       }
 
+      // Closed with the student rather than left behind. An enrolment outlives
+      // the soft delete otherwise, and a live enrolment goes on blocking its
+      // programme from ever being removed - by a student nothing on screen can
+      // show you any more.
+      const open = await db
+        .select({ id: enrollments.id })
+        .from(enrollments)
+        .where(
+          and(
+            eq(enrollments.studentId, input.id),
+            inArray(enrollments.status, ["active", "paused"]),
+          ),
+        );
+
       return db.transaction(async tx => {
         await tx
           .update(studentProfiles)
           .set({ deletedAt: new Date(), updatedAt: new Date() })
           .where(eq(studentProfiles.id, input.id));
+
+        if (open.length) {
+          await tx
+            .update(enrollments)
+            .set({ status: "withdrawn" })
+            .where(
+              inArray(
+                enrollments.id,
+                open.map(enrolment => enrolment.id),
+              ),
+            );
+        }
 
         await recordAudit(tx, ctx.actor, {
           action: "delete",
@@ -884,10 +910,15 @@ export const studentsRouter = router({
             email: existing.email,
             status: existing.status,
           },
+          newValue: { enrolmentsWithdrawn: open.length },
           summary: `${ctx.actor.name ?? "Staff"} removed ${existing.fullName} (${existing.studentNumber}) from the register`,
         });
 
-        return { id: existing.id, studentNumber: existing.studentNumber };
+        return {
+          id: existing.id,
+          studentNumber: existing.studentNumber,
+          enrolmentsWithdrawn: open.length,
+        };
       });
     }),
 });

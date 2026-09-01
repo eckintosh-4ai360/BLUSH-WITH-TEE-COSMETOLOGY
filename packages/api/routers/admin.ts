@@ -1252,13 +1252,19 @@ export const adminNamespaceRouter = router({
       // Paused counts as still on the programme: a student who broke off for a
       // term has not finished it, and their course must not disappear while
       // they are away. Completed and withdrawn are history and do not block.
+      //
+      // Only students actually on the register block it. One who has been
+      // removed is not coming to class, and counting them would leave the
+      // programme blocked by somebody no screen can show you.
       const [enrolled] = await db
         .select({ total: count() })
         .from(enrollments)
+        .innerJoin(studentProfiles, eq(enrollments.studentId, studentProfiles.id))
         .where(
           and(
             eq(enrollments.courseId, input.id),
             inArray(enrollments.status, ["active", "paused"]),
+            isNull(studentProfiles.deletedAt),
           ),
         );
 
