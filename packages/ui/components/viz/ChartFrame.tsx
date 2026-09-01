@@ -148,7 +148,7 @@ function ChartTable({
           <tr>
             <th
               scope="col"
-              className="px-3 py-2 text-left font-medium text-muted-foreground"
+              className="px-3 py-2 text-left font-medium text-muted-foreground first:pl-4 last:pr-4"
             >
               {categoryLabel}
             </th>
@@ -156,7 +156,7 @@ function ChartTable({
               <th
                 key={item.key}
                 scope="col"
-                className="px-3 py-2 text-right font-medium text-muted-foreground"
+                className="px-3 py-2 text-right font-medium text-muted-foreground first:pl-4 last:pr-4"
               >
                 {item.label}
               </th>
@@ -168,7 +168,7 @@ function ChartTable({
             <tr key={index} className="border-t border-border/50">
               <th
                 scope="row"
-                className="px-3 py-2 text-left font-normal text-foreground"
+                className="px-3 py-2 text-left font-normal text-foreground first:pl-4 last:pr-4"
               >
                 {String(row[categoryKey] ?? "-")}
               </th>
@@ -177,7 +177,7 @@ function ChartTable({
                 return (
                   <td
                     key={item.key}
-                    className="px-3 py-2 text-right tabular-nums text-foreground"
+                    className="px-3 py-2 text-right tabular-nums text-foreground first:pl-4 last:pr-4"
                   >
                     {item.format
                       ? item.format(value)

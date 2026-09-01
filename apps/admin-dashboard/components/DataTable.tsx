@@ -343,7 +343,7 @@ export function DataTable<T>({
           </Table>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 px-5 py-3">
           <p className="text-xs text-muted-foreground">
             {isFetching ? (
               <span className="inline-flex items-center gap-1.5">
