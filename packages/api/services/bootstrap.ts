@@ -115,7 +115,7 @@ const DEFAULT_SETTINGS: Array<{
   {
     key: "ecommerce.delivery",
     category: "ecommerce",
-    value: { flatFee: 0, freeOver: 0, note: "Delivery within Accra." },
+    value: { flatFee: 0, freeOver: 0, note: "Delivery within Tarkwa." },
     description: "Delivery pricing rules applied at checkout.",
   },
   {

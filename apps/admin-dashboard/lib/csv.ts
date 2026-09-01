@@ -6,7 +6,7 @@
  * that matter here are the ones a naive `split(",")` gets wrong on real
  * spreadsheet exports:
  *
- *   A quoted field containing a comma        "Osu, Accra"
+ *   A quoted field containing a comma        "Aboso, Tarkwa"
  *   A quoted field containing a newline      "Line one\nLine two"
  *   An escaped quote inside a quoted field   "She said ""yes"""
  *   A byte-order mark Excel writes first     ﻿SKU,Name

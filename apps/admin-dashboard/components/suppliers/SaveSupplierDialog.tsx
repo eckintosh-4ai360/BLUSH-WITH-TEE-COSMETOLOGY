@@ -111,7 +111,7 @@ export function SaveSupplierDialog({
                 id="supplier-company"
                 value={company}
                 onChange={event => setCompany(event.target.value)}
-                placeholder="Accra Beauty Wholesale"
+                placeholder="Tarkwa Beauty Wholesale"
               />
             </div>
           </div>

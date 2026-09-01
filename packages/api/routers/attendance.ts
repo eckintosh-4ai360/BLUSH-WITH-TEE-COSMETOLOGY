@@ -36,7 +36,7 @@ const MAX_HISTORY_DAYS = 366;
  * A calendar day, not an instant.
  *
  * Taken as `YYYY-MM-DD` text and built in UTC rather than accepting a Date,
- * because a browser in Accra sending midnight local time as an ISO instant can
+ * because a browser in Tarkwa sending midnight local time as an ISO instant can
  * land on the previous day once Postgres casts it — which would file Monday's
  * register under Sunday.
  */

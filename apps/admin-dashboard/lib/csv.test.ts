@@ -18,8 +18,8 @@ describe("parseCsv", () => {
   });
 
   it("keeps a comma inside a quoted field", () => {
-    const { rows } = parseCsv('Name,Address\nAma,"Osu, Accra"');
-    expect(rows[0]).toEqual(["Ama", "Osu, Accra"]);
+    const { rows } = parseCsv('Name,Address\nAma,"Aboso, Tarkwa"');
+    expect(rows[0]).toEqual(["Ama", "Aboso, Tarkwa"]);
   });
 
   it("keeps a newline inside a quoted field", () => {

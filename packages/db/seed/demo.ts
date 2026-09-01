@@ -595,7 +595,7 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
       whatsapp: phone,
       gender: index % 3 === 0 ? "Male" : "Female",
       birthDate: dateOnly(between(6500, 11000)),
-      address: `${between(1, 90)} ${pick(["Ring Road", "Spintex", "Osu", "Adenta", "Tema", "Kasoa"])}, Accra`,
+      address: `${between(1, 90)} ${pick(["Tarkwa Banso", "Aboso", "Nsuta", "Tamso", "Bogoso", "Huni Valley"])}, Tarkwa`,
       emergencyContactName: personName(index + 11),
       emergencyContactPhone: `+23326${String(200000 + index)}`,
     });
@@ -1238,8 +1238,8 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
 
   const supplierSeed = [
     {
-      name: "Accra Beauty Supplies",
-      company: "Accra Beauty Supplies Ltd",
+      name: "Tarkwa Beauty Supplies",
+      company: "Tarkwa Beauty Supplies Ltd",
       products: "Shampoo, conditioner, treatments",
     },
     {
@@ -1248,8 +1248,8 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
       products: "Gels, tips, nail tools",
     },
     {
-      name: "Tema Salon Equipment",
-      company: "Tema Salon Equipment Co",
+      name: "Takoradi Salon Equipment",
+      company: "Takoradi Salon Equipment Co",
       products: "Dryers, chairs, steamers",
     },
   ];
@@ -1264,7 +1264,7 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
         company: supplier.company,
         phone: `+23327${String(300000 + index)}`,
         email: `${slugOf(supplier.name)}@suppliers.test`,
-        address: "Accra, Ghana",
+        address: "Tarkwa, Ghana",
         productsSupplied: supplier.products,
       }))
     );
@@ -1698,7 +1698,7 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
           customerName: plan.name,
           customerEmail: plan.email,
           customerPhone: plan.phone,
-          deliveryAddress: `${between(1, 90)} ${pick(["Spintex", "Osu", "East Legon", "Tema", "Madina"])}, Accra`,
+          deliveryAddress: `${between(1, 90)} ${pick(["Tarkwa Banso", "Aboso", "Nsuta", "Tamso", "Prestea"])}, Tarkwa`,
           subtotal: cash(plan.subtotalMinor),
           deliveryFee: cash(plan.deliveryMinor),
           total: cash(plan.totalMinor),
@@ -1970,11 +1970,11 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
           amount: amountBetween(item.min, item.max),
           expenseDate: day,
           vendor: pick([
-            "Accra Properties",
+            "Tarkwa Properties",
             "ECG",
             "Vodafone",
             "Internal",
-            "Accra Beauty Supplies",
+            "Tarkwa Beauty Supplies",
           ]),
           paymentMethod: pick(["bank", "mobile_money", "cash"] as const),
           approvalStatus: "approved" as const,
