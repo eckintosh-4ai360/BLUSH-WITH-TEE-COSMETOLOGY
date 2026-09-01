@@ -16,6 +16,7 @@ import {
 import {
   approvalStatus,
   expenseCategory,
+  expenseScope,
   feeAdjustmentType,
   feeChargeStatus,
   feeTypeEnum,
@@ -314,6 +315,8 @@ export const expenses = pgTable(
     categoryId: integer("categoryId").references(() => expenseCategories.id, {
       onDelete: "restrict",
     }),
+    /** School or store. Existing rows predate the split and read as school. */
+    scope: expenseScope("scope").default("school").notNull(),
     amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
     expenseDate: date("expenseDate", { mode: "date" }).notNull(),
     vendor: varchar("vendor", { length: 160 }),
@@ -338,6 +341,7 @@ export const expenses = pgTable(
   table => [
     index("expenses_date_idx").on(table.expenseDate),
     index("expenses_category_idx").on(table.category),
+    index("expenses_scope_idx").on(table.scope),
     index("expenses_approval_idx").on(table.approvalStatus),
   ],
 );

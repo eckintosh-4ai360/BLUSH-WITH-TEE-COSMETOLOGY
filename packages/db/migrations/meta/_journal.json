@@ -71,6 +71,13 @@
       "when": 1788032942566,
       "tag": "0009_seed_general_programmes",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1788302652625,
+      "tag": "0010_add_expense_scope",
+      "breakpoints": true
     }
   ]
 }

@@ -40,6 +40,17 @@ const CATEGORIES = [
 
 const METHODS = ["cash", "mobile_money", "bank", "card", "online"] as const;
 
+/**
+ * The school and the salon-with-store keep separate books, so every cost has
+ * to say which side of the house it came out of.
+ */
+const SCOPES = [
+  { value: "school", label: "School" },
+  { value: "store", label: "Store" },
+] as const;
+
+type Scope = (typeof SCOPES)[number]["value"];
+
 const today = () => new Date().toISOString().slice(0, 10);
 
 /** The fields an edit fills back in. Everything else is set by the server. */
@@ -49,6 +60,7 @@ export type EditableExpense = {
   category: string;
   amount: number;
   expenseDate: Date | string;
+  scope: string;
   vendor: string | null;
   paymentMethod: string;
   note: string | null;
@@ -80,6 +92,7 @@ export function SaveExpenseDialog({
   const { can } = usePermissions();
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<(typeof CATEGORIES)[number]>("other");
+  const [scope, setScope] = useState<Scope>("school");
   const [amount, setAmount] = useState("");
   const [expenseDate, setExpenseDate] = useState(today());
   const [vendor, setVendor] = useState("");
@@ -93,6 +106,13 @@ export function SaveExpenseDialog({
     if (!open) return;
     setTitle(editing?.title ?? "");
     setCategory(asOption(CATEGORIES, editing?.category, "other"));
+    setScope(
+      asOption(
+        SCOPES.map(item => item.value),
+        editing?.scope,
+        "school",
+      ) as Scope,
+    );
     setAmount(editing ? String(editing.amount) : "");
     setExpenseDate(editing ? asDateInput(editing.expenseDate) : today());
     setVendor(editing?.vendor ?? "");
@@ -157,6 +177,22 @@ export function SaveExpenseDialog({
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="expense-scope">Type</Label>
+              <Select value={scope} onValueChange={value => setScope(value as Scope)}>
+                <SelectTrigger id="expense-scope">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SCOPES.map(item => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="expense-category">Category</Label>
               <Select
@@ -257,6 +293,7 @@ export function SaveExpenseDialog({
               const fields = {
                 title: title.trim(),
                 category,
+                scope,
                 amount: parsedAmount,
                 expenseDate: new Date(expenseDate),
                 vendor: vendor.trim() || undefined,

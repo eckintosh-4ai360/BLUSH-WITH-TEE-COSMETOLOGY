@@ -29,6 +29,8 @@ import { permissionProcedure, router } from "../trpc";
 
 const FEE_TYPES = ["tuition", "registration", "materials", "exam", "certification", "other"] as const;
 const PAYMENT_METHODS = ["cash", "mobile_money", "bank", "card", "online"] as const;
+/** The two halves of the business the school runs its books as. */
+const EXPENSE_SCOPES = ["school", "store"] as const;
 const EXPENSE_CATEGORIES = [
   "rent",
   "utilities",
@@ -967,6 +969,7 @@ export const financeRouter = router({
     .input(
       listInputSchema.extend({
         category: z.enum(EXPENSE_CATEGORIES).optional(),
+        scope: z.enum(EXPENSE_SCOPES).optional(),
         approvalStatus: z.enum(["pending", "approved", "rejected"]).optional(),
       }),
     )
@@ -977,6 +980,7 @@ export const financeRouter = router({
       const where = and(
         isNull(expenses.deletedAt),
         input.category ? eq(expenses.category, input.category) : undefined,
+        input.scope ? eq(expenses.scope, input.scope) : undefined,
         input.approvalStatus ? eq(expenses.approvalStatus, input.approvalStatus) : undefined,
         input.dateFrom ? gte(expenses.expenseDate, input.dateFrom) : undefined,
         input.dateTo ? lte(expenses.expenseDate, input.dateTo) : undefined,
@@ -1018,6 +1022,7 @@ export const financeRouter = router({
       z.object({
         title: z.string().min(2).max(180),
         category: z.enum(EXPENSE_CATEGORIES),
+        scope: z.enum(EXPENSE_SCOPES).default("school"),
         amount: z.number().positive(),
         expenseDate: z.coerce.date(),
         vendor: z.string().max(160).optional(),
@@ -1045,6 +1050,7 @@ export const financeRouter = router({
           title: input.title,
           category: input.category,
           categoryId: category?.id,
+          scope: input.scope,
           amount: toAmountString(toMinor(input.amount)),
           expenseDate: input.expenseDate,
           vendor: input.vendor,
@@ -1063,8 +1069,8 @@ export const financeRouter = router({
         entity: "expense",
         entityId: expense?.id,
         entityLabel: input.title,
-        newValue: { amount: input.amount, category: input.category },
-        summary: `${ctx.actor.name ?? "Staff"} recorded a GHS ${input.amount.toFixed(2)} expense (${input.category})`,
+        newValue: { amount: input.amount, category: input.category, scope: input.scope },
+        summary: `${ctx.actor.name ?? "Staff"} recorded a GHS ${input.amount.toFixed(2)} ${input.scope} expense (${input.category})`,
       });
 
       if (needsApproval) {
@@ -1096,6 +1102,7 @@ export const financeRouter = router({
         expenseId: z.number().int().positive(),
         title: z.string().min(2).max(180),
         category: z.enum(EXPENSE_CATEGORIES),
+        scope: z.enum(EXPENSE_SCOPES).default("school"),
         amount: z.number().positive(),
         expenseDate: z.coerce.date(),
         vendor: z.string().max(160).optional(),
@@ -1131,6 +1138,7 @@ export const financeRouter = router({
           title: input.title,
           category: input.category,
           categoryId: category?.id ?? null,
+          scope: input.scope,
           amount: toAmountString(toMinor(input.amount)),
           expenseDate: input.expenseDate,
           vendor: input.vendor ?? null,
@@ -1150,6 +1158,7 @@ export const financeRouter = router({
         oldValue: {
           title: before.title,
           category: before.category,
+          scope: before.scope,
           amount: money(before.amount),
           vendor: before.vendor,
           paymentMethod: before.paymentMethod,
@@ -1158,6 +1167,7 @@ export const financeRouter = router({
         newValue: {
           title: input.title,
           category: input.category,
+          scope: input.scope,
           amount: input.amount,
           vendor: input.vendor ?? null,
           paymentMethod: input.paymentMethod,

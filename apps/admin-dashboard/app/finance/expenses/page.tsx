@@ -48,10 +48,16 @@ const CATEGORIES = [
   "other",
 ] as const;
 
+const SCOPES = [
+  { value: "school", label: "School" },
+  { value: "store", label: "Store" },
+] as const;
+
 type ExpenseRow = {
   id: number;
   title: string;
   category: string;
+  scope: string;
   amount: number;
   expenseDate: Date;
   vendor: string | null;
@@ -76,6 +82,7 @@ function ExpensesContent() {
   const [page, setPage] = useState(1);
   const [category, setCategory] = useState("all");
   const [status, setStatus] = useState("all");
+  const [scope, setScope] = useState("all");
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState<EditableExpense | null>(null);
   const [removing, setRemoving] = useState<ExpenseRow | null>(null);
@@ -88,6 +95,7 @@ function ExpensesContent() {
     sortDir: "desc" as const,
     search: search || undefined,
     category: category === "all" ? undefined : (category as (typeof CATEGORIES)[number]),
+    scope: scope === "all" ? undefined : (scope as "school" | "store"),
     approvalStatus:
       status === "all" ? undefined : (status as "pending" | "approved" | "rejected"),
   };
@@ -128,6 +136,16 @@ function ExpensesContent() {
           ) : null}
         </span>
       ),
+    },
+    {
+      key: "scope",
+      header: "Type",
+      cell: row => (
+        <Badge variant="outline" className="capitalize">
+          {row.scope}
+        </Badge>
+      ),
+      value: row => row.scope,
     },
     {
       key: "category",
@@ -266,6 +284,26 @@ function ExpensesContent() {
         }
         filters={
           <>
+            <Select
+              value={scope}
+              onValueChange={value => {
+                setScope(value);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="w-[9rem]" aria-label="Filter by type">
+                <SelectValue placeholder="All types" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All types</SelectItem>
+                {SCOPES.map(item => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
             <Select
               value={category}
               onValueChange={value => {

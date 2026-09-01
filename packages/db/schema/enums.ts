@@ -223,6 +223,15 @@ export const expenseCategory = pgEnum("expense_category", [
   "other",
 ]);
 
+/**
+ * Which half of the business an expense belongs to.
+ *
+ * The school and the salon-with-store are run as two sets of books under one
+ * roof, so every cost has to say which one it came out of - otherwise neither
+ * side's spending means anything on its own.
+ */
+export const expenseScope = pgEnum("expense_scope", ["school", "store"]);
+
 export const approvalStatus = pgEnum("approval_status", ["pending", "approved", "rejected"]);
 
 /* -------------------------------------------------------------------------- */
