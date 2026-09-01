@@ -42,14 +42,40 @@ const METHODS = ["cash", "mobile_money", "bank", "card", "online"] as const;
 
 const today = () => new Date().toISOString().slice(0, 10);
 
-export function AddExpenseDialog({
+/** The fields an edit fills back in. Everything else is set by the server. */
+export type EditableExpense = {
+  id: number;
+  title: string;
+  category: string;
+  amount: number;
+  expenseDate: Date | string;
+  vendor: string | null;
+  paymentMethod: string;
+  note: string | null;
+  approvalStatus: string;
+};
+
+const asDateInput = (value: Date | string) =>
+  new Date(value).toISOString().slice(0, 10);
+
+/** Falls back rather than throwing: an older row may hold a value since retired. */
+const asOption = <T extends readonly string[]>(
+  options: T,
+  value: string | undefined,
+  fallback: T[number],
+): T[number] => ((options as readonly string[]).includes(value ?? "") ? (value as T[number]) : fallback);
+
+export function SaveExpenseDialog({
   open,
   onOpenChange,
   onSaved,
+  editing,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;
+  /** Present when correcting an existing expense rather than recording one. */
+  editing?: EditableExpense | null;
 }) {
   const { can } = usePermissions();
   const [title, setTitle] = useState("");
@@ -61,26 +87,36 @@ export function AddExpenseDialog({
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
 
+  // Seeded when it opens rather than when it closes, so reopening on a
+  // different row never shows the previous one's figures for a frame.
   useEffect(() => {
-    if (!open) {
-      setTitle("");
-      setCategory("other");
-      setAmount("");
-      setExpenseDate(today());
-      setVendor("");
-      setMethod("cash");
-      setNote("");
-      setError(null);
-    }
-  }, [open]);
+    if (!open) return;
+    setTitle(editing?.title ?? "");
+    setCategory(asOption(CATEGORIES, editing?.category, "other"));
+    setAmount(editing ? String(editing.amount) : "");
+    setExpenseDate(editing ? asDateInput(editing.expenseDate) : today());
+    setVendor(editing?.vendor ?? "");
+    setMethod(asOption(METHODS, editing?.paymentMethod, "cash"));
+    setNote(editing?.note ?? "");
+    setError(null);
+  }, [open, editing]);
 
-  const save = trpc.finance.addExpense.useMutation({
-    onSuccess: () => {
-      onOpenChange(false);
-      onSaved();
-    },
+  const onDone = () => {
+    onOpenChange(false);
+    onSaved();
+  };
+
+  const create = trpc.finance.addExpense.useMutation({
+    onSuccess: onDone,
     onError: mutationError => setError(mutationError.message),
   });
+
+  const update = trpc.finance.updateExpense.useMutation({
+    onSuccess: onDone,
+    onError: mutationError => setError(mutationError.message),
+  });
+
+  const save = editing ? update : create;
 
   const parsedAmount = Number(amount);
 
@@ -97,11 +133,15 @@ export function AddExpenseDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Add an expense</DialogTitle>
+          <DialogTitle>{editing ? "Edit expense" : "Add an expense"}</DialogTitle>
           <DialogDescription>
             {can("expenses.approve")
-              ? "This will be recorded as approved."
-              : "This will be held for approval by a finance administrator."}
+              ? editing
+                ? "Your changes keep the approval this expense already has."
+                : "This will be recorded as approved."
+              : editing && editing.approvalStatus === "approved"
+                ? "Editing an approved expense sends it back for approval."
+                : "This will be held for approval by a finance administrator."}
           </DialogDescription>
         </DialogHeader>
 
@@ -214,7 +254,7 @@ export function AddExpenseDialog({
                 setError(validation);
                 return;
               }
-              save.mutate({
+              const fields = {
                 title: title.trim(),
                 category,
                 amount: parsedAmount,
@@ -222,12 +262,14 @@ export function AddExpenseDialog({
                 vendor: vendor.trim() || undefined,
                 paymentMethod: method,
                 note: note.trim() || undefined,
-                requiresApproval: false,
-              });
+              };
+
+              if (editing) update.mutate({ expenseId: editing.id, ...fields });
+              else create.mutate({ ...fields, requiresApproval: false });
             }}
           >
             {save.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            Save expense
+            {editing ? "Save changes" : "Save expense"}
           </Button>
         </DialogFooter>
       </DialogContent>

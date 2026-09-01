@@ -863,6 +863,145 @@ export const financeRouter = router({
       return { id: expense?.id, approvalStatus: needsApproval ? "pending" : "approved" };
     }),
 
+  /**
+   * Corrects a recorded expense.
+   *
+   * An edit by someone who cannot approve sends the expense back to pending,
+   * for the same reason recording one does: otherwise the amount on an
+   * already-approved expense could be changed after the decision was made,
+   * and the approval would still be sitting there vouching for it.
+   */
+  updateExpense: permissionProcedure("expenses.write")
+    .input(
+      z.object({
+        expenseId: z.number().int().positive(),
+        title: z.string().min(2).max(180),
+        category: z.enum(EXPENSE_CATEGORIES),
+        amount: z.number().positive(),
+        expenseDate: z.coerce.date(),
+        vendor: z.string().max(160).optional(),
+        paymentMethod: z.enum(PAYMENT_METHODS),
+        note: z.string().max(2000).optional(),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+
+      const [before] = await db
+        .select()
+        .from(expenses)
+        .where(and(eq(expenses.id, input.expenseId), isNull(expenses.deletedAt)))
+        .limit(1);
+
+      if (!before) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "That expense is no longer on file." });
+      }
+
+      const [category] = await db
+        .select({ id: expenseCategories.id })
+        .from(expenseCategories)
+        .where(eq(expenseCategories.key, input.category))
+        .limit(1);
+
+      const canApprove = ctx.access.can("expenses.approve");
+      const reopened = !canApprove && before.approvalStatus === "approved";
+
+      await db
+        .update(expenses)
+        .set({
+          title: input.title,
+          category: input.category,
+          categoryId: category?.id ?? null,
+          amount: toAmountString(toMinor(input.amount)),
+          expenseDate: input.expenseDate,
+          vendor: input.vendor ?? null,
+          paymentMethod: input.paymentMethod,
+          note: input.note ?? null,
+          ...(reopened
+            ? { approvalStatus: "pending" as const, approvedByUserId: null, approvedAt: null }
+            : {}),
+        })
+        .where(eq(expenses.id, input.expenseId));
+
+      await recordAudit(db, ctx.actor, {
+        action: "update",
+        entity: "expense",
+        entityId: before.id,
+        entityLabel: input.title,
+        oldValue: {
+          title: before.title,
+          category: before.category,
+          amount: money(before.amount),
+          vendor: before.vendor,
+          paymentMethod: before.paymentMethod,
+          approvalStatus: before.approvalStatus,
+        },
+        newValue: {
+          title: input.title,
+          category: input.category,
+          amount: input.amount,
+          vendor: input.vendor ?? null,
+          paymentMethod: input.paymentMethod,
+          approvalStatus: reopened ? "pending" : before.approvalStatus,
+        },
+        summary: `${ctx.actor.name ?? "Staff"} edited the GHS ${input.amount.toFixed(2)} expense "${input.title}"`,
+      });
+
+      return { id: before.id, reopened };
+    }),
+
+  /**
+   * Takes an expense off the books.
+   *
+   * Soft, like every other removal here - the row stays for the audit trail
+   * and drops out of the lists and the totals, which both filter on
+   * `deletedAt`. Removing one that has already been approved is held to the
+   * approver's bar: it changes a figure somebody signed off.
+   */
+  deleteExpense: permissionProcedure("expenses.write")
+    .input(z.object({ expenseId: z.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+
+      const [before] = await db
+        .select()
+        .from(expenses)
+        .where(and(eq(expenses.id, input.expenseId), isNull(expenses.deletedAt)))
+        .limit(1);
+
+      if (!before) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "That expense is no longer on file." });
+      }
+
+      if (before.approvalStatus === "approved" && !ctx.access.can("expenses.approve")) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "That expense is approved. Only a finance administrator can remove it.",
+        });
+      }
+
+      await db
+        .update(expenses)
+        .set({ deletedAt: new Date() })
+        .where(eq(expenses.id, input.expenseId));
+
+      await recordAudit(db, ctx.actor, {
+        action: "delete",
+        entity: "expense",
+        entityId: before.id,
+        entityLabel: before.title,
+        oldValue: {
+          title: before.title,
+          category: before.category,
+          amount: money(before.amount),
+          approvalStatus: before.approvalStatus,
+        },
+        summary: `${ctx.actor.name ?? "Staff"} removed the GHS ${money(before.amount).toFixed(2)} expense "${before.title}"`,
+      });
+
+      return { id: before.id, title: before.title };
+    }),
+
   reviewExpense: permissionProcedure("expenses.approve")
     .input(
       z.object({

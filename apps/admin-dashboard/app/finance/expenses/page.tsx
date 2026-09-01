@@ -1,7 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Plus, X } from "lucide-react";
+import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@blush/ui/components/ui/alert-dialog";
 import { Badge } from "@blush/ui/components/ui/badge";
 import { Button } from "@blush/ui/components/ui/button";
 import {
@@ -16,7 +26,10 @@ import { formatMoney } from "@blush/ui/lib/viz";
 import DashboardLayout from "@/components/DashboardLayout";
 import { DataTable, type Column } from "@/components/DataTable";
 import { PermissionGate } from "@/components/PermissionGate";
-import { AddExpenseDialog } from "@/components/finance/AddExpenseDialog";
+import {
+  SaveExpenseDialog,
+  type EditableExpense,
+} from "@/components/finance/SaveExpenseDialog";
 import { usePermissions } from "@/hooks/usePermissions";
 import { collectAllPages } from "@/lib/exportAll";
 import { trpc } from "@/lib/trpc";
@@ -43,6 +56,7 @@ type ExpenseRow = {
   expenseDate: Date;
   vendor: string | null;
   paymentMethod: string;
+  note: string | null;
   approvalStatus: string;
 };
 
@@ -63,6 +77,8 @@ function ExpensesContent() {
   const [category, setCategory] = useState("all");
   const [status, setStatus] = useState("all");
   const [addOpen, setAddOpen] = useState(false);
+  const [editing, setEditing] = useState<EditableExpense | null>(null);
+  const [removing, setRemoving] = useState<ExpenseRow | null>(null);
 
   const utils = trpc.useUtils();
 
@@ -85,6 +101,20 @@ function ExpensesContent() {
     },
     onError: error => toast.error(error.message),
   });
+
+  const remove = trpc.finance.deleteExpense.useMutation({
+    onSuccess: result => {
+      setRemoving(null);
+      toast.success(`"${result.title}" removed.`);
+      query.refetch();
+    },
+    // Kept open on failure: the commonest refusal is that the expense is
+    // already approved, which is a message about this row.
+    onError: error => toast.error(error.message),
+  });
+
+  const writable = can("expenses.write");
+  const approver = can("expenses.approve");
 
   const columns: Column<ExpenseRow>[] = [
     {
@@ -135,37 +165,63 @@ function ExpensesContent() {
         </Badge>
       ),
     },
-    ...(can("expenses.approve")
+    ...(writable || approver
       ? [
           {
             key: "actions",
             header: "",
             align: "right" as const,
-            cell: (row: ExpenseRow) =>
-              row.approvalStatus === "pending" ? (
-                <span className="flex justify-end gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="gap-1"
-                    disabled={review.isPending}
-                    onClick={() => review.mutate({ expenseId: row.id, decision: "approved" })}
-                  >
-                    <Check className="h-3.5 w-3.5" />
-                    Approve
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="gap-1 text-destructive"
-                    disabled={review.isPending}
-                    onClick={() => review.mutate({ expenseId: row.id, decision: "rejected" })}
-                  >
-                    <X className="h-3.5 w-3.5" />
-                    Reject
-                  </Button>
-                </span>
-              ) : null,
+            cell: (row: ExpenseRow) => (
+              <span className="flex justify-end gap-1">
+                {approver && row.approvalStatus === "pending" ? (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="gap-1"
+                      disabled={review.isPending}
+                      onClick={() => review.mutate({ expenseId: row.id, decision: "approved" })}
+                    >
+                      <Check className="h-3.5 w-3.5" />
+                      Approve
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="gap-1 text-destructive"
+                      disabled={review.isPending}
+                      onClick={() => review.mutate({ expenseId: row.id, decision: "rejected" })}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                      Reject
+                    </Button>
+                  </>
+                ) : null}
+
+                {writable ? (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      aria-label={`Edit ${row.title}`}
+                      onClick={() => setEditing(row)}
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                      aria-label={`Remove ${row.title}`}
+                      onClick={() => setRemoving(row)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </>
+                ) : null}
+              </span>
+            ),
             value: () => "",
           },
         ]
@@ -259,7 +315,7 @@ function ExpensesContent() {
         }
       />
 
-      <AddExpenseDialog
+      <SaveExpenseDialog
         open={addOpen}
         onOpenChange={setAddOpen}
         onSaved={() => {
@@ -267,6 +323,44 @@ function ExpensesContent() {
           query.refetch();
         }}
       />
+
+      <SaveExpenseDialog
+        open={editing !== null}
+        onOpenChange={open => !open && setEditing(null)}
+        editing={editing}
+        onSaved={() => {
+          toast.success("Expense updated.");
+          query.refetch();
+        }}
+      />
+
+      <AlertDialog
+        open={removing !== null}
+        onOpenChange={open => !open && setRemoving(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove &quot;{removing?.title}&quot;?</AlertDialogTitle>
+            <AlertDialogDescription>
+              It stops counting towards expense totals, profit and every report.
+              The record is kept for the audit trail, so an administrator can
+              still see it was removed and by whom.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={remove.isPending}>Keep expense</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={remove.isPending}
+              onClick={event => {
+                event.preventDefault();
+                if (removing) remove.mutate({ expenseId: removing.id });
+              }}
+            >
+              {remove.isPending ? "Removing..." : "Remove expense"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
