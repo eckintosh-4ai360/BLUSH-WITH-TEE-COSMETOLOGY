@@ -16,6 +16,7 @@ import {
   GraduationCap,
   Layers,
   PackageX,
+  PiggyBank,
   Receipt,
   ShoppingBag,
   TrendingDown,
@@ -49,6 +50,9 @@ import { trpc } from "@/lib/trpc";
 const shortMonth = (label: string) => label.split(" ")[0] ?? label;
 
 const countFormat = (value: number) => compactNumber(value);
+
+/** Matches how the profit-and-loss report prints the same figure. */
+const percent = (value: number) => `${value.toFixed(1)}%`;
 
 export default function AdminOverviewPage() {
   const overview = trpc.dashboard.overview.useQuery();
@@ -249,11 +253,20 @@ export default function AdminOverviewPage() {
               isLoading={loading}
             />
             <StatTile
-              label="Net income"
+              label="Profit"
               value={formatMoney(finance.monthlyNetIncome)}
-              hint="This month"
+              hint={`This month - ${percent(finance.monthlyMargin)} margin`}
               icon={Wallet}
               tone={finance.monthlyNetIncome >= 0 ? "good" : "critical"}
+              href="/finance"
+              isLoading={loading}
+            />
+            <StatTile
+              label="Total profit"
+              value={formatMoney(finance.netIncome)}
+              hint={`All time - ${percent(finance.margin)} margin`}
+              icon={PiggyBank}
+              tone={finance.netIncome >= 0 ? "good" : "critical"}
               href="/finance"
               isLoading={loading}
             />

@@ -73,6 +73,19 @@ export async function studentMetrics(db: DbExecutor) {
   };
 }
 
+/**
+ * What share of the money taken in was kept, as a percentage.
+ *
+ * Both arguments are in minor units so the division is not taken from an
+ * already-rounded cedi figure. A period with no income has no margin to
+ * report rather than a division by zero - the same guard the profit-and-loss
+ * report uses.
+ */
+export function profitMargin(incomeMinor: number, expenseMinor: number): number {
+  if (incomeMinor <= 0) return 0;
+  return ((incomeMinor - expenseMinor) / incomeMinor) * 100;
+}
+
 export async function financeMetrics(db: DbExecutor) {
   const todayStart = startOfToday();
   const monthStart = startOfMonth();
@@ -137,6 +150,8 @@ export async function financeMetrics(db: DbExecutor) {
     totalIncome: fromMinor(lifetimeIncomeMinor),
     monthlyNetIncome: fromMinor(monthIncomeMinor - monthExpenseMinor),
     netIncome: fromMinor(lifetimeIncomeMinor - lifetimeExpenseMinor),
+    monthlyMargin: profitMargin(monthIncomeMinor, monthExpenseMinor),
+    margin: profitMargin(lifetimeIncomeMinor, lifetimeExpenseMinor),
     outstandingFees: fromMinor(toMinor(outstanding?.total)),
   };
 }

@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { humanise, monthBuckets, startOfMonth, startOfMonthsAgo, startOfToday } from "./analytics";
+import {
+  humanise,
+  monthBuckets,
+  profitMargin,
+  startOfMonth,
+  startOfMonthsAgo,
+  startOfToday,
+} from "./analytics";
 
 describe("reporting period boundaries", () => {
   it("starts the day at midnight, so today's figures exclude yesterday", () => {
@@ -38,5 +45,19 @@ describe("chart axes", () => {
   it("titles enum values for display", () => {
     expect(humanise("beauty_products")).toBe("Beauty Products");
     expect(humanise("rent")).toBe("Rent");
+  });
+});
+
+describe("profit margin", () => {
+  it("reports the share of income kept", () => {
+    expect(profitMargin(200_00, 150_00)).toBeCloseTo(25);
+  });
+
+  it("goes negative when a period spent more than it took", () => {
+    expect(profitMargin(100_00, 150_00)).toBeCloseTo(-50);
+  });
+
+  it("reports nothing rather than dividing by zero in a period with no income", () => {
+    expect(profitMargin(0, 80_00)).toBe(0);
   });
 });
