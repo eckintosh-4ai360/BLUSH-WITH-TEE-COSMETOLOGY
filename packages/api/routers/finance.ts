@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gte, ilike, isNull, lte, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, gte, ilike, inArray, isNull, lte, ne, or, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
@@ -110,6 +110,115 @@ async function buildFeeReminder(db: Awaited<ReturnType<typeof dbOrThrow>>, stude
     message,
     segments: smsSegments(message),
     blocker,
+  };
+}
+
+/** One run texts a school, not a country. Past this, something has gone wrong. */
+const MAX_ARREARS_RECIPIENTS = 500;
+
+/**
+ * Everyone in arrears, with the message each of them would get.
+ *
+ * The per-student builder is deliberately not reused in a loop: it re-reads
+ * the messaging config and the school name every time, which is three extra
+ * round trips per student. Here the settings are read once and the balances
+ * come from one aggregate, so the cost is the same for four hundred students
+ * as for four.
+ *
+ * Every student who owes something is returned, including the ones who cannot
+ * be reached. A run that quietly dropped them would report "sent to 38" while
+ * nobody ever found out that six have no phone number on file.
+ */
+async function buildArrearsRun(db: Awaited<ReturnType<typeof dbOrThrow>>) {
+  const [config, school] = await Promise.all([readMessagingConfig(db), schoolName(db)]);
+
+  const template = config.events.templates.outstanding_fee?.sms ?? "";
+
+  // Same shape as the outstanding list, so the two can never disagree about
+  // who owes what.
+  const owing = await db
+    .select({
+      id: studentProfiles.id,
+      studentNumber: studentProfiles.studentNumber,
+      fullName: studentProfiles.fullName,
+      phone: studentProfiles.phone,
+      billed: sql<string>`coalesce(sum(${feeCharges.amountDue}), 0)`,
+      paid: sql<string>`coalesce(sum(${feeCharges.amountPaid}), 0)`,
+    })
+    .from(studentProfiles)
+    .leftJoin(feeCharges, eq(feeCharges.studentId, studentProfiles.id))
+    .where(and(isNull(studentProfiles.deletedAt), ne(studentProfiles.status, "graduated")))
+    .groupBy(studentProfiles.id)
+    .having(
+      sql`coalesce(sum(${feeCharges.amountDue}), 0) > coalesce(sum(${feeCharges.amountPaid}), 0)`,
+    )
+    .orderBy(desc(sql`coalesce(sum(${feeCharges.amountDue}), 0) - coalesce(sum(${feeCharges.amountPaid}), 0)`));
+
+  // Anyone already texted about arrears today is left out. The button says
+  // "message everyone", and a second press an hour later must not mean every
+  // student is told twice what they owe.
+  const since = new Date();
+  since.setHours(0, 0, 0, 0);
+
+  const alreadyToday = await db
+    .select({ destination: notificationDeliveries.destination })
+    .from(notificationDeliveries)
+    .where(
+      and(
+        eq(notificationDeliveries.type, "outstanding_fee"),
+        eq(notificationDeliveries.channel, "sms"),
+        gte(notificationDeliveries.createdAt, since),
+      ),
+    );
+  const textedToday = new Set(
+    alreadyToday.map(row => row.destination).filter((value): value is string => Boolean(value)),
+  );
+
+  const recipients = owing.map(student => {
+    const outstanding = money(student.billed) - money(student.paid);
+    const destination = normaliseMsisdn(student.phone);
+    return {
+      id: student.id,
+      studentNumber: student.studentNumber,
+      fullName: student.fullName,
+      outstanding,
+      destination,
+      alreadySentToday: Boolean(destination && textedToday.has(destination)),
+      message: render(template, {
+        school,
+        name: firstName(student.fullName),
+        fullName: student.fullName,
+        reference: student.studentNumber,
+        amount: cedis(outstanding),
+      }),
+    };
+  });
+
+  const sendable = recipients.filter(
+    row => row.destination && !row.alreadySentToday && row.message.trim(),
+  );
+
+  // One reason the whole run cannot go, phrased for the person at the button.
+  // Anything that stops only some students is counted instead, not raised.
+  const blocker = !recipients.length
+    ? "No student is in arrears."
+    : !config.sms.enabled
+      ? "SMS is switched off. Turn it on under Settings > Messaging."
+      : (describeSmsConfig(config.sms) ??
+        (template.trim() ? null : "The fee reminder template is empty.") ??
+        (sendable.length ? null : "Nobody in arrears can be reached by text right now."));
+
+  return {
+    recipients,
+    sendable,
+    blocker,
+    totals: {
+      owing: recipients.length,
+      sendable: sendable.length,
+      noPhone: recipients.filter(row => !row.destination).length,
+      alreadySentToday: recipients.filter(row => row.alreadySentToday).length,
+      arrears: recipients.reduce((sum, row) => sum + row.outstanding, 0),
+    },
   };
 }
 
@@ -387,6 +496,116 @@ export const financeRouter = router({
         outstanding: reminder.outstanding,
       };
     }),
+
+  /**
+   * What a whole arrears run would do, before anybody sets it off.
+   *
+   * The same shape as the single-student preview and for the same reason:
+   * a few hundred text messages cannot be recalled, so the count, the total
+   * and a real example of the wording are all shown first.
+   */
+  arrearsRunPreview: permissionProcedure("fees.write").query(async () => {
+    const db = await dbOrThrow();
+    const run = await buildArrearsRun(db);
+
+    return {
+      blocker: run.blocker,
+      totals: run.totals,
+      capped: run.sendable.length > MAX_ARREARS_RECIPIENTS,
+      limit: MAX_ARREARS_RECIPIENTS,
+      /** A real row, so the wording shown is the wording that goes out. */
+      sample: run.sendable[0]
+        ? {
+            fullName: run.sendable[0].fullName,
+            destination: run.sendable[0].destination,
+            outstanding: run.sendable[0].outstanding,
+            message: run.sendable[0].message,
+            segments: smsSegments(run.sendable[0].message),
+          }
+        : null,
+      unreachable: run.recipients
+        .filter(row => !row.destination)
+        .slice(0, 20)
+        .map(row => ({ fullName: row.fullName, studentNumber: row.studentNumber })),
+    };
+  }),
+
+  /** Texts every student in arrears the amount they personally owe. */
+  sendArrearsRun: permissionProcedure("fees.write").mutation(async ({ ctx }) => {
+    const db = await dbOrThrow();
+    const run = await buildArrearsRun(db);
+
+    if (run.blocker) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: run.blocker });
+    }
+    if (run.sendable.length > MAX_ARREARS_RECIPIENTS) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: `${run.sendable.length} students are in arrears, which is past the ${MAX_ARREARS_RECIPIENTS} a single run will send. Chase the largest balances individually.`,
+      });
+    }
+
+    const queued = await db
+      .insert(notificationDeliveries)
+      .values(
+        run.sendable.map(row => ({
+          type: "outstanding_fee" as const,
+          channel: "sms" as const,
+          destination: row.destination,
+          recipientName: row.fullName.slice(0, 160),
+          subject: "Fee reminder",
+          body: row.message,
+          status: "queued" as const,
+        })),
+      )
+      .returning({ id: notificationDeliveries.id });
+
+    await recordAudit(db, ctx.actor, {
+      action: "notify",
+      entity: "studentAccount",
+      entityLabel: "Fee arrears run",
+      newValue: {
+        channel: "sms",
+        students: run.sendable.length,
+        arrears: run.totals.arrears,
+        skippedNoPhone: run.totals.noPhone,
+        skippedAlreadySentToday: run.totals.alreadySentToday,
+      },
+      summary: `${ctx.actor.name ?? "Staff"} texted ${run.sendable.length} student${run.sendable.length === 1 ? "" : "s"} about ${cedis(run.totals.arrears)} in arrears`,
+    });
+
+    // Drained in the foreground like the single send: somebody is watching the
+    // button and is owed the real outcome rather than "queued". The limit is
+    // this run's own rows, so an older backlog is not what it spends itself on.
+    await flush(db, queued.length);
+
+    const settled = queued.length
+      ? await db
+          .select({ status: notificationDeliveries.status, error: notificationDeliveries.error })
+          .from(notificationDeliveries)
+          .where(
+            inArray(
+              notificationDeliveries.id,
+              queued.map(row => row.id),
+            ),
+          )
+      : [];
+
+    // Counted from the rows themselves, so a provider that refused half of
+    // them is not reported back as a clean sweep.
+    const sent = settled.filter(row => row.status === "sent").length;
+    const failed = settled.filter(row => row.status === "failed").length;
+
+    return {
+      sent,
+      failed,
+      queued: settled.length - sent - failed,
+      skippedNoPhone: run.totals.noPhone,
+      skippedAlreadySentToday: run.totals.alreadySentToday,
+      arrears: run.totals.arrears,
+      firstError: settled.find(row => row.status === "failed")?.error ?? null,
+    };
+  }),
 
   createCharge: permissionProcedure("fees.write")
     .input(

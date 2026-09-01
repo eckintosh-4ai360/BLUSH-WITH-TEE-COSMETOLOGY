@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { MessageSquare, Receipt } from "lucide-react";
+import { MessageSquare, Receipt, Megaphone } from "lucide-react";
 import { Badge } from "@blush/ui/components/ui/badge";
 import { Button } from "@blush/ui/components/ui/button";
 import { toast } from "@blush/ui/components/ui/sonner";
@@ -11,6 +11,10 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { DataTable, type Column } from "@/components/DataTable";
 import { PermissionGate } from "@/components/PermissionGate";
 import { RecordPaymentDialog } from "@/components/finance/RecordPaymentDialog";
+import {
+  FeeArrearsRunDialog,
+  type ArrearsRunResult,
+} from "@/components/finance/FeeArrearsRunDialog";
 import { SendFeeReminderDialog } from "@/components/finance/SendFeeReminderDialog";
 import { usePermissions } from "@/hooks/usePermissions";
 import { collectAllPages } from "@/lib/exportAll";
@@ -27,6 +31,34 @@ type OwingRow = {
   amountPaid: number;
   outstanding: number;
 };
+
+/**
+ * Says what actually happened, not what was attempted.
+ *
+ * A run that reached most of the school but not all of it is the normal
+ * outcome, and rounding that up to "sent" would hide the students who still
+ * have not been told.
+ */
+function reportArrearsRun(result: ArrearsRunResult) {
+  const skipped = result.skippedNoPhone + result.skippedAlreadySentToday;
+  const aside = skipped ? ` ${skipped} skipped.` : "";
+
+  if (!result.sent && (result.failed || result.queued)) {
+    toast.error(result.firstError ?? "None of the reminders could be delivered.");
+    return;
+  }
+
+  if (result.failed || result.queued) {
+    toast.warning(
+      `Texted ${result.sent}, but ${result.failed + result.queued} did not go through.${aside}`,
+    );
+    return;
+  }
+
+  toast.success(
+    `Texted ${result.sent} student${result.sent === 1 ? "" : "s"} what they owe.${aside}`,
+  );
+}
 
 export default function OutstandingFeesPage() {
   return (
@@ -45,6 +77,7 @@ function OutstandingFeesContent() {
   const [page, setPage] = useState(1);
   const [payingStudentId, setPayingStudentId] = useState<number | null>(null);
   const [remindingStudentId, setRemindingStudentId] = useState<number | null>(null);
+  const [arrearsRunOpen, setArrearsRunOpen] = useState(false);
 
   const utils = trpc.useUtils();
 
@@ -171,6 +204,23 @@ function OutstandingFeesContent() {
           )
         }
         emptyMessage="Every student is up to date."
+        actions={
+          can("fees.write") ? (
+            <Button className="gap-2" onClick={() => setArrearsRunOpen(true)}>
+              <Megaphone className="h-4 w-4" />
+              Fee Arrears
+            </Button>
+          ) : null
+        }
+      />
+
+      <FeeArrearsRunDialog
+        open={arrearsRunOpen}
+        onOpenChange={setArrearsRunOpen}
+        onSent={(result: ArrearsRunResult) => {
+          query.refetch();
+          reportArrearsRun(result);
+        }}
       />
 
       <SendFeeReminderDialog
