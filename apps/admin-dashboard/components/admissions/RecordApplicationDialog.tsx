@@ -155,7 +155,9 @@ export function RecordApplicationDialog({
       education: education.trim() || undefined,
       courseId: Number(courseId),
       paymentPlan: paymentPlan || undefined,
-      duration: duration.trim() || (selectedCourse ? `${selectedCourse.durationWeeks} weeks` : undefined),
+      duration:
+        duration.trim() ||
+        (selectedCourse ? describeDuration(selectedCourse.durationWeeks) : undefined),
       startDate: startDate ? new Date(startDate) : undefined,
       guardianName: guardianName.trim() || undefined,
       guardianAddress: guardianAddress.trim() || undefined,
@@ -172,9 +174,6 @@ export function RecordApplicationDialog({
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
           <DialogHeader>
             <div className="flex items-center gap-2">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
-                <Sparkles className="h-4 w-4" />
-              </span>
               <div>
                 <DialogTitle>Record Official Admission Form</DialogTitle>
                 <DialogDescription>
@@ -488,7 +487,11 @@ export function RecordApplicationDialog({
                     id="app-duration"
                     value={duration}
                     onChange={event => setDuration(event.target.value)}
-                    placeholder={selectedCourse ? `${selectedCourse.durationWeeks} weeks` : "e.g. 3 months / 6 months"}
+                    placeholder={
+                      selectedCourse
+                        ? describeDuration(selectedCourse.durationWeeks)
+                        : "e.g. 3 months / 6 months"
+                    }
                   />
                 </div>
 
