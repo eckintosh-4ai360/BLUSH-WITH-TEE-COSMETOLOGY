@@ -35,6 +35,7 @@ import {
 import { SaveStudentDialog } from "@/components/students/SaveStudentDialog";
 import { usePermissions } from "@/hooks/usePermissions";
 import { collectAllPages } from "@/lib/exportAll";
+import { describeDuration } from "@/lib/describeDuration";
 import { trpc } from "@/lib/trpc";
 
 /**
@@ -337,7 +338,7 @@ function StudentsContent() {
 
             <Select value={course} onValueChange={onCourseChange}>
               <SelectTrigger
-                className="w-[13rem]"
+                className="w-[15rem]"
                 aria-label="Filter by programme"
               >
                 <SelectValue placeholder="All programmes" />
@@ -346,7 +347,7 @@ function StudentsContent() {
                 <SelectItem value="all">All programmes</SelectItem>
                 {courses.data?.map(item => (
                   <SelectItem key={item.id} value={String(item.id)}>
-                    {item.title}
+                    {item.title} · {describeDuration(item.durationWeeks)}
                   </SelectItem>
                 ))}
               </SelectContent>
