@@ -76,7 +76,7 @@ export const STUDENT_IMPORT_COLUMNS: ImportColumn[] = [
     header: "Address",
     required: false,
     hint: "Optional.",
-    example: "Osu, Accra",
+    example: "Osu, Tarkwa, Ghana",
   },
   {
     key: "emergencyContactName",

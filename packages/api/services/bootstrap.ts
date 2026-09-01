@@ -35,7 +35,7 @@ const DEFAULT_SETTINGS: Array<{
     value: {
       name: "Blush With Tee",
       tagline: "Cosmetology school, studio and store",
-      address: "Accra, Ghana",
+      address: "Tarkwa, Ghana",
       phone: "",
       whatsapp: "",
       email: "",

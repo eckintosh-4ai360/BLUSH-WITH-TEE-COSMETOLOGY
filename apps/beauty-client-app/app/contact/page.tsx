@@ -60,7 +60,7 @@ export default function ContactPage() {
                       Academy Campus Studio
                     </span>
                     <span className="mt-0.5 block font-medium text-sm text-[#6a2557]">
-                      BWT School of Cosmetology Campus, Accra, Ghana
+                      BWT School of Cosmetology Campus, Tarkwa, Ghana
                     </span>
                   </div>
                 </div>
