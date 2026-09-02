@@ -133,11 +133,11 @@ export const adminNamespaceRouter = router({
     const db = await dbOrThrow();
     const [[studentCount], [applicationCount], [orderCount], [lowStockCount], recentOrders, recentApplications] = await Promise.all([
       db.select({ count: sql<number>`count(*)` }).from(studentProfiles),
-      db.select({ count: sql<number>`count(*)` }).from(applications).where(eq(applications.status, "submitted")),
+      db.select({ count: sql<number>`count(*)` }).from(applications).where(and(eq(applications.status, "submitted"), isNull(applications.deletedAt))),
       db.select({ count: sql<number>`count(*)` }).from(storeOrders).where(eq(storeOrders.fulfillmentStatus, "new")),
       db.select({ count: sql<number>`count(*)` }).from(inventoryItems).where(sql`${inventoryItems.quantityOnHand} <= ${inventoryItems.reorderLevel}`),
       db.select().from(storeOrders).orderBy(desc(storeOrders.createdAt)).limit(5),
-      db.select({ reference: applications.reference, fullName: applications.fullName, status: applications.status, createdAt: applications.createdAt, courseTitle: courses.title }).from(applications).innerJoin(courses, eq(applications.courseId, courses.id)).orderBy(desc(applications.createdAt)).limit(5),
+      db.select({ reference: applications.reference, fullName: applications.fullName, status: applications.status, createdAt: applications.createdAt, courseTitle: courses.title }).from(applications).innerJoin(courses, eq(applications.courseId, courses.id)).where(isNull(applications.deletedAt)).orderBy(desc(applications.createdAt)).limit(5),
     ]);
     return {
       metrics: {
@@ -168,7 +168,9 @@ export const adminNamespaceRouter = router({
       const db = await dbOrThrow();
       const { page = 1, pageSize = 20, search, status, durationWeeks } = input;
 
-      const conditions: SQL[] = [];
+      // A removed application is gone from every list that reads this, the
+      // export included, in the same way a removed programme or student is.
+      const conditions: SQL[] = [isNull(applications.deletedAt)];
       if (status) conditions.push(eq(applications.status, status));
       if (durationWeeks) conditions.push(eq(courses.durationWeeks, durationWeeks));
       if (search && search.trim()) {
@@ -182,7 +184,7 @@ export const adminNamespaceRouter = router({
         );
       }
 
-      const where = conditions.length ? and(...conditions) : undefined;
+      const where = and(...conditions);
       const offset = (page - 1) * pageSize;
 
       const [rows, [totalRow]] = await Promise.all([
@@ -479,6 +481,199 @@ export const adminNamespaceRouter = router({
       return recorded;
     }),
 
+  /**
+   * Corrects an admission form already on file.
+   *
+   * The desk takes these down from a paper form and from people speaking on
+   * the phone, so a misheard surname or a transposed digit is ordinary rather
+   * than exceptional, and re-keying the whole form to fix one field is how a
+   * second wrong copy gets made.
+   *
+   * Deliberately narrower than the form it edits. The reference, the status
+   * and the review history are the file's own record of what happened to it
+   * and are not the desk's to rewrite; approving or declining still goes
+   * through `reviewApplication`, where the applicant gets told.
+   */
+  updateApplication: permissionProcedure("admissions.write")
+    .input(
+      z.object({
+        applicationId: z.number().int().positive(),
+        fullName: z.string().trim().min(2).max(160),
+        email: z.string().trim().email().max(320),
+        phone: z.string().trim().min(7).max(40),
+        whatsapp: z.string().trim().max(40).optional(),
+        courseId: z.number().int().positive(),
+        birthDate: z.coerce.date().optional(),
+        hometown: z.string().trim().max(160).optional(),
+        age: z.number().int().min(10).max(120).optional(),
+        gender: z.string().trim().max(32).optional(),
+        maritalStatus: z.string().trim().max(32).optional(),
+        address: z.string().trim().max(1500).optional(),
+        emergencyContact: z.string().trim().max(180).optional(),
+        emergencyRelationship: z.string().trim().max(80).optional(),
+        instagram: z.string().trim().max(120).optional(),
+        tiktok: z.string().trim().max(120).optional(),
+        otherSocialMedia: z.string().trim().max(160).optional(),
+        educationalLevel: z.string().trim().max(120).optional(),
+        education: z.string().trim().max(1800).optional(),
+        paymentPlan: z.string().trim().max(80).optional(),
+        duration: z.string().trim().max(80).optional(),
+        startDate: z.coerce.date().optional(),
+        guardianName: z.string().trim().max(160).optional(),
+        guardianAddress: z.string().trim().max(1500).optional(),
+        guardianPhone: z.string().trim().max(40).optional(),
+        statement: z.string().trim().max(3000).optional(),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+      const email = input.email.toLowerCase();
+
+      const [existing] = await db
+        .select()
+        .from(applications)
+        .where(and(eq(applications.id, input.applicationId), isNull(applications.deletedAt)))
+        .limit(1);
+      if (!existing) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Application not found." });
+      }
+
+      const [course] = await db
+        .select({
+          id: courses.id,
+          title: courses.title,
+          durationWeeks: courses.durationWeeks,
+          tuition: courses.tuition,
+          productFee: courses.productFee,
+        })
+        .from(courses)
+        .where(and(eq(courses.id, input.courseId), eq(courses.isActive, true)))
+        .limit(1);
+      if (!course) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "That programme is unavailable." });
+      }
+
+      // The quote is frozen against the programme it was given for, so an edit
+      // that leaves the programme alone must not quietly re-price a form
+      // somebody has already signed. Moving the applicant to a different
+      // programme is a different quote, and takes that programme's price.
+      const movedProgramme = existing.courseId !== input.courseId;
+
+      await db
+        .update(applications)
+        .set({
+          fullName: input.fullName,
+          email,
+          phone: input.phone,
+          whatsapp: input.whatsapp ?? null,
+          birthDate: input.birthDate ?? null,
+          hometown: input.hometown ?? null,
+          age: input.age ?? null,
+          gender: input.gender ?? null,
+          maritalStatus: input.maritalStatus ?? null,
+          address: input.address ?? null,
+          emergencyContact: input.emergencyContact ?? null,
+          emergencyRelationship: input.emergencyRelationship ?? null,
+          instagram: input.instagram ?? null,
+          tiktok: input.tiktok ?? null,
+          otherSocialMedia: input.otherSocialMedia ?? null,
+          educationalLevel: input.educationalLevel ?? null,
+          education: input.education ?? null,
+          courseId: input.courseId,
+          paymentPlan: input.paymentPlan ?? null,
+          ...(movedProgramme ? { tuition: course.tuition, productFee: course.productFee } : {}),
+          duration: input.duration || `${course.durationWeeks} weeks`,
+          startDate: input.startDate ?? null,
+          guardianName: input.guardianName ?? null,
+          guardianAddress: input.guardianAddress ?? null,
+          guardianPhone: input.guardianPhone ?? null,
+          statement: input.statement ?? null,
+        })
+        .where(eq(applications.id, existing.id));
+
+      await recordAudit(db, ctx.actor, {
+        action: "update",
+        entity: "application",
+        entityId: existing.id,
+        entityLabel: existing.reference,
+        oldValue: {
+          fullName: existing.fullName,
+          email: existing.email,
+          phone: existing.phone,
+          courseId: existing.courseId,
+        },
+        newValue: {
+          fullName: input.fullName,
+          email,
+          phone: input.phone,
+          courseId: input.courseId,
+        },
+        summary: `${ctx.actor.name ?? "Staff"} corrected application ${existing.reference} (${input.fullName})`,
+      });
+
+      return { id: existing.id, reference: existing.reference, courseTitle: course.title };
+    }),
+
+  /**
+   * Takes an admission form off the admissions list.
+   *
+   * Soft, like every other removal here: the row keeps its reference and its
+   * audit trail, and an administrator can put it back. What it must not do is
+   * remove an application somebody has already been admitted on - the student
+   * record, their enrolment and their fees all hang off this row, and the
+   * screens that show them would be left naming a form nobody can open.
+   */
+  deleteApplication: permissionProcedure("admissions.write")
+    .input(z.object({ applicationId: z.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+
+      const [existing] = await db
+        .select()
+        .from(applications)
+        .where(and(eq(applications.id, input.applicationId), isNull(applications.deletedAt)))
+        .limit(1);
+      if (!existing) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Application not found." });
+      }
+
+      const [student] = await db
+        .select({ studentNumber: studentProfiles.studentNumber })
+        .from(studentProfiles)
+        .where(
+          and(eq(studentProfiles.applicationId, existing.id), isNull(studentProfiles.deletedAt)),
+        )
+        .limit(1);
+
+      if (student) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: `${existing.fullName} was admitted on this form and is on the register as ${student.studentNumber}. Remove the student record first if they are really leaving.`,
+        });
+      }
+
+      await db
+        .update(applications)
+        .set({ deletedAt: new Date() })
+        .where(eq(applications.id, existing.id));
+
+      await recordAudit(db, ctx.actor, {
+        action: "delete",
+        entity: "application",
+        entityId: existing.id,
+        entityLabel: existing.reference,
+        oldValue: {
+          fullName: existing.fullName,
+          email: existing.email,
+          status: existing.status,
+          courseId: existing.courseId,
+        },
+        summary: `${ctx.actor.name ?? "Staff"} removed application ${existing.reference} (${existing.fullName})`,
+      });
+
+      return { id: existing.id, reference: existing.reference, fullName: existing.fullName };
+    }),
+
   endorseApplication: permissionProcedure("admissions.review")
     .input(
       z.object({
@@ -489,10 +684,13 @@ export const adminNamespaceRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       const db = await dbOrThrow();
+      // Scoped past removed forms like every other read of this table: a
+      // dialog left open over a deletion must not endorse a form that is no
+      // longer on the list.
       const [app] = await db
         .select()
         .from(applications)
-        .where(eq(applications.id, input.applicationId))
+        .where(and(eq(applications.id, input.applicationId), isNull(applications.deletedAt)))
         .limit(1);
       if (!app) throw new TRPCError({ code: "NOT_FOUND", message: "Application not found." });
 
@@ -518,7 +716,9 @@ export const adminNamespaceRouter = router({
 
   reviewApplication: adminProcedure.input(z.object({ applicationId: z.number().int().positive(), status: z.enum(["under_review", "more_information", "approved", "rejected"]), decisionNote: z.string().max(2000).optional() })).mutation(async ({ input, ctx }) => {
     const db = await dbOrThrow();
-    const [application] = await db.select().from(applications).where(eq(applications.id, input.applicationId)).limit(1);
+    // Removed forms are not reviewable: approving one would open a student
+    // record against a form no screen can show.
+    const [application] = await db.select().from(applications).where(and(eq(applications.id, input.applicationId), isNull(applications.deletedAt))).limit(1);
     if (!application) throw new TRPCError({ code: "NOT_FOUND", message: "Application not found." });
     await db.update(applications).set({ status: input.status, decisionNote: input.decisionNote, reviewedByUserId: ctx.user.id }).where(eq(applications.id, application.id));
 

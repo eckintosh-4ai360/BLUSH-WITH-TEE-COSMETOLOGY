@@ -92,7 +92,7 @@ export const staffRouter = router({
   }),
   applications: staffProcedure.query(async () => {
     const db = await dbOrThrow();
-    return db.select({ application: applications, courseTitle: courses.title }).from(applications).innerJoin(courses, eq(applications.courseId, courses.id)).where(eq(applications.status, "submitted")).orderBy(desc(applications.createdAt));
+    return db.select({ application: applications, courseTitle: courses.title }).from(applications).innerJoin(courses, eq(applications.courseId, courses.id)).where(and(eq(applications.status, "submitted"), isNull(applications.deletedAt))).orderBy(desc(applications.createdAt));
   }),
   reviewApplication: staffProcedure.input(z.object({ applicationId: z.number().int().positive(), status: z.enum(["under_review", "more_information"]) })).mutation(async ({ input, ctx }) => {
     const db = await dbOrThrow();

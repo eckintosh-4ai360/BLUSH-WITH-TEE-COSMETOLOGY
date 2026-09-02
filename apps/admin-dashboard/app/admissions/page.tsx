@@ -1,7 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Eye, FileText, Plus, X } from "lucide-react";
+import { Check, FileText, Pencil, Plus, Trash2, X } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@blush/ui/components/ui/alert-dialog";
 import { Badge } from "@blush/ui/components/ui/badge";
 import { Button } from "@blush/ui/components/ui/button";
 import {
@@ -15,7 +25,10 @@ import { toast } from "@blush/ui/components/ui/sonner";
 import DashboardLayout from "@/components/DashboardLayout";
 import { DataTable, type Column } from "@/components/DataTable";
 import { PermissionGate } from "@/components/PermissionGate";
-import { RecordApplicationDialog } from "@/components/admissions/RecordApplicationDialog";
+import {
+  RecordApplicationDialog,
+  type EditableApplication,
+} from "@/components/admissions/RecordApplicationDialog";
 import {
   ViewAdmissionFormDialog,
   type AdmissionApplicationData,
@@ -48,6 +61,7 @@ type ApplicationRow = {
   application: {
     id: number;
     reference: string;
+    courseId: number;
     fullName: string;
     email: string;
     phone: string;
@@ -105,6 +119,8 @@ function AdmissionsContent() {
   const [status, setStatus] = useState("all");
   const [duration, setDuration] = useState("all");
   const [recordOpen, setRecordOpen] = useState(false);
+  const [editing, setEditing] = useState<EditableApplication | null>(null);
+  const [removing, setRemoving] = useState<ApplicationRow["application"] | null>(null);
   const [viewFormApp, setViewFormApp] = useState<AdmissionApplicationData | null>(null);
 
   // Shared by the table and by export, so a download covers exactly what the
@@ -117,6 +133,16 @@ function AdmissionsContent() {
 
   const query = trpc.admin.applications.useQuery({ ...filters, page, pageSize: 25 });
   const courses = trpc.content.courses.useQuery();
+
+  const remove = trpc.admin.deleteApplication.useMutation({
+    onSuccess: result => {
+      toast.success(`Application ${result.reference} removed.`);
+      utils.admin.applications.invalidate();
+      utils.admin.dashboard.invalidate();
+      setRemoving(null);
+    },
+    onError: error => toast.error(error.message),
+  });
 
   const review = trpc.admin.reviewApplication.useMutation({
     onSuccess: () => {
@@ -236,6 +262,30 @@ function AdmissionsContent() {
                 </Button>
               </>
             )}
+            {can("admissions.write") && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  aria-label={`Edit application ${row.application.reference}`}
+                  title="Edit form"
+                  onClick={() => setEditing(row.application)}
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-destructive hover:text-destructive"
+                  aria-label={`Delete application ${row.application.reference}`}
+                  title="Delete form"
+                  onClick={() => setRemoving(row.application)}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </>
+            )}
           </span>
         );
       },
@@ -334,6 +384,47 @@ function AdmissionsContent() {
           query.refetch();
         }}
       />
+
+      <RecordApplicationDialog
+        open={editing !== null}
+        onOpenChange={open => {
+          if (!open) setEditing(null);
+        }}
+        editing={editing}
+        onRecorded={() => setEditing(null)}
+        onSaved={reference => {
+          toast.success(`Application ${reference} updated.`);
+          setEditing(null);
+          utils.admin.applications.invalidate();
+        }}
+      />
+
+      <AlertDialog open={removing !== null} onOpenChange={open => !open && setRemoving(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {removing?.reference}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {removing?.status === "approved"
+                ? `${removing.fullName} was approved on this form. If they are already on the register this will be refused, and their student record has to go first.`
+                : `${removing?.fullName ?? "This applicant"}'s admission form comes off the admissions list and out of exports. It is kept on file with its reference, so an administrator can restore it.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={remove.isPending}>Keep form</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={remove.isPending}
+              onClick={event => {
+                // Held open until the server answers, so a refusal is read
+                // where it was asked for.
+                event.preventDefault();
+                if (removing) remove.mutate({ applicationId: removing.id });
+              }}
+            >
+              {remove.isPending ? "Deleting..." : "Delete form"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <ViewAdmissionFormDialog
         open={Boolean(viewFormApp)}

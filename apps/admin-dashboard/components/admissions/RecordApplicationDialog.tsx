@@ -28,19 +28,76 @@ import { describeDuration } from "@/lib/describeDuration";
 import { trpc } from "@/lib/trpc";
 
 /**
- * Takes down an official admission form at the desk.
+ * An admission form already on file, opened for correction.
+ *
+ * Only the fields this form can edit. The reference and status come along so
+ * the dialog can say which form is being changed, but are not written back.
+ */
+export type EditableApplication = {
+  id: number;
+  reference: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  whatsapp?: string | null;
+  birthDate?: Date | string | null;
+  hometown?: string | null;
+  age?: number | null;
+  gender?: string | null;
+  maritalStatus?: string | null;
+  address?: string | null;
+  emergencyContact?: string | null;
+  emergencyRelationship?: string | null;
+  instagram?: string | null;
+  tiktok?: string | null;
+  otherSocialMedia?: string | null;
+  educationalLevel?: string | null;
+  education?: string | null;
+  courseId: number;
+  paymentPlan?: string | null;
+  duration?: string | null;
+  startDate?: Date | string | null;
+  guardianName?: string | null;
+  guardianAddress?: string | null;
+  guardianPhone?: string | null;
+  statement?: string | null;
+};
+
+/** A stored date, as the `yyyy-mm-dd` an `<input type="date">` expects. */
+function toDateInput(value: Date | string | null | undefined): string {
+  if (!value) return "";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  // Read in local time rather than through toISOString, which shifts to UTC
+  // and can hand back the day before the one on the form.
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+/**
+ * Takes down an official admission form at the desk, or corrects one on file.
  *
  * Faithfully captures all fields from the official physical admission form,
  * ensuring complete alignment between walk-in/desk applications and online submissions.
+ *
+ * The same form does both jobs. An edit screen that drifts from the one the
+ * desk records on is how a field ends up capturable but not correctable, and
+ * this form is long enough that the drift would not be noticed for a while.
  */
 export function RecordApplicationDialog({
   open,
   onOpenChange,
   onRecorded,
+  editing = null,
+  onSaved,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onRecorded: (reference: string) => void;
+  /** The form being corrected, or null to take down a new one. */
+  editing?: EditableApplication | null;
+  onSaved?: (reference: string) => void;
 }) {
   const { can } = usePermissions();
   const [courseDialogOpen, setCourseDialogOpen] = useState(false);
@@ -94,34 +151,42 @@ export function RecordApplicationDialog({
     else if (ageIsDerived) setAge("");
   }
 
+  // Loads the form being corrected, or clears it down for a new one. Keyed on
+  // the record as well as on `open` so switching straight from one row's
+  // pencil to another's does not leave the first applicant's details behind.
   useEffect(() => {
-    setFullName("");
-    setEmail("");
-    setPhone("");
-    setWhatsapp("");
-    setBirthDate("");
-    setHometown("");
-    setAge("");
-    setGender("Female");
-    setMaritalStatus("single");
-    setAddress("");
-    setEmergencyContact("");
-    setEmergencyRelationship("");
-    setInstagram("");
-    setTiktok("");
-    setOtherSocialMedia("");
-    setEducationalLevel("SHS");
-    setCourseId("");
-    setPaymentPlan("Full Payment");
-    setDuration("");
-    setStartDate("");
-    setGuardianName("");
-    setGuardianAddress("");
-    setGuardianPhone("");
-    setEducation("");
-    setStatement("");
+    setFullName(editing?.fullName ?? "");
+    setEmail(editing?.email ?? "");
+    setPhone(editing?.phone ?? "");
+    setWhatsapp(editing?.whatsapp ?? "");
+    const loadedBirthDate = toDateInput(editing?.birthDate);
+    setBirthDate(loadedBirthDate);
+    setHometown(editing?.hometown ?? "");
+    // The date wins over the stored age where there is one, so a form filed
+    // before the two were tied together does not reopen showing an age that
+    // contradicts the date above it - and locked, at that.
+    const loadedAge = ageFromBirthDate(loadedBirthDate);
+    setAge(loadedAge !== null ? String(loadedAge) : editing?.age != null ? String(editing.age) : "");
+    setGender(editing?.gender || "Female");
+    setMaritalStatus(editing?.maritalStatus || "single");
+    setAddress(editing?.address ?? "");
+    setEmergencyContact(editing?.emergencyContact ?? "");
+    setEmergencyRelationship(editing?.emergencyRelationship ?? "");
+    setInstagram(editing?.instagram ?? "");
+    setTiktok(editing?.tiktok ?? "");
+    setOtherSocialMedia(editing?.otherSocialMedia ?? "");
+    setEducationalLevel(editing?.educationalLevel || "SHS");
+    setCourseId(editing ? String(editing.courseId) : "");
+    setPaymentPlan(editing?.paymentPlan || "Full Payment");
+    setDuration(editing?.duration ?? "");
+    setStartDate(toDateInput(editing?.startDate));
+    setGuardianName(editing?.guardianName ?? "");
+    setGuardianAddress(editing?.guardianAddress ?? "");
+    setGuardianPhone(editing?.guardianPhone ?? "");
+    setEducation(editing?.education ?? "");
+    setStatement(editing?.statement ?? "");
     setError(null);
-  }, [open]);
+  }, [open, editing]);
 
   const courses = trpc.content.courses.useQuery(undefined, { enabled: open });
 
@@ -132,6 +197,16 @@ export function RecordApplicationDialog({
     },
     onError: mutationError => setError(mutationError.message),
   });
+
+  const update = trpc.admin.updateApplication.useMutation({
+    onSuccess: result => {
+      onOpenChange(false);
+      onSaved?.(result.reference);
+    },
+    onError: mutationError => setError(mutationError.message),
+  });
+
+  const saving = create.isPending || update.isPending;
 
   const noCourses = courses.data && !courses.data.length;
 
@@ -157,7 +232,7 @@ export function RecordApplicationDialog({
       return;
     }
 
-    await create.mutateAsync({
+    const form = {
       fullName: fullName.trim(),
       email: email.trim().toLowerCase(),
       phone: phone.trim(),
@@ -184,10 +259,18 @@ export function RecordApplicationDialog({
       guardianName: guardianName.trim() || undefined,
       guardianAddress: guardianAddress.trim() || undefined,
       guardianPhone: guardianPhone.trim() || undefined,
-      signatureData: fullName.trim(),
-      agreedToTerms: true,
       statement: statement.trim() || undefined,
-    });
+    };
+
+    if (editing) {
+      // The signature and the terms box belong to the form the applicant put
+      // their name to. Correcting a misspelt town does not re-sign it, so
+      // neither is sent back.
+      await update.mutateAsync({ ...form, applicationId: editing.id });
+      return;
+    }
+
+    await create.mutateAsync({ ...form, signatureData: fullName.trim(), agreedToTerms: true });
   }
 
   return (
@@ -197,9 +280,13 @@ export function RecordApplicationDialog({
           <DialogHeader>
             <div className="flex items-center gap-2">
               <div>
-                <DialogTitle>Record Official Admission Form</DialogTitle>
+                <DialogTitle>
+                  {editing ? "Edit Admission Form" : "Record Official Admission Form"}
+                </DialogTitle>
                 <DialogDescription>
-                  Blush With Tee Beauty School · Tarkwa Branch (Allied Filling Station, A&apos;koon)
+                  {editing
+                    ? `Correcting ${editing.reference} · ${editing.fullName}`
+                    : "Blush With Tee Beauty School · Tarkwa Branch (Allied Filling Station, A’koon)"}
                 </DialogDescription>
               </div>
             </div>
@@ -600,18 +687,18 @@ export function RecordApplicationDialog({
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
-              disabled={create.isPending}
+              disabled={saving}
             >
               Cancel
             </Button>
             <Button
               type="button"
               onClick={handleRecord}
-              disabled={Boolean(validation) || create.isPending}
+              disabled={Boolean(validation) || saving}
               className="gap-2"
             >
-              {create.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Record Admission Form
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {editing ? "Save changes" : "Record Admission Form"}
             </Button>
           </DialogFooter>
         </DialogContent>
