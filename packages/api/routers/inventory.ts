@@ -15,7 +15,11 @@ import { dbOrThrow } from "../dbOrThrow";
 import { buildReference, slugify } from "../platform.utils";
 import { recordAudit } from "../services/audit";
 import { money, toAmountString, toMinor } from "../services/money";
-import { notify, staffRecipients } from "../services/notify";
+import {
+  alertLowStock,
+  alertLowStockInBackground,
+  lowStockItems,
+} from "../services/lowStock";
 import { listInputSchema, likePattern, paginate, paginationBounds } from "../services/pagination";
 import { applyStockMovement } from "../services/stock";
 import { permissionProcedure, router } from "../trpc";
@@ -114,6 +118,93 @@ export const inventoryRouter = router({
       .where(eq(productCategories.isActive, true))
       .orderBy(productCategories.sortOrder, productCategories.name);
   }),
+
+  /**
+   * Creates a product category, or brings a retired one back.
+   *
+   * Categories used to arrive only through a spreadsheet import or the seed,
+   * which left the item form with an empty dropdown on a fresh install. A
+   * category is picked by name in that form, so a second row sharing a slug
+   * would be indistinguishable there — hence the slug check rather than a
+   * blind insert.
+   */
+  createCategory: permissionProcedure("inventory.write")
+    .input(
+      z.object({
+        name: z.string().min(2).max(120),
+        description: z.string().max(2000).optional(),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+      const slug = slugify(input.name);
+
+      const [existing] = await db
+        .select()
+        .from(productCategories)
+        .where(eq(productCategories.slug, slug))
+        .limit(1);
+
+      if (existing?.isActive) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: `"${existing.name}" is already a category.`,
+        });
+      }
+
+      // A retired category is invisible in the dropdown, so the admin cannot
+      // know it is there. Reviving it keeps the items already filed under it.
+      if (existing) {
+        await db
+          .update(productCategories)
+          .set({ name: input.name, description: input.description ?? existing.description, isActive: true })
+          .where(eq(productCategories.id, existing.id));
+        await recordAudit(db, ctx.actor, {
+          action: "update",
+          entity: "productCategory",
+          entityId: existing.id,
+          entityLabel: input.name,
+          newValue: { name: input.name, isActive: true },
+          summary: `${ctx.actor?.name ?? "System"} restored the ${input.name} category`,
+        });
+        return { id: existing.id, name: input.name, restored: true };
+      }
+
+      const [{ nextSortOrder }] = await db
+        .select({
+          nextSortOrder: sql<number>`coalesce(max(${productCategories.sortOrder}), -1) + 1`,
+        })
+        .from(productCategories);
+
+      const values = {
+        name: input.name,
+        slug,
+        description: input.description ?? null,
+        sortOrder: Number(nextSortOrder ?? 0),
+      };
+
+      const [created] = await db
+        .insert(productCategories)
+        .values(values)
+        .returning({ id: productCategories.id });
+
+      if (!created?.id) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Category was not created.",
+        });
+      }
+
+      await recordAudit(db, ctx.actor, {
+        action: "create",
+        entity: "productCategory",
+        entityId: created.id,
+        entityLabel: input.name,
+        newValue: values,
+      });
+
+      return { id: created.id, name: input.name, restored: false };
+    }),
 
   saveItem: permissionProcedure("inventory.write")
     .input(
@@ -227,7 +318,7 @@ export const inventoryRouter = router({
     .mutation(async ({ input, ctx }) => {
       const db = await dbOrThrow();
 
-      return db.transaction(async tx => {
+      const outcome = await db.transaction(async tx => {
         const [item] = await tx
           .select({ name: inventoryItems.name, before: inventoryItems.quantityOnHand })
           .from(inventoryItems)
@@ -258,6 +349,12 @@ export const inventoryRouter = router({
 
         return result;
       });
+
+      // Raised after the commit, never inside it: a warning must not go out
+      // for a movement that then rolls back.
+      if (outcome.crossedReorderLevel) alertLowStockInBackground(db, ctx.actor);
+
+      return outcome;
     }),
 
   movements: permissionProcedure("inventory.read")
@@ -773,42 +870,32 @@ export const inventoryRouter = router({
       });
     }),
 
-  /** Raises the low-stock alerts described in §69. */
+  /* ---------------------------------------------------------------------- */
+  /* Low stock                                                              */
+  /* ---------------------------------------------------------------------- */
+
+  /**
+   * What is low right now, for the button that offers to report it.
+   *
+   * Separate from `items` with a `low` filter because the screen wants only
+   * the count and needs it whichever page of the table is being looked at.
+   */
+  lowStock: permissionProcedure("inventory.read").query(async () => {
+    const db = await dbOrThrow();
+    const rows = await lowStockItems(db);
+    return { count: rows.length, items: rows.slice(0, 10) };
+  }),
+
+  /**
+   * Raises the low-stock alert by hand (§69).
+   *
+   * Forced, unlike the automatic one: somebody has pressed a button and is
+   * waiting to see it happen, so the quiet period that stops a busy morning
+   * sending a dozen texts does not apply. Sends nothing when nothing is low,
+   * and says so.
+   */
   notifyLowStock: permissionProcedure("inventory.read").mutation(async ({ ctx }) => {
     const db = await dbOrThrow();
-
-    const low = await db
-      .select({ id: inventoryItems.id, name: inventoryItems.name, qty: inventoryItems.quantityOnHand })
-      .from(inventoryItems)
-      .where(
-        and(
-          eq(inventoryItems.isActive, true),
-          isNull(inventoryItems.deletedAt),
-          sql`${inventoryItems.quantityOnHand} <= ${inventoryItems.reorderLevel}`,
-        ),
-      )
-      .limit(25);
-
-    if (!low.length) return { alerted: 0 };
-
-    await notify(db, {
-      userIds: await staffRecipients(db, ["admin", "staff"]),
-      type: "low_stock",
-      title: `${low.length} item${low.length === 1 ? "" : "s"} at or below reorder level`,
-      body: low
-        .slice(0, 5)
-        .map(item => `${item.name} (${item.qty} left)`)
-        .join(", "),
-      entityType: "inventory",
-      link: "/inventory?filter=low",
-    });
-
-    await recordAudit(db, ctx.actor, {
-      action: "low_stock_alert",
-      entity: "inventory",
-      newValue: { items: low.length },
-    });
-
-    return { alerted: low.length };
+    return alertLowStock(db, { force: true, actor: ctx.actor });
   }),
 });

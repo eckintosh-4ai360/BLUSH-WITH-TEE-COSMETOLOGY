@@ -39,7 +39,8 @@ export function SaveSupplierDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSaved: () => void;
+  /** Receives the row's id so a caller that opened this to fill a picker can select it. */
+  onSaved: (saved: { id: number | undefined }) => void;
   editing?: SaveableSupplier | null;
 }) {
   const [name, setName] = useState("");
@@ -67,9 +68,9 @@ export function SaveSupplierDialog({
   }, [open, editing]);
 
   const save = trpc.inventory.saveSupplier.useMutation({
-    onSuccess: () => {
+    onSuccess: saved => {
       onOpenChange(false);
-      onSaved();
+      onSaved(saved);
     },
     onError: mutationError => setError(mutationError.message),
   });

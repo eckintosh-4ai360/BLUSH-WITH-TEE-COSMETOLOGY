@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import { Button } from "@blush/ui/components/ui/button";
 import {
   Dialog,
@@ -23,6 +23,8 @@ import {
 import { Switch } from "@blush/ui/components/ui/switch";
 import { Textarea } from "@blush/ui/components/ui/textarea";
 import { formatMoney } from "@blush/ui/lib/viz";
+import { SaveCategoryDialog } from "@/components/inventory/SaveCategoryDialog";
+import { SaveSupplierDialog } from "@/components/suppliers/SaveSupplierDialog";
 import { usePermissions } from "@/hooks/usePermissions";
 import { trpc } from "@/lib/trpc";
 
@@ -78,6 +80,8 @@ export function SaveItemDialog({
   const [isSellable, setIsSellable] = useState(true);
   const [isActive, setIsActive] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
+  const [supplierDialogOpen, setSupplierDialogOpen] = useState(false);
 
   useEffect(() => {
     setSku(editing?.sku ?? "");
@@ -99,6 +103,7 @@ export function SaveItemDialog({
   // Suppliers sit behind their own permission, so a storekeeper without it
   // still gets the rest of the form rather than a failed request.
   const canReadSuppliers = can("suppliers.read");
+  const canWriteSuppliers = can("suppliers.write");
   const suppliers = trpc.inventory.suppliers.useQuery(
     { page: 1, pageSize: 100 },
     { enabled: open && canReadSuppliers },
@@ -200,24 +205,56 @@ export function SaveItemDialog({
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="item-category">Category</Label>
+              <div className="flex items-center justify-between gap-2">
+                <Label htmlFor="item-category">Category</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto gap-1 px-2 py-0.5 text-xs"
+                  onClick={() => setCategoryDialogOpen(true)}
+                >
+                  <Plus className="h-3 w-3" />
+                  New
+                </Button>
+              </div>
               <Select value={categoryId} onValueChange={setCategoryId}>
                 <SelectTrigger id="item-category">
                   <SelectValue placeholder="Choose a category" />
                 </SelectTrigger>
                 <SelectContent>
-                  {(categories.data ?? []).map(category => (
-                    <SelectItem key={category.id} value={String(category.id)}>
-                      {category.name}
-                    </SelectItem>
-                  ))}
+                  {categories.data?.length ? (
+                    categories.data.map(category => (
+                      <SelectItem key={category.id} value={String(category.id)}>
+                        {category.name}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <p className="px-2 py-1.5 text-sm text-muted-foreground">
+                      {categories.isLoading ? "Loading..." : "No categories yet - add one."}
+                    </p>
+                  )}
                 </SelectContent>
               </Select>
             </div>
 
             {canReadSuppliers ? (
               <div className="space-y-2">
-                <Label htmlFor="item-supplier">Supplier (optional)</Label>
+                <div className="flex items-center justify-between gap-2">
+                  <Label htmlFor="item-supplier">Supplier (optional)</Label>
+                  {canWriteSuppliers ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-auto gap-1 px-2 py-0.5 text-xs"
+                      onClick={() => setSupplierDialogOpen(true)}
+                    >
+                      <Plus className="h-3 w-3" />
+                      New
+                    </Button>
+                  ) : null}
+                </div>
                 <Select value={supplierId} onValueChange={setSupplierId}>
                   <SelectTrigger id="item-supplier">
                     <SelectValue placeholder="No supplier" />
@@ -372,6 +409,34 @@ export function SaveItemDialog({
             {editing ? "Save changes" : "Create item"}
           </Button>
         </DialogFooter>
+
+        {/*
+          Both pickers used to be dead ends: a category could only be created by
+          a spreadsheet import, so a fresh install offered nothing to choose.
+          These render into their own portals, so nesting them here is only a
+          matter of where the state lives.
+        */}
+        <SaveCategoryDialog
+          open={categoryDialogOpen}
+          onOpenChange={setCategoryDialogOpen}
+          onCreated={category => {
+            // Selected only once the list holds it, otherwise the trigger falls
+            // back to its placeholder until the refetch lands.
+            void categories.refetch().then(() => setCategoryId(String(category.id)));
+          }}
+        />
+
+        {canWriteSuppliers ? (
+          <SaveSupplierDialog
+            open={supplierDialogOpen}
+            onOpenChange={setSupplierDialogOpen}
+            onSaved={saved => {
+              void suppliers.refetch().then(() => {
+                if (saved.id) setSupplierId(String(saved.id));
+              });
+            }}
+          />
+        ) : null}
       </DialogContent>
     </Dialog>
   );
