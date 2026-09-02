@@ -65,7 +65,7 @@ export default function ChangePasswordPage() {
           <p className="mt-1 text-sm text-muted-foreground">
             {mustChange
               ? "This account is still on the password it was set up with. Pick your own before carrying on."
-              : "Use at least 8 characters that you do not use elsewhere."}
+              : "Pick something you do not use elsewhere."}
           </p>
         </div>
 
@@ -89,7 +89,6 @@ export default function ChangePasswordPage() {
               type="password"
               autoComplete="new-password"
               required
-              minLength={8}
               value={newPassword}
               onChange={event => setNewPassword(event.target.value)}
             />
@@ -123,7 +122,7 @@ export default function ChangePasswordPage() {
           <Button
             type="submit"
             className="w-full gap-2"
-            disabled={change.isPending || mismatch || newPassword.length < 8}
+            disabled={change.isPending || mismatch || !newPassword.length}
           >
             {change.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             Update password

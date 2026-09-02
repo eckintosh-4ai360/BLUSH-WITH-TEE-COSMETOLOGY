@@ -75,10 +75,14 @@ export function CreateUserDialog({
     onError: mutationError => setError(mutationError.message),
   });
 
+  // The password is checked for nothing but being there. Whoever is filling
+  // this in is handing someone a temporary password in person and knows what
+  // they want it to be; the name and the email still matter, because the
+  // account is addressed by them.
   const validation = useMemo(() => {
     if (name.trim().length < 2) return "Enter the person's name.";
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) return "Enter a valid email address.";
-    if (password.length < 8) return "Password must be at least 8 characters.";
+    if (!password.length) return "Enter a password.";
     return null;
   }, [name, email, password]);
 
@@ -160,6 +164,10 @@ export function CreateUserDialog({
                 <RefreshCw className="h-4 w-4" />
               </Button>
             </div>
+            <p className="text-xs text-muted-foreground">
+              Anything you like. The suggested one is a strong starting point if you would rather
+              not think about it.
+            </p>
           </div>
 
           <label className="flex items-start gap-2.5 rounded-lg bg-muted/50 p-3">
@@ -295,7 +303,7 @@ export function ResetPasswordDialog({
           </Button>
           <Button
             className="gap-2"
-            disabled={password.length < 8 || reset.isPending || !account}
+            disabled={!password.length || reset.isPending || !account}
             onClick={() => {
               setError(null);
               reset.mutate({ userId: account!.id, password });

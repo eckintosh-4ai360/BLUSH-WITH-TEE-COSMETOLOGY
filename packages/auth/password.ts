@@ -35,7 +35,20 @@ function scryptAsync(
 
 const PARAMS = { N: 16384, r: 8, p: 1, keyLength: 64 } as const;
 
-export const MIN_PASSWORD_LENGTH = 8;
+/**
+ * One character. A password still has to exist - there is no such thing as an
+ * account secured by the empty string, and `hashPassword` refuses it anyway -
+ * but nothing beyond that is imposed. Whoever runs the school decides what a
+ * password for it looks like.
+ */
+export const MIN_PASSWORD_LENGTH = 1;
+
+/**
+ * Not a strength rule, and not negotiable: scrypt's cost scales with the input,
+ * so an arbitrarily long password is a way to make the server do arbitrarily
+ * much work. This is the guard on that, which is why it survives when the rest
+ * of the rules do not.
+ */
 export const MAX_PASSWORD_LENGTH = 200;
 
 export async function hashPassword(password: string): Promise<string> {
@@ -109,30 +122,31 @@ export type PasswordProblem = { ok: false; message: string };
 export type PasswordOk = { ok: true };
 
 /**
- * Password rules. Deliberately about length rather than character classes:
- * forced symbols push people towards `Passw0rd!` and nothing else.
+ * Password rules, of which there are now essentially none.
+ *
+ * This used to require eight characters, refuse anything containing the
+ * account's own email address, and reject a list of obvious choices. All of
+ * that is gone by request: the people setting these up are administrators
+ * handing a colleague a temporary password across a desk, usually one flagged
+ * for change on first sign-in, and a form that argues with them about it was
+ * costing more than it was buying.
+ *
+ * What is left is the pair of limits that are not about strength at all - a
+ * password has to be something, and it has to be short enough that hashing it
+ * is not itself an attack. Everything else is the school's call.
+ *
+ * The account context is still accepted so callers need not change, and so
+ * that reinstating a rule about it later is a change in one place.
  */
 export function checkPasswordStrength(
   password: string,
   context: { email?: string | null; name?: string | null } = {},
 ): PasswordOk | PasswordProblem {
   if (password.length < MIN_PASSWORD_LENGTH) {
-    return { ok: false, message: `Password must be at least ${MIN_PASSWORD_LENGTH} characters.` };
+    return { ok: false, message: "Enter a password." };
   }
   if (password.length > MAX_PASSWORD_LENGTH) {
     return { ok: false, message: `Password must be under ${MAX_PASSWORD_LENGTH} characters.` };
-  }
-
-  const lowered = password.toLowerCase();
-
-  const localPart = context.email?.split("@")[0]?.toLowerCase();
-  if (localPart && localPart.length >= 3 && lowered.includes(localPart)) {
-    return { ok: false, message: "Password must not contain your email address." };
-  }
-
-  const OBVIOUS = ["password", "12345678", "qwerty", "letmein", "admin123", "blushwithtee"];
-  if (OBVIOUS.some(entry => lowered.includes(entry))) {
-    return { ok: false, message: "Password is too easy to guess. Choose something less common." };
   }
 
   return { ok: true };
