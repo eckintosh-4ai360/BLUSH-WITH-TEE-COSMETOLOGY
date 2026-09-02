@@ -110,7 +110,7 @@ export const MESSAGED_EVENTS: Array<{
     type: "low_stock",
     label: "Low stock alert",
     description:
-      "Goes to administrators rather than to students, the moment an item falls to or below its reorder level. Carries a link to a PDF of everything currently low.",
+      "Goes to administrators rather than to students, the moment an item falls to or below its reorder level. The email links to a PDF of everything currently low; the text links to the low-stock screen instead.",
     // The only event that texts by default. An owner away from a desk is
     // exactly who needs to know a shelf is emptying, and a stockout costs
     // more than the message does.
@@ -189,11 +189,17 @@ export const DEFAULT_TEMPLATES: EventsConfig["templates"] = {
   // Written for someone reading a phone. The text leads with the count and
   // the worst item, because that is what fits in a lock-screen preview; the
   // link is for when they sit down.
+  //
+  // Only the email carries `{{url}}`, the report itself. The text carries
+  // `{{dashboard}}`, the low-stock screen. A text message is copied to a lock
+  // screen, kept in a gateway's logs and forwarded without a thought, and the
+  // address of a file naming the school's suppliers and its unit costs does
+  // not belong in any of those places - the reader is signing in either way.
   low_stock: {
     subject: "Low stock: {{count}} item(s) need reordering",
     email:
       "Hello {{name}},\n\n{{count}} stock item(s) have reached their reorder level.\n\n{{items}}\n\nThe full list - quantities, reorder levels, shortfalls and suppliers - is in the attached report:\n{{url}}\n\nYou will need to be signed in to the dashboard to open it.\n\n{{school}}",
-    sms: "{{school}}: LOW STOCK - {{count}} item(s) need reordering. {{topItem}}. Report: {{url}}",
+    sms: "{{school}}: LOW STOCK - {{count}} item(s) need reordering. {{topItem}}. Full list: {{dashboard}}",
   },
 };
 

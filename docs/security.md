@@ -111,7 +111,16 @@ so is where access is decided. `storageAccessPolicy` classifies the key:
 |---|---|
 | `media/product`, `media/gallery`, `media/brochure` | Anyone — these are on the public site |
 | `applications/…` | `admissions.read`, or the applicant themselves |
+| `reports/…` | `reports.read` or `inventory.read` |
 | Anything else | Any signed-in account |
+
+`reports/` is separate from "anything else" because a session is a low bar
+here: storefront customers and student portal accounts both have one, and both
+hold no permission at all. The generated reports are back-office documents —
+the low-stock report names the school's suppliers and what it pays them — and
+their addresses travel by email, so the bar is a permission rather than a
+sign-in. A report needing a different bar should get its own prefix and its own
+branch in the policy.
 
 Unrecognised paths fall to the private side, so an upload route added later is
 closed until somebody opens it. The `authorize` argument is required rather

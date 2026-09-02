@@ -27,6 +27,13 @@ describe("classifyStorageKey", () => {
     }
   });
 
+  it("holds generated reports to a back-office permission", () => {
+    // Not `internal`: that class is satisfied by any session, and a storefront
+    // customer has one. This report names suppliers and unit costs, and its
+    // address goes out by SMS.
+    expect(classifyStorageKey(`${folder}/reports/low-stock-2026-09-02_ab12cd34`)).toBe("report");
+  });
+
   it("defaults an unrecognised path to internal rather than public", () => {
     expect(classifyStorageKey(`${folder}/exports/payroll-2026_ab12cd34`)).toBe("internal");
     expect(classifyStorageKey("")).toBe("internal");

@@ -242,12 +242,18 @@ async function alertRecipients(db: DbExecutor): Promise<Recipient[]> {
 }
 
 /**
- * Publishes the report and returns the link the messages carry.
+ * Publishes the report and returns the link the email carries.
  *
- * The file goes under `reports/`, which `classifyStorageKey` treats as
- * internal, so the link only opens for somebody signed in to the dashboard.
- * That matters here: the URL travels by SMS, and a text message is not a
- * private channel.
+ * The file goes under `reports/`, which `classifyStorageKey` sorts into its
+ * own class, and the storage policy holds that class to `reports.read` or
+ * `inventory.read`. Being signed in is deliberately not enough: a storefront
+ * customer and a student portal account both have a session, and this document
+ * names the school's suppliers and what it pays them.
+ *
+ * The link is still kept out of the text message - see `alertLowStock` - since
+ * a URL that reaches a lock screen, an SMS gateway's logs and a forwarded
+ * message is not somewhere to put the address of a private file, whatever
+ * guards the far end.
  *
  * Returns null when storage is unconfigured or the upload fails, and the alert
  * then points at the low-stock list in the dashboard instead. Being told about
@@ -336,7 +342,17 @@ export async function alertLowStock(
     count: rows.length,
     items: remainder > 0 ? `${listed}\n- and ${remainder} more in the report` : listed,
     topItem: rows[0] ? describeItem(rows[0]) : "",
+    /** The report itself. Email only - see `dashboard` for the text message. */
     url: reportUrl,
+    /**
+     * Where the text message points instead.
+     *
+     * A screen behind the dashboard's own sign-in, not the address of a file.
+     * The report link is durable and reusable; this one is a page that shows
+     * the reader nothing they could not already see, and it is the one that
+     * ends up on a lock screen and in the gateway's logs.
+     */
+    dashboard: absoluteAdminUrl("/inventory?filter=low"),
   };
 
   const title = `${rows.length} item${rows.length === 1 ? "" : "s"} at or below reorder level`;

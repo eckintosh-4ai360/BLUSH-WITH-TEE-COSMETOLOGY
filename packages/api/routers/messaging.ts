@@ -286,6 +286,7 @@ export const messagingRouter = router({
         items: "- Shea butter 500g (out of stock, reorder at 6)\n- Cotton pads (2 left)",
         topItem: "Shea butter 500g (out of stock, reorder at 6)",
         url: "https://admin.example.com/api/manus-storage/image/reports/low-stock-2026-09-02",
+        dashboard: "https://admin.example.com/inventory?filter=low",
       }),
     ),
 
