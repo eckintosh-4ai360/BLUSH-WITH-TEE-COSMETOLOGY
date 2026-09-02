@@ -28,6 +28,8 @@
     "@blush/storage": "workspace:*",
     "@trpc/server": "^11.6.0",
     "drizzle-orm": "^0.44.5",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
     "nanoid": "^5.1.5",
     "nodemailer": "^9.0.6",
     "superjson": "^1.13.3",

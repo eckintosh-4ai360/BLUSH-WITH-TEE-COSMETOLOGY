@@ -280,6 +280,12 @@ export const messagingRouter = router({
         amount: "GHS 500.00",
         balance: "Your outstanding balance is GHS 1,200.00.",
         note: "Please send a copy of your certificate.",
+        // The low-stock alert is the one event addressed to the school rather
+        // than to a student, so its placeholders belong here too.
+        count: 3,
+        items: "- Shea butter 500g (out of stock, reorder at 6)\n- Cotton pads (2 left)",
+        topItem: "Shea butter 500g (out of stock, reorder at 6)",
+        url: "https://admin.example.com/api/manus-storage/image/reports/low-stock-2026-09-02",
       }),
     ),
 

@@ -39,7 +39,18 @@ export type StockMovementInput = {
 export async function applyStockMovement(
   db: DbExecutor,
   input: StockMovementInput,
-): Promise<{ balanceAfter: number; movementId: number | undefined }> {
+): Promise<{
+  balanceAfter: number;
+  movementId: number | undefined;
+  /**
+   * True when this movement is the one that took the item to or below its
+   * reorder level. The caller raises the low-stock alert on it once the
+   * transaction has committed - a warning must not go out for a sale that
+   * then rolls back, and only the edge is worth reporting, otherwise every
+   * subsequent sale of an already-low item would raise it again.
+   */
+  crossedReorderLevel: boolean;
+}> {
   if (!Number.isInteger(input.quantityDelta)) {
     throw new TRPCError({ code: "BAD_REQUEST", message: "Stock quantities must be whole numbers." });
   }
@@ -54,6 +65,7 @@ export async function applyStockMovement(
       id: inventoryItems.id,
       name: inventoryItems.name,
       quantityOnHand: inventoryItems.quantityOnHand,
+      reorderLevel: inventoryItems.reorderLevel,
     })
     .from(inventoryItems)
     .where(eq(inventoryItems.id, input.inventoryItemId))
@@ -93,7 +105,29 @@ export async function applyStockMovement(
     })
     .returning({ id: inventoryMovements.id });
 
-  return { balanceAfter, movementId: movement?.id };
+  return {
+    balanceAfter,
+    movementId: movement?.id,
+    crossedReorderLevel: crossesReorderLevel(current, balanceAfter),
+  };
+}
+
+/**
+ * Whether a movement is the one that took an item low.
+ *
+ * Only a fall counts, and only a fall from above the line: an item already at
+ * or below its reorder level is not newly low, and receiving stock never is.
+ * Kept separate from the write so the rule can be read and tested on its own.
+ */
+export function crossesReorderLevel(
+  before: { quantityOnHand: number; reorderLevel: number },
+  balanceAfter: number,
+): boolean {
+  return (
+    balanceAfter < before.quantityOnHand &&
+    balanceAfter <= before.reorderLevel &&
+    before.quantityOnHand > before.reorderLevel
+  );
 }
 
 /**

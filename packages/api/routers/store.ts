@@ -14,6 +14,7 @@ import {
   calculateOrderTotal,
   money,
 } from "../platform.utils";
+import { alertLowStockInBackground } from "../services/lowStock";
 import { applyStockMovement } from "../services/stock";
 import { storageGet } from "@blush/storage";
 import { publicProcedure, router, throttledPublicProcedure } from "../trpc";
@@ -354,7 +355,11 @@ export const storeRouter = router({
           message: "Your cart has expired.",
         });
 
-      return db.transaction(async tx => {
+      // A customer's checkout is what empties the shelf, so it is also where
+      // the shop finds out. Recorded here and acted on after the commit.
+      let stockWentLow = false;
+
+      const placed = await db.transaction(async tx => {
         const items = await tx
           .select({
             inventoryItemId: inventoryItems.id,
@@ -418,7 +423,7 @@ export const storeRouter = router({
         // The stock read above is unlocked and only feeds pricing, so it is
         // not safe to decide availability from.
         for (const item of items) {
-          await applyStockMovement(tx, {
+          const movement = await applyStockMovement(tx, {
             inventoryItemId: item.inventoryItemId,
             movementType: "retail_sale",
             quantityDelta: -item.quantity,
@@ -427,6 +432,7 @@ export const storeRouter = router({
             performedByUserId: ctx.user?.id,
             note: `Reserved for ${orderNumber}`,
           });
+          if (movement.crossedReorderLevel) stockWentLow = true;
         }
         await tx
           .update(carts)
@@ -434,5 +440,11 @@ export const storeRouter = router({
           .where(eq(carts.id, cart.id));
         return { orderNumber, total, paymentStatus: "pending" as const };
       });
+
+      // Nothing is awaited: the customer's order is placed, and a warning to
+      // the shop is not something their checkout should wait on or fail for.
+      if (stockWentLow) alertLowStockInBackground(db);
+
+      return placed;
     }),
 });

@@ -56,11 +56,20 @@ export type MessagingConfig = {
   events: EventsConfig;
 };
 
-/** The events a student or applicant is actually told about. */
+/**
+ * The events somebody is actually written to about.
+ *
+ * Mostly students and applicants. `low_stock` is the exception: it is the one
+ * event whose audience is the school's own administrators, and it is listed
+ * here so that it is switched on, worded and channelled from the same settings
+ * page as everything else rather than through a separate hidden mechanism.
+ */
 export const MESSAGED_EVENTS: Array<{
   type: NotificationType;
   label: string;
   description: string;
+  /** Channels this event starts on, before anything is saved over it. */
+  defaultChannels?: ChannelRule;
 }> = [
   {
     type: "application_submitted",
@@ -96,6 +105,16 @@ export const MESSAGED_EVENTS: Array<{
     type: "certificate_issued",
     label: "Certificate issued",
     description: "Sent when a certificate is awarded.",
+  },
+  {
+    type: "low_stock",
+    label: "Low stock alert",
+    description:
+      "Goes to administrators rather than to students, the moment an item falls to or below its reorder level. Carries a link to a PDF of everything currently low.",
+    // The only event that texts by default. An owner away from a desk is
+    // exactly who needs to know a shelf is emptying, and a stockout costs
+    // more than the message does.
+    defaultChannels: { email: true, sms: true },
   },
 ];
 
@@ -167,12 +186,24 @@ export const DEFAULT_TEMPLATES: EventsConfig["templates"] = {
       "Hello {{name}},\n\nYour certificate for {{course}} has been issued. Certificate number {{reference}}.\n\nCongratulations on completing your programme.\n\n{{school}}",
     sms: "{{school}}: Congratulations {{name}}, your certificate for {{course}} is ready. Number {{reference}}.",
   },
+  // Written for someone reading a phone. The text leads with the count and
+  // the worst item, because that is what fits in a lock-screen preview; the
+  // link is for when they sit down.
+  low_stock: {
+    subject: "Low stock: {{count}} item(s) need reordering",
+    email:
+      "Hello {{name}},\n\n{{count}} stock item(s) have reached their reorder level.\n\n{{items}}\n\nThe full list - quantities, reorder levels, shortfalls and suppliers - is in the attached report:\n{{url}}\n\nYou will need to be signed in to the dashboard to open it.\n\n{{school}}",
+    sms: "{{school}}: LOW STOCK - {{count}} item(s) need reordering. {{topItem}}. Report: {{url}}",
+  },
 };
 
 const DEFAULT_EVENTS: EventsConfig = {
   masterEnabled: false,
   events: Object.fromEntries(
-    MESSAGED_EVENTS.map(event => [event.type, { email: true, sms: false }]),
+    MESSAGED_EVENTS.map(event => [
+      event.type,
+      event.defaultChannels ?? { email: true, sms: false },
+    ]),
   ),
   templates: DEFAULT_TEMPLATES,
 };
@@ -236,7 +267,9 @@ export async function readMessagingConfig(db: DbExecutor): Promise<MessagingConf
     events: Object.fromEntries(
       MESSAGED_EVENTS.map(event => {
         const rule = asRecord(storedEvents[event.type]);
-        const fallback = DEFAULT_EVENTS.events[event.type] ?? { email: true, sms: false };
+        const fallback =
+          DEFAULT_EVENTS.events[event.type] ??
+          event.defaultChannels ?? { email: true, sms: false };
         return [
           event.type,
           { email: bool(rule.email, fallback.email), sms: bool(rule.sms, fallback.sms) },

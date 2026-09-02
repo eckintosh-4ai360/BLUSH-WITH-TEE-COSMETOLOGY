@@ -2,7 +2,7 @@
 
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeftRight, Pencil, Plus, Upload } from "lucide-react";
+import { ArrowLeftRight, BellRing, Pencil, Plus, Upload } from "lucide-react";
 import { Badge } from "@blush/ui/components/ui/badge";
 import { Button } from "@blush/ui/components/ui/button";
 import {
@@ -70,6 +70,23 @@ function InventoryContent() {
   const [itemDialogOpen, setItemDialogOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const importProducts = trpc.imports.products.useMutation();
+
+  // The alert goes out on its own whenever a sale takes an item to its reorder
+  // level. This is for the other case: somebody looking at the screen who
+  // wants the report in their inbox now.
+  const lowStock = trpc.inventory.lowStock.useQuery();
+  const notifyLowStock = trpc.inventory.notifyLowStock.useMutation({
+    onSuccess: result => {
+      if (!result.sent) {
+        toast.info(result.reason ?? "Nothing is low enough to report.");
+        return;
+      }
+      toast.success(
+        `Reported ${result.lowCount} low item${result.lowCount === 1 ? "" : "s"} to ${result.recipients} recipient${result.recipients === 1 ? "" : "s"}.`,
+      );
+    },
+    onError: error => toast.error(error.message),
+  });
 
   const utils = trpc.useUtils();
 
@@ -240,6 +257,20 @@ function InventoryContent() {
         actions={
           can("inventory.write") ? (
             <>
+              {lowStock.data && lowStock.data.count > 0 ? (
+                <Button
+                  variant="outline"
+                  className="gap-2"
+                  disabled={notifyLowStock.isPending}
+                  onClick={() => notifyLowStock.mutate()}
+                  title="Emails and texts the administrators a PDF of everything at or below its reorder level."
+                >
+                  <BellRing className="h-4 w-4" />
+                  {notifyLowStock.isPending
+                    ? "Sending..."
+                    : `Alert on ${lowStock.data.count} low`}
+                </Button>
+              ) : null}
               <Button variant="outline" className="gap-2" onClick={() => setImportOpen(true)}>
                 <Upload className="h-4 w-4" />
                 Import
@@ -292,6 +323,9 @@ function InventoryContent() {
           toast.success("Stock movement recorded.");
           setMovingItem(null);
           query.refetch();
+          // The movement may have taken the item under its reorder level, and
+          // the alert button counts what is low.
+          lowStock.refetch();
         }}
       />
     </div>

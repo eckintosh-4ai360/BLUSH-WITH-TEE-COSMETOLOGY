@@ -893,8 +893,11 @@ export const inventoryRouter = router({
    * waiting to see it happen, so the quiet period that stops a busy morning
    * sending a dozen texts does not apply. Sends nothing when nothing is low,
    * and says so.
+   *
+   * Needs `inventory.write` rather than read. Reading which items are low is
+   * one thing; making the school pay for a round of text messages is another.
    */
-  notifyLowStock: permissionProcedure("inventory.read").mutation(async ({ ctx }) => {
+  notifyLowStock: permissionProcedure("inventory.write").mutation(async ({ ctx }) => {
     const db = await dbOrThrow();
     return alertLowStock(db, { force: true, actor: ctx.actor });
   }),

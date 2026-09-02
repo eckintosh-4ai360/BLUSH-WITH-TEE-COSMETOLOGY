@@ -18,6 +18,7 @@ import { notify } from "./notify";
 import { announce } from "./messaging/announce";
 import { flushInBackground } from "./messaging/dispatch";
 import { recordRevenue } from "./revenue";
+import { alertLowStockInBackground } from "./lowStock";
 import { applyStockMovement } from "./stock";
 
 export type CaptureResult = {
@@ -77,6 +78,10 @@ export async function captureVerifiedPayment(
     currency: intent.currency,
   });
 
+  // An online order's stock comes off when the money lands, so this is where
+  // an item can reach its reorder level. Acted on after the commit, below.
+  let stockWentLow = false;
+
   const captured = await db.transaction(async tx => {
     // Lock the intent so two concurrent callbacks serialise here.
     const [locked] = await tx
@@ -130,7 +135,7 @@ export async function captureVerifiedPayment(
       .where(eq(paymentIntents.id, locked.id));
 
     if (locked.purpose === "store_order" && locked.storeOrderId) {
-      await captureStoreOrder(tx, {
+      stockWentLow = await captureStoreOrder(tx, {
         orderId: locked.storeOrderId,
         amountMinor,
         paymentId: payment.id,
@@ -211,20 +216,22 @@ export async function captureVerifiedPayment(
 
   // After the commit: a receipt must describe money that is actually banked.
   flushInBackground(db);
+  if (stockWentLow) alertLowStockInBackground(db);
   return captured;
 }
 
 /** Order-side effects of a captured payment: revenue, stock, status. */
+/** Returns whether the deduction took anything to its reorder level. */
 async function captureStoreOrder(
   tx: Parameters<Parameters<Database["transaction"]>[0]>[0],
   input: { orderId: number; amountMinor: number; paymentId: number; userId: number | null },
-): Promise<void> {
+): Promise<boolean> {
   const [order] = await tx
     .select()
     .from(storeOrders)
     .where(eq(storeOrders.id, input.orderId))
     .limit(1);
-  if (!order) return;
+  if (!order) return false;
 
   await tx
     .update(storeOrders)
@@ -243,10 +250,12 @@ async function captureStoreOrder(
   });
 
   // Stock comes off once payment is confirmed, and only once.
+  let crossedReorderLevel = false;
+
   if (!order.stockDeductedAt) {
     const lines = await tx.select().from(orderItems).where(eq(orderItems.orderId, order.id));
     for (const line of lines) {
-      await applyStockMovement(tx, {
+      const movement = await applyStockMovement(tx, {
         inventoryItemId: line.inventoryItemId,
         movementType: "retail_sale",
         quantityDelta: -line.quantity,
@@ -255,12 +264,15 @@ async function captureStoreOrder(
         note: `Paid online on ${order.orderNumber}`,
         performedByUserId: input.userId,
       });
+      if (movement.crossedReorderLevel) crossedReorderLevel = true;
     }
     await tx
       .update(storeOrders)
       .set({ stockDeductedAt: new Date() })
       .where(eq(storeOrders.id, order.id));
   }
+
+  return crossedReorderLevel;
 }
 
 async function existingCapture(db: Database, intentId: number): Promise<CaptureResult> {

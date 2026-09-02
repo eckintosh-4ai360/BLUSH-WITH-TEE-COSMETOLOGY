@@ -25,6 +25,7 @@ import {
 } from "../services/orderFlow";
 import { listInputSchema, likePattern, paginate, paginationBounds } from "../services/pagination";
 import { recordRevenue, reverseRevenue } from "../services/revenue";
+import { alertLowStockInBackground } from "../services/lowStock";
 import { applyStockMovement } from "../services/stock";
 import { permissionProcedure, router } from "../trpc";
 
@@ -275,8 +276,12 @@ export const ordersRouter = router({
     .mutation(async ({ input, ctx }) => {
       const db = await dbOrThrow();
       const amountMinor = toMinor(input.amount);
+      // Set inside the transaction, acted on after it: paying for an order is
+      // what takes its stock off the shelf, and that is where an item can hit
+      // its reorder level.
+      let stockWentLow = false;
 
-      return db.transaction(async tx => {
+      const settled = await db.transaction(async tx => {
         const [order] = await tx
           .select()
           .from(storeOrders)
@@ -322,7 +327,7 @@ export const ordersRouter = router({
         if (!order.stockDeductedAt) {
           const lines = await tx.select().from(orderItems).where(eq(orderItems.orderId, order.id));
           for (const line of lines) {
-            await applyStockMovement(tx, {
+            const movement = await applyStockMovement(tx, {
               inventoryItemId: line.inventoryItemId,
               movementType: "retail_sale",
               quantityDelta: -line.quantity,
@@ -331,6 +336,7 @@ export const ordersRouter = router({
               note: `Sold on ${order.orderNumber}`,
               performedByUserId: ctx.user.id,
             });
+            if (movement.crossedReorderLevel) stockWentLow = true;
           }
           await tx
             .update(storeOrders)
@@ -351,6 +357,10 @@ export const ordersRouter = router({
 
         return { id: payment?.id, reference };
       });
+
+      if (stockWentLow) alertLowStockInBackground(db, ctx.actor);
+
+      return settled;
     }),
 
   /** Refund with an optional restock, as a counter-entry rather than an edit. */
