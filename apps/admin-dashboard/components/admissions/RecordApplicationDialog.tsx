@@ -23,6 +23,7 @@ import {
 import { Textarea } from "@blush/ui/components/ui/textarea";
 import { SaveCourseDialog } from "@/components/academics/SaveCourseDialog";
 import { usePermissions } from "@/hooks/usePermissions";
+import { ageFromBirthDate } from "@/lib/ageFromBirthDate";
 import { describeDuration } from "@/lib/describeDuration";
 import { trpc } from "@/lib/trpc";
 
@@ -71,6 +72,27 @@ export function RecordApplicationDialog({
   const [education, setEducation] = useState("");
   const [statement, setStatement] = useState("");
   const [error, setError] = useState<string | null>(null);
+
+  /**
+   * The age field follows the date of birth rather than being typed twice.
+   *
+   * The paper form asks for both, and a desk copying it out has no reason to
+   * work the subtraction out by hand - nor to be trusted with it, since an age
+   * that disagrees with the date above it is the kind of thing nobody notices
+   * until the certificate is printed. While a date is present the field is
+   * derived and locked; clearing the date hands it back, because an applicant
+   * who knows they are 24 but not the day they were born still has to be
+   * written down.
+   */
+  const derivedAge = useMemo(() => ageFromBirthDate(birthDate), [birthDate]);
+  const ageIsDerived = derivedAge !== null;
+
+  function handleBirthDateChange(value: string) {
+    setBirthDate(value);
+    const nextAge = ageFromBirthDate(value);
+    if (nextAge !== null) setAge(String(nextAge));
+    else if (ageIsDerived) setAge("");
+  }
 
   useEffect(() => {
     setFullName("");
@@ -252,7 +274,7 @@ export function RecordApplicationDialog({
                     id="app-dob"
                     type="date"
                     value={birthDate}
-                    onChange={event => setBirthDate(event.target.value)}
+                    onChange={event => handleBirthDateChange(event.target.value)}
                   />
                 </div>
 
@@ -266,7 +288,15 @@ export function RecordApplicationDialog({
                     value={age}
                     onChange={event => setAge(event.target.value)}
                     placeholder="e.g. 21"
+                    readOnly={ageIsDerived}
+                    aria-describedby={ageIsDerived ? "app-age-hint" : undefined}
+                    className={ageIsDerived ? "bg-muted text-muted-foreground" : undefined}
                   />
+                  {ageIsDerived ? (
+                    <p id="app-age-hint" className="text-xs text-muted-foreground">
+                      Worked out from the date of birth.
+                    </p>
+                  ) : null}
                 </div>
               </div>
 
