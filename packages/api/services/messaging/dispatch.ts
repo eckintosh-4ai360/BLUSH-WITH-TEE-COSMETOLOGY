@@ -142,14 +142,22 @@ export async function flush(
   db: DbExecutor,
   limit = BATCH_SIZE,
   /**
-   * Narrows the drain to one message. Used by the hand-pressed sends, where
-   * the person is waiting on the outcome of their own message and a backlog
-   * of older ones must not be what the batch spends itself on.
+   * Narrows the drain to named rows. Used by the hand-pressed sends, where the
+   * person is waiting on the outcome of their own messages and a backlog of
+   * older ones must not be what the batch spends itself on.
+   *
+   * A limit on its own does not do that: rows are drained oldest first, so the
+   * backlog is exactly what a bare `flush(db, n)` would pick up.
    */
-  onlyId?: number,
+  onlyIds?: number | number[],
 ): Promise<{ sent: number; failed: number; skipped: number }> {
   const config = await readMessagingConfig(db);
   const tally = { sent: 0, failed: 0, skipped: 0 };
+
+  const named = onlyIds === undefined ? null : [onlyIds].flat();
+  // An explicit empty list means "these rows", of which there are none - not
+  // "everything waiting", which is what dropping the clause would mean.
+  if (named && !named.length) return tally;
 
   const pending = await db
     .select()
@@ -159,7 +167,7 @@ export async function flush(
         eq(notificationDeliveries.status, "queued"),
         inArray(notificationDeliveries.channel, ["email", "sms"]),
         lt(notificationDeliveries.attempts, MAX_ATTEMPTS),
-        onlyId ? eq(notificationDeliveries.id, onlyId) : undefined,
+        named ? inArray(notificationDeliveries.id, named) : undefined,
       ),
     )
     .orderBy(asc(notificationDeliveries.createdAt))

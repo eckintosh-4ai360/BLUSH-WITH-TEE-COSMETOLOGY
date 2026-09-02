@@ -577,20 +577,21 @@ export const financeRouter = router({
     });
 
     // Drained in the foreground like the single send: somebody is watching the
-    // button and is owed the real outcome rather than "queued". The limit is
-    // this run's own rows, so an older backlog is not what it spends itself on.
-    await flush(db, queued.length);
+    // button and is owed the real outcome rather than "queued".
+    //
+    // Named row by row, not merely limited to the same count. Rows are drained
+    // oldest first, so a bare limit would spend the batch on whatever backlog
+    // was already waiting and leave this run's messages sitting in the queue -
+    // while the counts below, read from this run's rows, reported them as
+    // undelivered.
+    const queuedIds = queued.map(row => row.id);
+    await flush(db, queuedIds.length, queuedIds);
 
-    const settled = queued.length
+    const settled = queuedIds.length
       ? await db
           .select({ status: notificationDeliveries.status, error: notificationDeliveries.error })
           .from(notificationDeliveries)
-          .where(
-            inArray(
-              notificationDeliveries.id,
-              queued.map(row => row.id),
-            ),
-          )
+          .where(inArray(notificationDeliveries.id, queuedIds))
       : [];
 
     // Counted from the rows themselves, so a provider that refused half of
