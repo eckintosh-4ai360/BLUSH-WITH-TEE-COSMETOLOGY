@@ -38,6 +38,7 @@ import { DEFAULT_COURSE_CATEGORY } from "@blush/shared/const";
 import { storageGet, storagePut } from "@blush/storage";
 import { dbOrThrow } from "../dbOrThrow";
 import { recordAudit } from "../services/audit";
+import { syncStudentCharges } from "../services/billing";
 import { ensurePlatformBootstrapped } from "../services/bootstrap";
 import { isUniqueViolation } from "../services/dbErrors";
 import { allocatePayment, studentAccountSummary } from "../services/fees";
@@ -254,7 +255,7 @@ export const adminNamespaceRouter = router({
     return [...byStudent.values()];
   }),
 
-  createEnrollment: adminProcedure.input(z.object({ studentId: z.number().int().positive(), courseId: z.number().int().positive(), expectedCompletionDate: z.coerce.date().optional() })).mutation(async ({ input }) => {
+  createEnrollment: adminProcedure.input(z.object({ studentId: z.number().int().positive(), courseId: z.number().int().positive(), expectedCompletionDate: z.coerce.date().optional() })).mutation(async ({ input, ctx }) => {
     const db = await dbOrThrow();
 
     // Leaving a removed or graduated student out of the picker is presentation;
@@ -308,7 +309,13 @@ export const adminNamespaceRouter = router({
 
     try {
       const [enrollment] = await db.insert(enrollments).values({ studentId: input.studentId, courseId: input.courseId, expectedCompletionDate: input.expectedCompletionDate }).returning({ id: enrollments.id });
-      return { id: enrollment?.id };
+
+      // Placing a student on a programme is what makes them liable for its
+      // fees. Without this the account stays empty and every figure downstream
+      // - the payment dialog, the fee register, the arrears run - reads zero.
+      const billed = await syncStudentCharges(db, input.studentId, ctx.user.id);
+
+      return { id: enrollment?.id, charged: billed.raised + billed.repaired };
     } catch (error) {
       // Two people enrolling the same student at once both pass the read above
       // and one of them lands here. The database settled it; this only turns
@@ -870,7 +877,9 @@ export const adminNamespaceRouter = router({
         const [student] = await db.insert(studentProfiles).values({ applicationId: application.id, personId, userId: accountId, studentNumber, fullName: application.fullName, email: application.email, phone: application.phone }).returning({ id: studentProfiles.id });
         if (student?.id) {
           await db.insert(enrollments).values({ studentId: student.id, courseId: application.courseId, status: "active" });
-          await db.insert(feeCharges).values({ studentId: student.id, feeType: "tuition", description: "Program tuition", amountDue: "0.00", status: "open" });
+          // Was a hardcoded `0.00` "Program tuition" row, which is why an
+          // approved applicant arrived owing nothing at all.
+          await syncStudentCharges(db, student.id, ctx.user.id);
         }
         if (accountId) {
           await grantStudentRole(db, accountId);

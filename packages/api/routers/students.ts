@@ -27,6 +27,7 @@ import {
 } from "@blush/db/schema";
 import { dbOrThrow } from "../dbOrThrow";
 import { buildReference } from "../platform.utils";
+import { syncStudentCharges } from "../services/billing";
 import { recordAudit } from "../services/audit";
 import { announce } from "../services/messaging/announce";
 import { flushInBackground } from "../services/messaging/dispatch";
@@ -300,6 +301,10 @@ export const studentsRouter = router({
             courseId: input.courseId,
             status: "active",
           });
+          // Same as every other way onto a programme: the enrolment is what
+          // raises the fees, so a student added here starts with a real
+          // account rather than an empty one.
+          await syncStudentCharges(tx, student.id, ctx.user.id);
         }
 
         await recordAudit(tx, ctx.actor, {
