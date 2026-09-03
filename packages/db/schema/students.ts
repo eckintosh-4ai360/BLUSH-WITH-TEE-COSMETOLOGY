@@ -1,4 +1,4 @@
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
   boolean,
   date,
@@ -10,6 +10,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   varchar,
 } from "drizzle-orm/pg-core";
 import {
@@ -72,13 +73,23 @@ export const enrollments = pgTable(
     status: enrollmentStatus("status").default("active").notNull(),
   },
   table => [
-    // A student may retake a course in a later intake, but not hold two live
-    // enrolments on the same course/intake pair.
-    unique("enrollment_student_course_intake_unique").on(
-      table.studentId,
-      table.courseId,
-      table.intakeId,
-    ),
+    /**
+     * One live enrolment per student per course.
+     *
+     * Partial on purpose. The rule is about enrolments that are *running*, and
+     * withdrawing or completing one has to leave the student free to sit the
+     * course again - which a plain unique constraint over the same columns
+     * would forbid.
+     *
+     * It replaces a `(studentId, courseId, intakeId)` constraint that claimed
+     * this and never did it: `intakeId` is null for every enrolment made from
+     * the academics screen, and Postgres treats nulls in a unique constraint
+     * as distinct, so the constraint matched nothing and a student could be
+     * placed on the same programme any number of times.
+     */
+    uniqueIndex("enrollment_live_course_unique")
+      .on(table.studentId, table.courseId)
+      .where(sql`status in ('active', 'paused')`),
     index("enrollments_student_idx").on(table.studentId),
     index("enrollments_course_idx").on(table.courseId),
     index("enrollments_status_idx").on(table.status),

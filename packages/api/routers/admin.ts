@@ -38,6 +38,7 @@ import { storageGet, storagePut } from "@blush/storage";
 import { dbOrThrow } from "../dbOrThrow";
 import { recordAudit } from "../services/audit";
 import { ensurePlatformBootstrapped } from "../services/bootstrap";
+import { isUniqueViolation } from "../services/dbErrors";
 import { allocatePayment, studentAccountSummary } from "../services/fees";
 import { likePattern } from "../services/pagination";
 import {
@@ -81,6 +82,12 @@ const LEGACY_EXPENSE_CATEGORIES = [
 
 function isLegacyExpenseCategory(key: string): key is (typeof LEGACY_EXPENSE_CATEGORIES)[number] {
   return (LEGACY_EXPENSE_CATEGORIES as readonly string[]).includes(key);
+}
+
+/** Says what is in the way and what to do about it, not that a write failed. */
+function alreadyEnrolled(studentName: string, courseTitle: string, status: string): string {
+  const standing = status === "paused" ? "a paused enrolment on" : "already on";
+  return `${studentName} is ${standing} ${courseTitle}. Remove that enrolment, or graduate the student, before placing them on it again.`;
 }
 
 /**
@@ -253,7 +260,7 @@ export const adminNamespaceRouter = router({
     // this is the check that holds. A form opened before the student graduated
     // is still sitting on someone's screen with the old list in it.
     const [student] = await db
-      .select({ id: studentProfiles.id, status: studentProfiles.status })
+      .select({ id: studentProfiles.id, fullName: studentProfiles.fullName, status: studentProfiles.status })
       .from(studentProfiles)
       .where(and(eq(studentProfiles.id, input.studentId), isNull(studentProfiles.deletedAt)))
       .limit(1);
@@ -268,8 +275,48 @@ export const adminNamespaceRouter = router({
       });
     }
 
-    const [enrollment] = await db.insert(enrollments).values({ studentId: input.studentId, courseId: input.courseId, expectedCompletionDate: input.expectedCompletionDate }).returning({ id: enrollments.id });
-    return { id: enrollment?.id };
+    const [course] = await db
+      .select({ title: courses.title })
+      .from(courses)
+      .where(eq(courses.id, input.courseId))
+      .limit(1);
+
+    if (!course) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "That programme was not found." });
+    }
+
+    // Read first so the refusal can name the student and the programme. The
+    // index below is what actually holds the rule; this is here because
+    // "duplicate key value violates unique constraint" is not something to put
+    // in front of somebody enrolling a student.
+    const [live] = await db
+      .select({ id: enrollments.id, status: enrollments.status })
+      .from(enrollments)
+      .where(
+        and(
+          eq(enrollments.studentId, input.studentId),
+          eq(enrollments.courseId, input.courseId),
+          inArray(enrollments.status, ["active", "paused"]),
+        ),
+      )
+      .limit(1);
+
+    if (live) {
+      throw new TRPCError({ code: "CONFLICT", message: alreadyEnrolled(student.fullName, course.title, live.status) });
+    }
+
+    try {
+      const [enrollment] = await db.insert(enrollments).values({ studentId: input.studentId, courseId: input.courseId, expectedCompletionDate: input.expectedCompletionDate }).returning({ id: enrollments.id });
+      return { id: enrollment?.id };
+    } catch (error) {
+      // Two people enrolling the same student at once both pass the read above
+      // and one of them lands here. The database settled it; this only turns
+      // its answer back into the sentence the other caller already got.
+      if (isUniqueViolation(error, "enrollment_live_course_unique")) {
+        throw new TRPCError({ code: "CONFLICT", message: alreadyEnrolled(student.fullName, course.title, "active") });
+      }
+      throw error;
+    }
   }),
 
   /**

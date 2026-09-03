@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { certificates, systemSettings } from "@blush/db/schema";
 import type { Database, DbExecutor } from "../dbOrThrow";
+import { isUniqueViolation } from "./dbErrors";
 import { gradeForPercent, type GradeBand } from "./grading";
 
 /**
@@ -109,12 +110,11 @@ export async function issueCertificate(
 
       if (row?.id) return { id: row.id, certificateNumber, verificationToken };
     } catch (error) {
-      const isDuplicate =
-        typeof error === "object" &&
-        error !== null &&
-        (error as { code?: string }).code === "23505";
-      if (!isDuplicate) throw error;
-      // Someone else took this number; recompute and try again.
+      // Someone else took this number; recompute and try again. Read through
+      // the wrapper drizzle puts around driver errors - checking the outer
+      // object alone never matched, so the retry this loop exists for was
+      // rethrowing instead.
+      if (!isUniqueViolation(error)) throw error;
     }
   }
 

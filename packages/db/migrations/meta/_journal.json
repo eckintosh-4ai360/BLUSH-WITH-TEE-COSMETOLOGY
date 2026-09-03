@@ -78,6 +78,13 @@
       "when": 1788302652625,
       "tag": "0010_add_expense_scope",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1788390000000,
+      "tag": "0011_one_live_enrolment_per_course",
+      "breakpoints": true
     }
   ]
 }
