@@ -18,6 +18,7 @@ import { z } from "zod";
 import {
   applicationDocuments,
   applications,
+  assessmentResults,
   assessments,
   courseModules,
   courses,
@@ -376,11 +377,86 @@ export const adminNamespaceRouter = router({
       });
     }),
 
-  createAssessment: adminProcedure.input(z.object({ courseId: z.number().int().positive(), title: z.string().min(2).max(180), assessmentType: z.enum(["theory", "practical", "project", "exam"]), totalScore: z.number().int().min(1).max(1000), dueDate: z.coerce.date().optional() })).mutation(async ({ input }) => {
+  createAssessment: permissionProcedure("academics.write").input(z.object({ courseId: z.number().int().positive(), title: z.string().min(2).max(180), assessmentType: z.enum(["theory", "practical", "project", "exam"]), totalScore: z.number().int().min(1).max(1000), dueDate: z.coerce.date().optional() })).mutation(async ({ input, ctx }) => {
     const db = await dbOrThrow();
     const [assessment] = await db.insert(assessments).values(input).returning({ id: assessments.id });
+
+    await recordAudit(db, ctx.actor, {
+      action: "create",
+      entity: "assessment",
+      entityId: assessment?.id,
+      entityLabel: input.title,
+      newValue: { courseId: input.courseId, assessmentType: input.assessmentType, totalScore: input.totalScore },
+      summary: `${ctx.actor.name ?? "Staff"} added the ${input.assessmentType} "${input.title}"`,
+    });
+
     return { id: assessment?.id };
   }),
+
+  /**
+   * Takes an assessment out of the catalogue.
+   *
+   * Soft, and not for the usual reason. `assessmentResults` cascades from
+   * `assessmentId`, so deleting the row would take every mark ever recorded
+   * against it - and unlike a mistyped expense, those marks are the only
+   * evidence the practical was sat at all. The row stays, drops out of the
+   * catalogue and the mark sheets, and stops counting towards the weighted
+   * grade a certificate is issued with.
+   *
+   * The marks it holds are counted and returned rather than hidden: a
+   * mistakenly created assessment nobody has marked and one carrying a whole
+   * cohort's exam results are very different things to remove, and the person
+   * pressing the button is owed that difference before they do.
+   */
+  deleteAssessment: permissionProcedure("academics.write")
+    .input(z.object({ assessmentId: z.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+
+      const [before] = await db
+        .select({
+          id: assessments.id,
+          title: assessments.title,
+          assessmentType: assessments.assessmentType,
+          totalScore: assessments.totalScore,
+          courseId: assessments.courseId,
+        })
+        .from(assessments)
+        .where(and(eq(assessments.id, input.assessmentId), isNull(assessments.deletedAt)))
+        .limit(1);
+
+      if (!before) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "That assessment is no longer on file." });
+      }
+
+      const [marks] = await db
+        .select({ total: count() })
+        .from(assessmentResults)
+        .where(eq(assessmentResults.assessmentId, input.assessmentId));
+      const markCount = Number(marks?.total ?? 0);
+
+      await db
+        .update(assessments)
+        .set({ deletedAt: new Date() })
+        .where(eq(assessments.id, input.assessmentId));
+
+      await recordAudit(db, ctx.actor, {
+        action: "delete",
+        entity: "assessment",
+        entityId: before.id,
+        entityLabel: before.title,
+        oldValue: {
+          title: before.title,
+          assessmentType: before.assessmentType,
+          totalScore: before.totalScore,
+          courseId: before.courseId,
+          marksHeld: markCount,
+        },
+        summary: `${ctx.actor.name ?? "Staff"} removed the ${before.assessmentType} "${before.title}"${markCount ? ` and the ${markCount} mark${markCount === 1 ? "" : "s"} on it` : ""}`,
+      });
+
+      return { id: before.id, title: before.title, marksKept: markCount };
+    }),
 
   /**
    * Records an application taken in person.

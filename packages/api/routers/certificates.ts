@@ -379,7 +379,13 @@ async function computeGrade(
       })
       .from(assessmentResults)
       .innerJoin(assessments, eq(assessmentResults.assessmentId, assessments.id))
-      .where(and(eq(assessmentResults.studentId, studentId), eq(assessments.courseId, courseId))),
+      .where(
+        and(
+          eq(assessmentResults.studentId, studentId),
+          eq(assessments.courseId, courseId),
+          isNull(assessments.deletedAt),
+        ),
+      ),
   ]);
 
   return deriveGrade(results, grading.bands)?.grade ?? null;

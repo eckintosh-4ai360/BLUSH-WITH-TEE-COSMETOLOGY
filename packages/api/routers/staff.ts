@@ -85,7 +85,7 @@ export const staffRouter = router({
   }),
   assessments: staffProcedure.query(async () => {
     const db = await dbOrThrow();
-    return db.select().from(assessments).orderBy(desc(assessments.createdAt));
+    return db.select().from(assessments).where(isNull(assessments.deletedAt)).orderBy(desc(assessments.createdAt));
   }),
   team: staffProcedure.query(async () => {
     const db = await dbOrThrow();

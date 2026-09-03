@@ -85,7 +85,10 @@ async function assessmentOrThrow(db: DbExecutor, assessmentId: number) {
     .from(assessments)
     .innerJoin(courses, eq(assessments.courseId, courses.id))
     .leftJoin(courseModules, eq(assessments.moduleId, courseModules.id))
-    .where(eq(assessments.id, assessmentId))
+    // A removed assessment cannot be marked, and its sheet cannot be opened.
+    // The marks already on it survive the removal; there is just no way back
+    // in to change them without restoring the assessment first.
+    .where(and(eq(assessments.id, assessmentId), isNull(assessments.deletedAt)))
     .limit(1);
 
   if (!row) {
@@ -136,6 +139,7 @@ export const resultsRouter = router({
       })
       .from(assessments)
       .innerJoin(courses, eq(assessments.courseId, courses.id))
+      .where(isNull(assessments.deletedAt))
       .orderBy(asc(courses.title), asc(assessments.title));
   }),
 

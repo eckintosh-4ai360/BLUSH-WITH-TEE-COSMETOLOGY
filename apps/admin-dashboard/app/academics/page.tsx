@@ -81,11 +81,13 @@ function AcademicsContent() {
     courseTitle: string | null;
   } | null>(null);
   const [scoring, setScoring] = useState<ScorableAssessment | null>(null);
+  const [removingAssessment, setRemovingAssessment] = useState<CatalogueRow | null>(null);
 
   // Marks sit behind their own permission: a secretary keeps the register and
   // the enrolments but has no business reading what anyone scored. Without it
   // the catalogue still lists the assessments, just without the marking.
   const canReadResults = can("results.read");
+  const canWriteAcademics = can("academics.write");
 
   // Queries. Programmes themselves are created and priced on the Programmes
   // screen; what is needed here is only the count and the list to enrol into.
@@ -143,6 +145,22 @@ function AcademicsContent() {
       utils.staff.assessments.invalidate();
       utils.results.catalogue.invalidate();
     },
+    onError: err => toast.error(err.message),
+  });
+
+  const removeAssessment = trpc.admin.deleteAssessment.useMutation({
+    onSuccess: result => {
+      setRemovingAssessment(null);
+      toast.success(
+        result.marksKept
+          ? `"${result.title}" removed. ${result.marksKept} mark${result.marksKept === 1 ? "" : "s"} kept on file.`
+          : `"${result.title}" removed.`,
+      );
+      utils.staff.assessments.invalidate();
+      utils.results.catalogue.invalidate();
+    },
+    // Left open on failure so the refusal is read where it was asked for, the
+    // same way removing an enrolment behaves.
     onError: err => toast.error(err.message),
   });
 
@@ -565,9 +583,9 @@ function AcademicsContent() {
                               </p>
                             ) : null}
 
-                            {canReadResults ? (
-                              <div className="mt-auto flex items-center justify-between gap-2 pt-1">
-                                {/* Says what is left to do, not just that marks exist. */}
+                            <div className="mt-auto flex items-center justify-between gap-2 pt-1">
+                              {/* Says what is left to do, not just that marks exist. */}
+                              {canReadResults ? (
                                 <span
                                   className={`text-xs ${
                                     complete
@@ -581,26 +599,44 @@ function AcademicsContent() {
                                       ? `All ${marked} marked`
                                       : `${marked} of ${enrolled} marked`}
                                 </span>
+                              ) : (
+                                <span />
+                              )}
 
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-8 gap-1.5 text-xs"
-                                  disabled={!enrolled}
-                                  onClick={() =>
-                                    setScoring({
-                                      id: assessment.id,
-                                      title: assessment.title,
-                                      totalScore: assessment.totalScore,
-                                      courseTitle: assessment.courseTitle ?? "",
-                                    })
-                                  }
-                                >
-                                  <ListChecks className="h-3.5 w-3.5" />
-                                  {marked ? "Marks" : "Score"}
-                                </Button>
-                              </div>
-                            ) : null}
+                              <span className="flex items-center gap-1">
+                                {canReadResults ? (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 gap-1.5 text-xs"
+                                    disabled={!enrolled}
+                                    onClick={() =>
+                                      setScoring({
+                                        id: assessment.id,
+                                        title: assessment.title,
+                                        totalScore: assessment.totalScore,
+                                        courseTitle: assessment.courseTitle ?? "",
+                                      })
+                                    }
+                                  >
+                                    <ListChecks className="h-3.5 w-3.5" />
+                                    {marked ? "Marks" : "Score"}
+                                  </Button>
+                                ) : null}
+
+                                {canWriteAcademics ? (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                                    aria-label={`Remove ${assessment.title}`}
+                                    onClick={() => setRemovingAssessment(assessment)}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                ) : null}
+                              </span>
+                            </div>
                           </div>
                         );
                       })}
@@ -616,6 +652,45 @@ function AcademicsContent() {
           </div>
         </TabsContent>
       </Tabs>
+
+      <AlertDialog
+        open={removingAssessment !== null}
+        onOpenChange={open => !open && setRemovingAssessment(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Remove &quot;{removingAssessment?.title}&quot;?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {/*
+                The count is the decision. Removing an assessment nobody has
+                marked is tidying up; removing one holding a cohort's exam
+                results changes what every one of their certificates says.
+              */}
+              {removingAssessment?.marked
+                ? `It leaves the catalogue and stops counting towards final grades, so every student on ${removingAssessment.courseTitle ?? "this programme"} may end up graded differently. The ${removingAssessment.marked} mark${removingAssessment.marked === 1 ? "" : "s"} already recorded on it stay on file for the audit trail rather than being deleted.`
+                : "It leaves the catalogue and can no longer be marked. Nothing has been scored on it, so no student's grade changes."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={removeAssessment.isPending}>
+              Keep assessment
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={removeAssessment.isPending}
+              onClick={event => {
+                event.preventDefault();
+                if (removingAssessment) {
+                  removeAssessment.mutate({ assessmentId: removingAssessment.id });
+                }
+              }}
+            >
+              {removeAssessment.isPending ? "Removing..." : "Remove assessment"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <ScoreAssessmentDialog
         assessment={scoring}

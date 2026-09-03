@@ -164,10 +164,22 @@ export const assessments = pgTable(
       onDelete: "set null",
     }),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
+    /**
+     * Removed from the catalogue, but still on file.
+     *
+     * `assessmentResults` cascades from `assessmentId`, so deleting the row
+     * outright would take every student's mark on it with them - marks that
+     * attendance-style corrections aside are the only record that the practical
+     * was ever sat. Soft, therefore, like every other removal here: it drops
+     * out of the catalogue, the mark sheets and the weighted grade, and the
+     * marks stay where they are.
+     */
+    deletedAt: timestamp("deletedAt"),
   },
   table => [
     index("assessments_course_idx").on(table.courseId),
     index("assessments_module_idx").on(table.moduleId),
+    index("assessments_deleted_idx").on(table.deletedAt),
   ],
 );
 

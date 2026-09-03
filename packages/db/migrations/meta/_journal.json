@@ -85,6 +85,13 @@
       "when": 1788390000000,
       "tag": "0011_one_live_enrolment_per_course",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1788393600000,
+      "tag": "0012_add_assessment_deleted_at",
+      "breakpoints": true
     }
   ]
 }

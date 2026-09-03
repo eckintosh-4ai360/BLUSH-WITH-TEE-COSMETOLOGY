@@ -1,4 +1,4 @@
-import { and, avg, count, desc, eq, gte, ilike, lte, ne, or, sql } from "drizzle-orm";
+import { and, avg, count, desc, eq, gte, ilike, isNull, lte, ne, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import {
   assessmentResults,
@@ -304,6 +304,7 @@ export const reportsRouter = router({
           })
           .from(assessmentResults)
           .innerJoin(assessments, eq(assessmentResults.assessmentId, assessments.id))
+          .where(isNull(assessments.deletedAt))
           .groupBy(assessments.courseId),
         db
           .select({ courseId: certificates.courseId, issued: count() })
