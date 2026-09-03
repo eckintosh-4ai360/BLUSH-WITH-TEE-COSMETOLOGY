@@ -263,28 +263,33 @@ function AdmissionsContent() {
               </>
             )}
             {can("admissions.write") && (
-              <>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  aria-label={`Edit application ${row.application.reference}`}
-                  title="Edit form"
-                  onClick={() => setEditing(row.application)}
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-destructive hover:text-destructive"
-                  aria-label={`Delete application ${row.application.reference}`}
-                  title="Delete form"
-                  onClick={() => setRemoving(row.application)}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                aria-label={`Edit application ${row.application.reference}`}
+                title="Edit form"
+                onClick={() => setEditing(row.application)}
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
+            )}
+            {/*
+              Separate from editing on purpose. Whoever records an application
+              corrects their own typos; destroying the record of somebody
+              having applied is an administrator's decision.
+            */}
+            {can("admissions.delete") && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-destructive hover:text-destructive"
+                aria-label={`Delete application ${row.application.reference}`}
+                title="Delete form"
+                onClick={() => setRemoving(row.application)}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
             )}
           </span>
         );

@@ -753,7 +753,12 @@ export const adminNamespaceRouter = router({
    * record, their enrolment and their fees all hang off this row, and the
    * screens that show them would be left naming a form nobody can open.
    */
-  deleteApplication: permissionProcedure("admissions.write")
+  /**
+   * Removing an application is held to a higher bar than recording one.
+   * The front desk types applications in and corrects its own typos;
+   * destroying the record of somebody having applied is not part of that.
+   */
+  deleteApplication: permissionProcedure("admissions.delete")
     .input(z.object({ applicationId: z.number().int().positive() }))
     .mutation(async ({ input, ctx }) => {
       const db = await dbOrThrow();
@@ -844,7 +849,7 @@ export const adminNamespaceRouter = router({
       return { success: true };
     }),
 
-  reviewApplication: adminProcedure.input(z.object({ applicationId: z.number().int().positive(), status: z.enum(["under_review", "more_information", "approved", "rejected"]), decisionNote: z.string().max(2000).optional() })).mutation(async ({ input, ctx }) => {
+  reviewApplication: permissionProcedure("admissions.review").input(z.object({ applicationId: z.number().int().positive(), status: z.enum(["under_review", "more_information", "approved", "rejected"]), decisionNote: z.string().max(2000).optional() })).mutation(async ({ input, ctx }) => {
     const db = await dbOrThrow();
     // Removed forms are not reviewable: approving one would open a student
     // record against a form no screen can show.
