@@ -38,11 +38,14 @@ export function RecordPaymentDialog({
   onOpenChange,
   onRecorded,
   studentId: fixedStudentId,
+  presetAmount,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onRecorded: () => void;
   studentId?: number;
+  /** Carried over from an amount already typed on the row that opened this. */
+  presetAmount?: string;
 }) {
   const [studentQuery, setStudentQuery] = useState("");
   const [studentId, setStudentId] = useState<number | null>(fixedStudentId ?? null);
@@ -58,12 +61,14 @@ export function RecordPaymentDialog({
   useEffect(() => {
     setStudentQuery("");
     setStudentId(fixedStudentId ?? null);
-    setAmount("");
+    // Whatever was typed on the register row carries in, so the figure is not
+    // entered twice - and the dialog is still where it is confirmed.
+    setAmount(presetAmount?.trim() ?? "");
     setMethod("cash");
     setTransactionReference("");
     setNote("");
     setError(null);
-  }, [open, fixedStudentId]);
+  }, [open, fixedStudentId, presetAmount]);
 
   const search = trpc.dashboard.search.useQuery(
     { term: studentQuery },
