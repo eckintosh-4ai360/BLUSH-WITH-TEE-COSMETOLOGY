@@ -55,30 +55,44 @@ const classDateInput = z
 
 export const attendanceRouter = router({
   /**
-   * Today's list for one programme: every active enrolment, with whatever was
-   * already recorded for that date.
+   * The day's register, with whatever was already recorded for that date.
+   *
+   * `courseId` is a filter, not a requirement. The default is the whole school
+   * in one list: a small school takes one register in the morning, and making
+   * somebody pick a programme first - then pick the next one, and the next -
+   * turned one job into as many jobs as there are programmes. Narrowing to a
+   * single programme is still there for when a class is what you want.
    *
    * Withdrawn and completed enrolments are left out — they are not in the room
    * — but paused ones are kept, because a pause is often the very thing an
    * absence record is evidence for.
+   *
+   * A student enrolled on two programmes appears once per enrolment. That is
+   * deliberate: attendance is recorded against an enrolment, so they really are
+   * two separate registers, and `courseTitle` on each row says which is which.
    */
   register: permissionProcedure("attendance.read")
     .input(
       z.object({
-        courseId: z.number().int().positive(),
+        /** Omitted means every programme. */
+        courseId: z.number().int().positive().optional(),
         classDate: classDateInput,
       }),
     )
     .query(async ({ input }) => {
       const db = await dbOrThrow();
 
-      const [course] = await db
-        .select({ id: courses.id, title: courses.title })
-        .from(courses)
-        .where(eq(courses.id, input.courseId))
-        .limit(1);
-      if (!course) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "That programme was not found." });
+      let course: { id: number; title: string } | null = null;
+      if (input.courseId) {
+        const [found] = await db
+          .select({ id: courses.id, title: courses.title })
+          .from(courses)
+          .where(eq(courses.id, input.courseId))
+          .limit(1);
+        if (!found) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "That programme was not found." });
+        }
+        course = found;
       }
 
       const rows = await db
@@ -87,6 +101,8 @@ export const attendanceRouter = router({
           studentId: studentProfiles.id,
           studentNumber: studentProfiles.studentNumber,
           fullName: studentProfiles.fullName,
+          courseId: enrollments.courseId,
+          courseTitle: courses.title,
           enrolmentStatus: enrollments.status,
           status: attendanceRecords.status,
           note: attendanceRecords.note,
@@ -94,6 +110,7 @@ export const attendanceRouter = router({
         })
         .from(enrollments)
         .innerJoin(studentProfiles, eq(enrollments.studentId, studentProfiles.id))
+        .innerJoin(courses, eq(enrollments.courseId, courses.id))
         // Left-joined on the date so an unmarked student still appears, with a
         // null status. An inner join would silently hide exactly the people the
         // register exists to catch.
@@ -106,12 +123,15 @@ export const attendanceRouter = router({
         )
         .where(
           and(
-            eq(enrollments.courseId, input.courseId),
+            input.courseId ? eq(enrollments.courseId, input.courseId) : undefined,
             inArray(enrollments.status, ["active", "paused"]),
             sql`${studentProfiles.deletedAt} is null`,
           ),
         )
-        .orderBy(asc(studentProfiles.fullName));
+        // By name, then by programme, so the whole-school list reads as one
+        // roll call rather than as programmes stacked end to end - the marker
+        // is going down a room, not down a syllabus.
+        .orderBy(asc(studentProfiles.fullName), asc(courses.title));
 
       return {
         course,
@@ -158,7 +178,10 @@ export const attendanceRouter = router({
             }),
           )
           .min(1)
-          .max(200),
+          // A whole-school register, not a class one, since that is what the
+          // page now sends by default. Still a ceiling rather than a target:
+          // past this the caller is not a person marking a room.
+          .max(1000),
       }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -304,13 +327,15 @@ export const attendanceRouter = router({
     }),
 
   /**
-   * The last few days marked for a programme, so it is obvious at a glance
-   * whether yesterday was missed.
+   * The last few days marked, so it is obvious at a glance whether yesterday
+   * was missed. Scoped to a programme, or the whole school when none is given -
+   * the same filter the register itself takes.
    */
   recentDays: permissionProcedure("attendance.read")
     .input(
       z.object({
-        courseId: z.number().int().positive(),
+        /** Omitted means every programme. */
+        courseId: z.number().int().positive().optional(),
         days: z.number().int().min(1).max(60).default(14),
       }),
     )
@@ -333,7 +358,7 @@ export const attendanceRouter = router({
         .innerJoin(enrollments, eq(attendanceRecords.enrollmentId, enrollments.id))
         .where(
           and(
-            eq(enrollments.courseId, input.courseId),
+            input.courseId ? eq(enrollments.courseId, input.courseId) : undefined,
             gte(attendanceRecords.classDate, since),
             lte(attendanceRecords.classDate, new Date()),
           ),

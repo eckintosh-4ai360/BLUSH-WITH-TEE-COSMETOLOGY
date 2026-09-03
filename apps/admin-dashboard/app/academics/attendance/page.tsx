@@ -47,6 +47,9 @@ import { trpc } from "@/lib/trpc";
 const STATUSES = ["present", "late", "absent", "excused"] as const;
 type Status = (typeof STATUSES)[number];
 
+/** Sentinel for the picker: Radix Select has no value for "no filter". */
+const ALL_COURSES = "all";
+
 /** State colours, matching the tones used elsewhere for status. */
 const STATUS_TONE: Record<Status, string> = {
   present: "bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-500/25",
@@ -92,7 +95,9 @@ export default function AttendancePage() {
 
 function AttendanceContent() {
   const { can } = usePermissions();
-  const [courseId, setCourseId] = useState<string>("");
+  // Opens on the whole school. Taking one register for everybody is the common
+  // case; a programme is a narrowing of it, not a precondition for it.
+  const [courseId, setCourseId] = useState<string>(ALL_COURSES);
   const [classDate, setClassDate] = useState(today());
 
   /** Marks being edited, keyed by enrolment. Empty until the register loads. */
@@ -101,15 +106,13 @@ function AttendanceContent() {
 
   const courses = trpc.attendance.markableCourses.useQuery();
 
-  // Pick the first programme once, so the page opens on something useful.
-  useEffect(() => {
-    if (!courseId && courses.data?.length) setCourseId(String(courses.data[0]?.id));
-  }, [courses.data, courseId]);
+  /** Everyone, unless a programme is chosen. */
+  const wholeSchool = courseId === ALL_COURSES;
 
-  const register = trpc.attendance.register.useQuery(
-    { courseId: Number(courseId), classDate },
-    { enabled: Boolean(courseId) },
-  );
+  const register = trpc.attendance.register.useQuery({
+    courseId: wholeSchool ? undefined : Number(courseId),
+    classDate,
+  });
 
   /**
    * Seeds the form whenever the register changes.
@@ -189,7 +192,9 @@ function AttendanceContent() {
       <header>
         <h1 className="text-2xl font-semibold tracking-tight">Attendance register</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Everyone starts marked present. Change the ones who are not, then save.
+          The whole school, marked present to begin with. Change the ones who are
+          not, then save. Narrow to a single programme if you would rather take
+          one class at a time.
         </p>
       </header>
 
@@ -199,9 +204,10 @@ function AttendanceContent() {
             <Label htmlFor="register-course">Programme</Label>
             <Select value={courseId} onValueChange={setCourseId}>
               <SelectTrigger id="register-course">
-                <SelectValue placeholder="Choose a programme" />
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value={ALL_COURSES}>Everyone in the school</SelectItem>
                 {(courses.data ?? []).map(course => (
                   <SelectItem key={course.id} value={String(course.id)}>
                     {course.title} · {course.enrolled} enrolled
@@ -231,7 +237,7 @@ function AttendanceContent() {
         ) : null}
       </Card>
 
-      {!courseId ? null : register.isLoading ? (
+      {register.isLoading ? (
         <Card className="space-y-3 p-5">
           {Array.from({ length: 5 }).map((_, index) => (
             <Skeleton key={index} className="h-12 w-full" />
@@ -244,7 +250,9 @@ function AttendanceContent() {
       ) : !students.length ? (
         <Card className="p-10 text-center">
           <p className="text-sm text-muted-foreground">
-            No active enrolments on this programme.
+            {wholeSchool
+              ? "Nobody is enrolled on a programme yet, so there is no register to take."
+              : "No active enrolments on this programme."}
           </p>
         </Card>
       ) : (
@@ -269,11 +277,14 @@ function AttendanceContent() {
                 label="Export day"
                 disabled={!students.length}
                 fileName={() => `attendance-${classDate}`}
-                title={`Attendance - ${register.data?.course.title ?? ""}`}
-                columns={DAY_COLUMNS}
+                title={`Attendance - ${register.data?.course?.title ?? "whole school"}`}
+                columns={wholeSchool ? DAY_COLUMNS_ALL : DAY_COLUMNS}
                 rows={() => students}
                 meta={() => [
-                  { label: "Programme", value: register.data?.course.title ?? "" },
+                  {
+                    label: "Programme",
+                    value: register.data?.course?.title ?? "Everyone in the school",
+                  },
                   { label: "Date", value: readableDate(classDate) },
                 ]}
                 onBeforeExport={() => {
@@ -309,8 +320,15 @@ function AttendanceContent() {
                     <p className="truncate text-sm font-medium text-foreground">
                       {student.fullName}
                     </p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="truncate text-xs text-muted-foreground">
                       {student.studentNumber}
+                      {/*
+                        Named only on the whole-school list, where a student on
+                        two programmes has two rows and nothing else separates
+                        them. On a single programme it is the same word on every
+                        line, which is noise.
+                      */}
+                      {wholeSchool ? ` · ${student.courseTitle}` : ""}
                       {student.enrolmentStatus === "paused" ? " · paused" : ""}
                     </p>
                   </div>
@@ -384,7 +402,10 @@ function AttendanceContent() {
             </div>
           ) : null}
 
-          <RecentDays courseId={Number(courseId)} onPick={setClassDate} />
+          <RecentDays
+            courseId={wholeSchool ? undefined : Number(courseId)}
+            onPick={setClassDate}
+          />
 
           <AttendanceHistory
             courses={courses.data ?? []}
@@ -402,7 +423,8 @@ function RecentDays({
   courseId,
   onPick,
 }: {
-  courseId: number;
+  /** Undefined for the whole school, matching the register above it. */
+  courseId: number | undefined;
   onPick: (date: string) => void;
 }) {
   const query = trpc.attendance.recentDays.useQuery({ courseId, days: 14 });
@@ -444,6 +466,7 @@ function RecentDays({
 type DayRow = {
   studentNumber: string;
   fullName: string;
+  courseTitle: string;
   status: string | null;
   note: string | null;
 };
@@ -452,6 +475,20 @@ type DayRow = {
 const DAY_COLUMNS: ExportColumn<DayRow>[] = [
   { key: "studentNumber", header: "Student number" },
   { key: "fullName", header: "Student" },
+  { key: "status", header: "Status", value: row => row.status ?? "not marked" },
+  { key: "note", header: "Note", value: row => row.note ?? "" },
+];
+
+/**
+ * The whole-school export, which needs the programme on every line.
+ *
+ * Without it a student on two programmes appears twice with no way to tell the
+ * rows apart, and the file reads as a duplicate rather than as two registers.
+ */
+const DAY_COLUMNS_ALL: ExportColumn<DayRow>[] = [
+  { key: "studentNumber", header: "Student number" },
+  { key: "fullName", header: "Student" },
+  { key: "courseTitle", header: "Programme" },
   { key: "status", header: "Status", value: row => row.status ?? "not marked" },
   { key: "note", header: "Note", value: row => row.note ?? "" },
 ];
