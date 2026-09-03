@@ -21,6 +21,7 @@ import {
   deriveGrade,
   issueCertificate,
 } from "../services/certificates";
+import { readGrading } from "../services/grading";
 import { notify } from "../services/notify";
 import { listInputSchema, likePattern, paginate, paginationBounds } from "../services/pagination";
 import { permissionProcedure, router, throttledPublicProcedure } from "../trpc";
@@ -31,14 +32,6 @@ import { permissionProcedure, router, throttledPublicProcedure } from "../trpc";
  * An employer checks a handful; a scraper wants thousands.
  */
 const verifyLimit = throttledPublicProcedure({ bucket: "certificates.verify", limit: 20, windowMs: 10 * 60_000 });
-
-const DEFAULT_BANDS = [
-  { grade: "A", min: 80 },
-  { grade: "B", min: 70 },
-  { grade: "C", min: 60 },
-  { grade: "D", min: 50 },
-  { grade: "F", min: 0 },
-];
 
 export const certificatesRouter = router({
   list: permissionProcedure("certificates.read")
@@ -376,12 +369,8 @@ async function computeGrade(
   studentId: number,
   courseId: number,
 ): Promise<string | null> {
-  const [bandRow, results] = await Promise.all([
-    db
-      .select({ value: systemSettings.value })
-      .from(systemSettings)
-      .where(eq(systemSettings.key, "academic.grading"))
-      .limit(1),
+  const [grading, results] = await Promise.all([
+    readGrading(db),
     db
       .select({
         score: assessmentResults.score,
@@ -393,8 +382,5 @@ async function computeGrade(
       .where(and(eq(assessmentResults.studentId, studentId), eq(assessments.courseId, courseId))),
   ]);
 
-  const stored = bandRow[0]?.value as { bands?: Array<{ grade: string; min: number }> } | undefined;
-  const bands = stored?.bands?.length ? stored.bands : DEFAULT_BANDS;
-
-  return deriveGrade(results, bands)?.grade ?? null;
+  return deriveGrade(results, grading.bands)?.grade ?? null;
 }

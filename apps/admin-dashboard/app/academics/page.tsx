@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   GraduationCap,
   Layers,
+  ListChecks,
   Trash2,
   Users,
 } from "lucide-react";
@@ -30,7 +31,25 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@blush/ui/components/u
 import { toast } from "@blush/ui/components/ui/sonner";
 import DashboardLayout from "@/components/DashboardLayout";
 import { PermissionGate } from "@/components/PermissionGate";
+import {
+  ScoreAssessmentDialog,
+  type ScorableAssessment,
+} from "@/components/academics/ScoreAssessmentDialog";
+import { usePermissions } from "@/hooks/usePermissions";
 import { trpc } from "@/lib/trpc";
+
+/** One catalogue row, however it was fetched. */
+type CatalogueRow = {
+  id: number;
+  title: string;
+  assessmentType: string;
+  totalScore: number;
+  dueDate: Date | string | null;
+  courseTitle: string | null;
+  /** Null when the reader may not see marks, not zero - nothing is claimed. */
+  enrolled: number | null;
+  marked: number | null;
+};
 
 export default function AdminAcademicPage() {
   return (
@@ -53,6 +72,7 @@ function StatValue({ value, loading }: { value: number; loading: boolean }) {
 
 function AcademicsContent() {
   const utils = trpc.useUtils();
+  const { can } = usePermissions();
 
   const [activeTab, setActiveTab] = useState("enrolments");
   const [removing, setRemoving] = useState<{
@@ -60,6 +80,12 @@ function AcademicsContent() {
     studentName: string;
     courseTitle: string | null;
   } | null>(null);
+  const [scoring, setScoring] = useState<ScorableAssessment | null>(null);
+
+  // Marks sit behind their own permission: a secretary keeps the register and
+  // the enrolments but has no business reading what anyone scored. Without it
+  // the catalogue still lists the assessments, just without the marking.
+  const canReadResults = can("results.read");
 
   // Queries. Programmes themselves are created and priced on the Programmes
   // screen; what is needed here is only the count and the list to enrol into.
@@ -67,8 +93,17 @@ function AcademicsContent() {
 
   const studentsQuery = trpc.admin.students.useQuery();
   const activeCourses = trpc.content.courses.useQuery();
-  const staffAssessments = trpc.staff.assessments.useQuery();
   const staffEnrollments = trpc.staff.enrollments.useQuery();
+
+  // The same catalogue from whichever endpoint the reader is allowed to use.
+  // `results.catalogue` carries how much of each sheet is marked, which is the
+  // whole point of the tab; `staff.assessments` is the titles alone.
+  const resultsCatalogue = trpc.results.catalogue.useQuery(undefined, {
+    enabled: canReadResults,
+  });
+  const staffAssessments = trpc.staff.assessments.useQuery(undefined, {
+    enabled: !canReadResults,
+  });
 
   // Mutations
   const toggleCourse = trpc.admin.toggleCourseActive.useMutation({
@@ -106,6 +141,7 @@ function AcademicsContent() {
     onSuccess: () => {
       toast.success("Assessment added successfully.");
       utils.staff.assessments.invalidate();
+      utils.results.catalogue.invalidate();
     },
     onError: err => toast.error(err.message),
   });
@@ -144,7 +180,33 @@ function AcademicsContent() {
   const totalProgrammes = allCourses.length;
   const activeCount = allCourses.filter(c => c.isActive).length;
   const totalEnrolments = staffEnrollments.data?.length ?? 0;
-  const totalAssessments = staffAssessments.data?.length ?? 0;
+
+  const catalogue: CatalogueRow[] = canReadResults
+    ? (resultsCatalogue.data ?? []).map(row => ({
+        id: row.id,
+        title: row.title,
+        assessmentType: row.assessmentType,
+        totalScore: row.totalScore,
+        dueDate: row.dueDate,
+        courseTitle: row.courseTitle,
+        enrolled: row.enrolled,
+        marked: row.marked,
+      }))
+    : (staffAssessments.data ?? []).map(row => ({
+        id: row.id,
+        title: row.title,
+        assessmentType: row.assessmentType,
+        totalScore: row.totalScore,
+        dueDate: row.dueDate,
+        courseTitle: null,
+        enrolled: null,
+        marked: null,
+      }));
+
+  const catalogueLoading = canReadResults
+    ? resultsCatalogue.isLoading
+    : staffAssessments.isLoading;
+  const totalAssessments = catalogue.length;
 
   return (
     <div className="mx-auto max-w-[1400px] space-y-6">
@@ -228,7 +290,7 @@ function AcademicsContent() {
               <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 Assessments Set Up
               </p>
-              <StatValue value={totalAssessments} loading={staffAssessments.isLoading} />
+              <StatValue value={totalAssessments} loading={catalogueLoading} />
             </div>
           </CardContent>
         </Card>
@@ -454,40 +516,94 @@ function AcademicsContent() {
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg font-bold">Assessments Catalogue</CardTitle>
                   <CardDescription className="text-xs">
-                    Current assessments configured across programmes.
+                    {canReadResults
+                      ? "Open one to score the students sitting it. Positions are worked out from the marks."
+                      : "Current assessments configured across programmes."}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {staffAssessments.isLoading ? (
+                  {catalogueLoading ? (
                     <div className="grid gap-3 sm:grid-cols-2">
                       {Array.from({ length: 4 }).map((_, index) => (
                         <Skeleton key={index} className="h-28 w-full rounded-2xl" />
                       ))}
                     </div>
-                  ) : staffAssessments.data && staffAssessments.data.length > 0 ? (
+                  ) : catalogue.length > 0 ? (
                     <div className="grid gap-3 sm:grid-cols-2">
-                      {staffAssessments.data.map(assessment => (
-                        <div
-                          key={assessment.id}
-                          className="rounded-2xl border border-border/60 bg-muted/20 p-4 space-y-2"
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <Badge variant="outline" className="capitalize text-xs">
-                              {assessment.assessmentType}
-                            </Badge>
-                            <span className="text-xs font-bold text-primary">
-                              Max score: {assessment.totalScore}
-                            </span>
-                          </div>
-                          <p className="font-semibold text-sm text-foreground">{assessment.title}</p>
-                          {assessment.dueDate ? (
-                            <p className="text-xs text-muted-foreground flex items-center gap-1">
-                              <Calendar className="h-3 w-3" />
-                              Due {new Date(assessment.dueDate).toLocaleDateString()}
+                      {catalogue.map(assessment => {
+                        const enrolled = assessment.enrolled ?? 0;
+                        const marked = assessment.marked ?? 0;
+                        const complete = enrolled > 0 && marked >= enrolled;
+
+                        return (
+                          <div
+                            key={assessment.id}
+                            className="flex flex-col gap-2 rounded-2xl border border-border/60 bg-muted/20 p-4"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <Badge variant="outline" className="capitalize text-xs">
+                                {assessment.assessmentType}
+                              </Badge>
+                              <span className="text-xs font-bold text-primary">
+                                Max score: {assessment.totalScore}
+                              </span>
+                            </div>
+
+                            <p className="font-semibold text-sm text-foreground">
+                              {assessment.title}
                             </p>
-                          ) : null}
-                        </div>
-                      ))}
+                            {assessment.courseTitle ? (
+                              <p className="text-xs text-muted-foreground">
+                                {assessment.courseTitle}
+                              </p>
+                            ) : null}
+
+                            {assessment.dueDate ? (
+                              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                <Calendar className="h-3 w-3" />
+                                Due {new Date(assessment.dueDate).toLocaleDateString()}
+                              </p>
+                            ) : null}
+
+                            {canReadResults ? (
+                              <div className="mt-auto flex items-center justify-between gap-2 pt-1">
+                                {/* Says what is left to do, not just that marks exist. */}
+                                <span
+                                  className={`text-xs ${
+                                    complete
+                                      ? "text-emerald-700 dark:text-emerald-400"
+                                      : "text-muted-foreground"
+                                  }`}
+                                >
+                                  {!enrolled
+                                    ? "Nobody enrolled"
+                                    : complete
+                                      ? `All ${marked} marked`
+                                      : `${marked} of ${enrolled} marked`}
+                                </span>
+
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 gap-1.5 text-xs"
+                                  disabled={!enrolled}
+                                  onClick={() =>
+                                    setScoring({
+                                      id: assessment.id,
+                                      title: assessment.title,
+                                      totalScore: assessment.totalScore,
+                                      courseTitle: assessment.courseTitle ?? "",
+                                    })
+                                  }
+                                >
+                                  <ListChecks className="h-3.5 w-3.5" />
+                                  {marked ? "Marks" : "Score"}
+                                </Button>
+                              </div>
+                            ) : null}
+                          </div>
+                        );
+                      })}
                     </div>
                   ) : (
                     <p className="py-8 text-center text-sm text-muted-foreground">
@@ -500,6 +616,14 @@ function AcademicsContent() {
           </div>
         </TabsContent>
       </Tabs>
+
+      <ScoreAssessmentDialog
+        assessment={scoring}
+        onOpenChange={open => !open && setScoring(null)}
+        // The card shows how much of the sheet is marked, so it has to be
+        // re-read once marks are saved.
+        onSaved={() => utils.results.catalogue.invalidate()}
+      />
 
       <AlertDialog
         open={removing !== null}

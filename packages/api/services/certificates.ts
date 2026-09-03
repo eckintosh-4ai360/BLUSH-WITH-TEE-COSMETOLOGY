@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { certificates, systemSettings } from "@blush/db/schema";
 import type { Database, DbExecutor } from "../dbOrThrow";
+import { gradeForPercent, type GradeBand } from "./grading";
 
 /**
  * Certificate numbering and verification tokens.
@@ -123,10 +124,16 @@ export async function issueCertificate(
   });
 }
 
-/** Grade for a completed course, from the weighted mean of its assessments. */
+/**
+ * Grade for a completed course, from the weighted mean of its assessments.
+ *
+ * The band lookup is shared with the per-assessment marking in
+ * `services/grading.ts`, so a certificate and the result sheet it was worked
+ * out from cannot disagree about what a percentage is worth.
+ */
 export function deriveGrade(
   results: Array<{ score: string | number; totalScore: number; weight?: string | number }>,
-  bands: Array<{ grade: string; min: number }>,
+  bands: GradeBand[],
 ): { percent: number; grade: string } | null {
   if (!results.length) return null;
 
@@ -143,10 +150,7 @@ export function deriveGrade(
   if (!weightTotal) return null;
 
   const percent = Math.round((weightedScore / weightTotal) * 10000) / 100;
-  const ordered = [...bands].sort((a, b) => b.min - a.min);
-  const grade = ordered.find(band => percent >= band.min)?.grade ?? ordered.at(-1)?.grade ?? "F";
-
-  return { percent, grade };
+  return { percent, grade: gradeForPercent(percent, bands) };
 }
 
 /** Certificate count by status, used on the dashboard and reports. */

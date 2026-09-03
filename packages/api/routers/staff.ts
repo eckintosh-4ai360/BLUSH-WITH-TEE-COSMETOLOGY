@@ -18,6 +18,7 @@ import {
 } from "@blush/db/schema";
 import { dbOrThrow } from "../dbOrThrow";
 import { inventoryBalanceAfter, money } from "../platform.utils";
+import { recordOneResult } from "./results";
 import { router, staffProcedure } from "../trpc";
 
 export const staffRouter = router({
@@ -99,10 +100,18 @@ export const staffRouter = router({
     await db.update(applications).set({ status: input.status, reviewedByUserId: ctx.user.id }).where(eq(applications.id, input.applicationId));
     return { success: true };
   }),
-  recordResult: staffProcedure.input(z.object({ assessmentId: z.number().int().positive(), studentId: z.number().int().positive(), score: z.number().min(0), grade: z.string().max(8).optional(), instructorComment: z.string().max(2000).optional() })).mutation(async ({ input, ctx }) => {
+  /**
+   * One mark, for the single-student form on this screen. The whole-sheet
+   * version lives on `results.record`.
+   *
+   * The grade is no longer accepted from the caller: it is worked out from the
+   * score against the school's band table, so a mark and its letter cannot
+   * disagree. Re-marking updates in place rather than colliding with the
+   * `(assessmentId, studentId)` unique index, which is what a plain insert did.
+   */
+  recordResult: staffProcedure.input(z.object({ assessmentId: z.number().int().positive(), studentId: z.number().int().positive(), score: z.number().min(0), instructorComment: z.string().max(2000).optional() })).mutation(async ({ input, ctx }) => {
     const db = await dbOrThrow();
-    const [result] = await db.insert(assessmentResults).values({ assessmentId: input.assessmentId, studentId: input.studentId, score: input.score.toFixed(2), grade: input.grade, instructorComment: input.instructorComment, gradedByUserId: ctx.user.id }).returning({ id: assessmentResults.id });
-    return { id: result?.id };
+    return recordOneResult(db, { ...input, gradedByUserId: ctx.user.id });
   }),
   appointments: staffProcedure.query(async () => {
     const db = await dbOrThrow();
