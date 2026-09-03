@@ -1,21 +1,25 @@
-import { and, count, desc, eq, gte, ilike, inArray, isNull, lte, ne, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, ilike, inArray, isNull, lte, ne, or, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
   courses,
+  enrollments,
   expenseCategories,
   expenses,
   feeAdjustments,
   feeCharges,
   feeStructures,
+  intakes,
   notificationDeliveries,
   payments,
   revenueTransactions,
   studentProfiles,
 } from "@blush/db/schema";
 import { dbOrThrow } from "../dbOrThrow";
-import { buildReference } from "../platform.utils";
+import { buildReference, slugify } from "../platform.utils";
 import { recordAudit } from "../services/audit";
+import { syncAllCharges } from "../services/billing";
+import { isUniqueViolation } from "../services/dbErrors";
 import { announce, firstName, schoolName } from "../services/messaging/announce";
 import { readMessagingConfig } from "../services/messaging/config";
 import { flush, flushInBackground, render } from "../services/messaging/dispatch";
@@ -45,11 +49,65 @@ const EXPENSE_CATEGORIES = [
   "other",
 ] as const;
 
-/** Postgres unique-violation, raised when a duplicate reference is booked. */
-const isUniqueViolation = (error: unknown) =>
-  typeof error === "object" && error !== null && (error as { code?: string }).code === "23505";
-
 const cedis = (value: number) => `GHS ${value.toFixed(2)}`;
+
+/**
+ * The `expenseCategories` row an expense should point at.
+ *
+ * The enum column only knows the eleven categories it was declared with, and
+ * "other" is the escape hatch - which on its own tells a reader nothing about
+ * what the money went on. A name typed alongside it becomes a real category
+ * row, so "Bank charges" is filed under "Bank charges" from then on and shows
+ * up in the picker for the next person.
+ *
+ * Matched on a slug rather than the typed text, so "Bank Charges", "bank
+ * charges" and "Bank  charges" are the same category rather than three.
+ */
+async function resolveExpenseCategory(
+  db: Awaited<ReturnType<typeof dbOrThrow>>,
+  input: { category: (typeof EXPENSE_CATEGORIES)[number]; customCategory?: string },
+  actorId: number,
+): Promise<{ categoryId: number | null; label: string }> {
+  const typed = input.customCategory?.trim();
+
+  if (input.category !== "other" || !typed) {
+    const [known] = await db
+      .select({ id: expenseCategories.id, name: expenseCategories.name })
+      .from(expenseCategories)
+      .where(eq(expenseCategories.key, input.category))
+      .limit(1);
+    return { categoryId: known?.id ?? null, label: known?.name ?? input.category };
+  }
+
+  const key = slugify(typed).slice(0, 48);
+  if (!key) return { categoryId: null, label: input.category };
+
+  const [existing] = await db
+    .select({ id: expenseCategories.id, name: expenseCategories.name, isActive: expenseCategories.isActive })
+    .from(expenseCategories)
+    .where(eq(expenseCategories.key, key))
+    .limit(1);
+
+  if (existing) {
+    // A retired category being used again is brought back rather than
+    // duplicated under a suffixed key.
+    if (!existing.isActive) {
+      await db
+        .update(expenseCategories)
+        .set({ isActive: true })
+        .where(eq(expenseCategories.id, existing.id));
+    }
+    return { categoryId: existing.id, label: existing.name };
+  }
+
+  const [created] = await db
+    .insert(expenseCategories)
+    .values({ key, name: typed.slice(0, 120), description: "Added while recording an expense." })
+    .returning({ id: expenseCategories.id });
+
+  void actorId;
+  return { categoryId: created?.id ?? null, label: typed };
+}
 
 /**
  * Works out the arrears text message for one student, and whether it can go.
@@ -249,6 +307,35 @@ export const financeRouter = router({
     }));
   }),
 
+  /**
+   * Bills the current price list to everyone already on the register.
+   *
+   * Changing a price list does not reach back on its own, and it should not:
+   * silently re-billing every student the moment a figure is typed is how an
+   * account nobody meant to touch acquires a charge. This is that step made
+   * explicit, for the ordinary case of adding a fee that applies to everyone
+   * and then wanting the students already enrolled to be charged it.
+   *
+   * Idempotent. Running it twice raises nothing the second time, so it is safe
+   * to press whenever somebody is unsure whether it has been run.
+   */
+  applyFeeStructures: permissionProcedure("fees.write").mutation(async ({ ctx }) => {
+    const db = await dbOrThrow();
+    const result = await syncAllCharges(db, ctx.user.id);
+
+    if (result.raised || result.repaired) {
+      await recordAudit(db, ctx.actor, {
+        action: "update",
+        entity: "feeCharge",
+        entityLabel: "Fee structure applied",
+        newValue: result,
+        summary: `${ctx.actor.name ?? "Staff"} billed ${result.raised + result.repaired} charge${result.raised + result.repaired === 1 ? "" : "s"} to ${result.students} student${result.students === 1 ? "" : "s"}`,
+      });
+    }
+
+    return result;
+  }),
+
   upsertFeeStructure: permissionProcedure("fees.write")
     .input(
       z.object({
@@ -363,6 +450,173 @@ export const financeRouter = router({
     }),
 
   /** Outstanding-balance report, paginated server-side (§25, §43). */
+  /**
+   * The fee register: every student on the books with what they owe, and a
+   * place to take money against it.
+   *
+   * Distinct from `outstanding`, which lists only the students carrying a
+   * balance. A register has to show the settled accounts too - a clerk works
+   * down a list of names looking for one, and a name that vanishes the moment
+   * its balance clears is a name they cannot find to check.
+   *
+   * Programme and intake are read separately for the page rather than joined
+   * in: a student on two programmes would otherwise multiply their own fee
+   * rows and be billed twice over in the aggregate.
+   */
+  feeRegister: permissionProcedure("fees.read")
+    .input(
+      listInputSchema.extend({
+        standing: z.enum(["all", "pending", "paid"]).default("all"),
+        courseId: z.number().int().positive().optional(),
+      }),
+    )
+    .query(async ({ input }) => {
+      const db = await dbOrThrow();
+      const { limit, offset } = paginationBounds(input);
+
+      const where = and(
+        isNull(studentProfiles.deletedAt),
+        ne(studentProfiles.status, "graduated"),
+        input.courseId
+          ? sql`exists (
+              select 1 from "enrollments" e
+              where e."studentId" = ${studentProfiles.id}
+                and e."courseId" = ${input.courseId}
+                and e."status" in ('active', 'paused')
+            )`
+          : undefined,
+        input.search
+          ? or(
+              ilike(studentProfiles.fullName, likePattern(input.search)),
+              ilike(studentProfiles.studentNumber, likePattern(input.search)),
+              ilike(studentProfiles.phone, likePattern(input.search)),
+            )
+          : undefined,
+      );
+
+      const owing = sql`coalesce(sum(${feeCharges.amountDue}), 0) - coalesce(sum(${feeCharges.amountPaid}), 0)`;
+      const standingFilter =
+        input.standing === "pending"
+          ? sql`${owing} > 0`
+          : input.standing === "paid"
+            ? sql`${owing} <= 0`
+            : undefined;
+
+      const [rows, [total]] = await Promise.all([
+        db
+          .select({
+            studentId: studentProfiles.id,
+            studentNumber: studentProfiles.studentNumber,
+            fullName: studentProfiles.fullName,
+            email: studentProfiles.email,
+            phone: studentProfiles.phone,
+            status: studentProfiles.status,
+            billed: sql<string>`coalesce(sum(${feeCharges.amountDue}), 0)`,
+            paid: sql<string>`coalesce(sum(${feeCharges.amountPaid}), 0)`,
+          })
+          .from(studentProfiles)
+          .leftJoin(feeCharges, eq(feeCharges.studentId, studentProfiles.id))
+          .where(where)
+          .groupBy(studentProfiles.id)
+          .having(standingFilter)
+          // Biggest debt first, so the work is at the top; settled accounts
+          // fall to the end where they are looked up rather than worked.
+          .orderBy(desc(owing), asc(studentProfiles.fullName))
+          .limit(limit)
+          .offset(offset),
+        db
+          .select({ total: sql<number>`count(*)::int` })
+          .from(
+            db
+              .select({ id: studentProfiles.id })
+              .from(studentProfiles)
+              .leftJoin(feeCharges, eq(feeCharges.studentId, studentProfiles.id))
+              .where(where)
+              .groupBy(studentProfiles.id)
+              .having(standingFilter)
+              .as("register"),
+          ),
+      ]);
+
+      const ids = rows.map(row => row.studentId);
+      const placements = ids.length
+        ? await db
+            .select({
+              studentId: enrollments.studentId,
+              courseTitle: courses.title,
+              intakeTitle: intakes.title,
+            })
+            .from(enrollments)
+            .innerJoin(courses, eq(enrollments.courseId, courses.id))
+            .leftJoin(intakes, eq(enrollments.intakeId, intakes.id))
+            .where(
+              and(
+                inArray(enrollments.studentId, ids),
+                inArray(enrollments.status, ["active", "paused"]),
+              ),
+            )
+        : [];
+
+      // The most recent completed payment, for the receipt button on the row.
+      const receipts = ids.length
+        ? await db
+            .select({
+              studentId: payments.studentId,
+              reference: payments.reference,
+              amount: payments.amount,
+              refundedAmount: payments.refundedAmount,
+              paymentMethod: payments.paymentMethod,
+              transactionReference: payments.transactionReference,
+              paidAt: payments.paidAt,
+            })
+            .from(payments)
+            .where(and(inArray(payments.studentId, ids), eq(payments.status, "completed")))
+            .orderBy(desc(payments.paidAt), desc(payments.id))
+        : [];
+
+      const latestReceipt = new Map<number, (typeof receipts)[number]>();
+      for (const receipt of receipts) {
+        if (receipt.studentId === null) continue;
+        if (!latestReceipt.has(receipt.studentId)) latestReceipt.set(receipt.studentId, receipt);
+      }
+
+      return paginate(
+        rows.map(row => {
+          const mine = placements.filter(place => place.studentId === row.studentId);
+          const receipt = latestReceipt.get(row.studentId);
+          const billed = money(row.billed);
+          const paid = money(row.paid);
+
+          return {
+            ...row,
+            programme: mine.map(place => place.courseTitle).join(", ") || null,
+            intake:
+              mine
+                .map(place => place.intakeTitle)
+                .filter((title): title is string => Boolean(title))
+                .join(", ") || null,
+            totalFees: billed,
+            amountPaid: paid,
+            outstanding: Math.max(billed - paid, 0),
+            /** Nothing billed is not the same as nothing owed; the UI says so. */
+            billedAnything: billed > 0,
+            lastPayment: receipt
+              ? {
+                  reference: receipt.reference,
+                  amount: money(receipt.amount),
+                  refundedAmount: money(receipt.refundedAmount),
+                  paymentMethod: receipt.paymentMethod,
+                  transactionReference: receipt.transactionReference,
+                  paidAt: receipt.paidAt,
+                }
+              : null,
+          };
+        }),
+        Number(total?.total ?? 0),
+        input,
+      );
+    }),
+
   outstanding: permissionProcedure("fees.read")
     .input(listInputSchema)
     .query(async ({ input }) => {
@@ -995,8 +1249,11 @@ export const financeRouter = router({
 
       const [rows, [total], [sum]] = await Promise.all([
         db
-          .select()
+          // Left-joined so an expense recorded before the category table
+          // existed still comes back, with the enum as its only label.
+          .select({ expense: expenses, categoryName: expenseCategories.name })
           .from(expenses)
+          .leftJoin(expenseCategories, eq(expenses.categoryId, expenseCategories.id))
           .where(where)
           .orderBy(desc(expenses.expenseDate), desc(expenses.id))
           .limit(limit)
@@ -1010,7 +1267,13 @@ export const financeRouter = router({
 
       return {
         ...paginate(
-          rows.map(row => ({ ...row, amount: money(row.amount) })),
+          rows.map(({ expense, categoryName }) => ({
+            ...expense,
+            amount: money(expense.amount),
+            // What the row is filed under, in the words it was filed with. A
+            // custom category reads as itself rather than as "other".
+            categoryLabel: categoryName ?? expense.category,
+          })),
           Number(total?.total ?? 0),
           input,
         ),
@@ -1023,6 +1286,8 @@ export const financeRouter = router({
       z.object({
         title: z.string().min(2).max(180),
         category: z.enum(EXPENSE_CATEGORIES),
+        /** Names the category when `category` is "other". Ignored otherwise. */
+        customCategory: z.string().trim().max(120).optional(),
         scope: z.enum(EXPENSE_SCOPES).default("school"),
         amount: z.number().positive(),
         expenseDate: z.coerce.date(),
@@ -1037,11 +1302,7 @@ export const financeRouter = router({
     .mutation(async ({ input, ctx }) => {
       const db = await dbOrThrow();
 
-      const [category] = await db
-        .select({ id: expenseCategories.id })
-        .from(expenseCategories)
-        .where(eq(expenseCategories.key, input.category))
-        .limit(1);
+      const category = await resolveExpenseCategory(db, input, ctx.user.id);
 
       const needsApproval = input.requiresApproval || !ctx.access.can("expenses.approve");
 
@@ -1050,7 +1311,7 @@ export const financeRouter = router({
         .values({
           title: input.title,
           category: input.category,
-          categoryId: category?.id,
+          categoryId: category.categoryId,
           scope: input.scope,
           amount: toAmountString(toMinor(input.amount)),
           expenseDate: input.expenseDate,
@@ -1070,8 +1331,8 @@ export const financeRouter = router({
         entity: "expense",
         entityId: expense?.id,
         entityLabel: input.title,
-        newValue: { amount: input.amount, category: input.category, scope: input.scope },
-        summary: `${ctx.actor.name ?? "Staff"} recorded a GHS ${input.amount.toFixed(2)} ${input.scope} expense (${input.category})`,
+        newValue: { amount: input.amount, category: category.label, scope: input.scope },
+        summary: `${ctx.actor.name ?? "Staff"} recorded a GHS ${input.amount.toFixed(2)} ${input.scope} expense (${category.label})`,
       });
 
       if (needsApproval) {
@@ -1103,6 +1364,8 @@ export const financeRouter = router({
         expenseId: z.number().int().positive(),
         title: z.string().min(2).max(180),
         category: z.enum(EXPENSE_CATEGORIES),
+        /** Names the category when `category` is "other". Ignored otherwise. */
+        customCategory: z.string().trim().max(120).optional(),
         scope: z.enum(EXPENSE_SCOPES).default("school"),
         amount: z.number().positive(),
         expenseDate: z.coerce.date(),
@@ -1124,11 +1387,7 @@ export const financeRouter = router({
         throw new TRPCError({ code: "NOT_FOUND", message: "That expense is no longer on file." });
       }
 
-      const [category] = await db
-        .select({ id: expenseCategories.id })
-        .from(expenseCategories)
-        .where(eq(expenseCategories.key, input.category))
-        .limit(1);
+      const category = await resolveExpenseCategory(db, input, ctx.user.id);
 
       const canApprove = ctx.access.can("expenses.approve");
       const reopened = !canApprove && before.approvalStatus === "approved";
@@ -1138,7 +1397,7 @@ export const financeRouter = router({
         .set({
           title: input.title,
           category: input.category,
-          categoryId: category?.id ?? null,
+          categoryId: category.categoryId,
           scope: input.scope,
           amount: toAmountString(toMinor(input.amount)),
           expenseDate: input.expenseDate,

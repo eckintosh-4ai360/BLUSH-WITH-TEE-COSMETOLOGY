@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Pencil, Plus } from "lucide-react";
+import { Pencil, Plus, Users } from "lucide-react";
 import { Badge } from "@blush/ui/components/ui/badge";
 import { Button } from "@blush/ui/components/ui/button";
 import { Card } from "@blush/ui/components/ui/card";
@@ -51,6 +51,26 @@ function FeeStructuresContent() {
   const rows = query.data ?? [];
   const writable = can("fees.write");
 
+  /**
+   * Adding a fee here does not bill anybody on its own, and should not: a
+   * price list is edited, corrected and thought about, and re-billing the
+   * school on every keystroke would be indefensible. This is the deliberate
+   * step that carries the current list onto the students already enrolled.
+   */
+  const applyToStudents = trpc.finance.applyFeeStructures.useMutation({
+    onSuccess: result => {
+      const billed = result.raised + result.repaired;
+      if (!billed && !result.reallocated) {
+        toast.info("Every student is already billed for this price list.");
+        return;
+      }
+      toast.success(
+        `Billed ${billed} charge${billed === 1 ? "" : "s"} to ${result.students} student${result.students === 1 ? "" : "s"}.`,
+      );
+    },
+    onError: error => toast.error(error.message),
+  });
+
   const openNew = () => {
     setEditing(null);
     setDialogOpen(true);
@@ -68,14 +88,28 @@ function FeeStructuresContent() {
           <h1 className="text-2xl font-semibold tracking-tight">Fee structure</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             What each programme costs. Charges raised against a student are copied from
-            these, so changing one here never rewrites a bill already issued.
+            these, so changing one here never rewrites a bill already issued. Use
+            <b> Apply to students</b> to charge a newly added fee to the students
+            already enrolled.
           </p>
         </div>
         {writable ? (
-          <Button className="gap-2" onClick={openNew}>
-            <Plus className="h-4 w-4" />
-            Add fee
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              className="gap-2"
+              disabled={applyToStudents.isPending || !rows.length}
+              title="Raises any fee on this list that an enrolled student has not been charged yet. Safe to run more than once."
+              onClick={() => applyToStudents.mutate()}
+            >
+              <Users className="h-4 w-4" />
+              {applyToStudents.isPending ? "Applying..." : "Apply to students"}
+            </Button>
+            <Button className="gap-2" onClick={openNew}>
+              <Plus className="h-4 w-4" />
+              Add fee
+            </Button>
+          </div>
         ) : null}
       </header>
 
