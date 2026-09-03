@@ -146,7 +146,17 @@ export const studentsRouter = router({
             })
             .from(enrollments)
             .innerJoin(courses, eq(enrollments.courseId, courses.id))
-            .where(inArray(enrollments.studentId, ids))
+            // A withdrawn enrolment is history, not a programme the student is
+            // on. Left in, it renders identically to a live one - same title,
+            // same progress bar - so a student taken off a course and put back
+            // on it appears to be doing it twice. Completed ones stay: those
+            // are an achievement the row should show.
+            .where(
+              and(
+                inArray(enrollments.studentId, ids),
+                ne(enrollments.status, "withdrawn"),
+              ),
+            )
             .orderBy(desc(enrollments.enrolledAt))
         : [];
 
