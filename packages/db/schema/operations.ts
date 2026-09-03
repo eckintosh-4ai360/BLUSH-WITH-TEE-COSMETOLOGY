@@ -1,6 +1,7 @@
 import { relations } from "drizzle-orm";
 import {
   boolean,
+  date,
   index,
   integer,
   jsonb,
@@ -18,6 +19,7 @@ import {
   mediaPurpose,
   notificationChannel,
   notificationType,
+  paymentMethodEnum,
 } from "./enums";
 import { people, users } from "./identity";
 
@@ -64,6 +66,66 @@ export const appointments = pgTable(
     index("appointments_starts_idx").on(table.startsAt),
   ],
 );
+
+/**
+ * The day's services, as they are carried out and paid for.
+ *
+ * Not the same thing as an `appointment`, which is a booking made in advance
+ * and carries no money at all. This is the counter record: somebody came in,
+ * something was done, this much was taken and this is who did it. A walk-in has
+ * no email address and no booking, so requiring either would mean the takings
+ * that actually happened could not be written down.
+ *
+ * The service and the worker are snapshotted by name as well as linked. A
+ * catalogue entry renamed next season, or a stylist who leaves and has their
+ * account deactivated, must not silently rewrite what last month's log says
+ * happened.
+ */
+export const serviceSales = pgTable(
+  "serviceSales",
+  {
+    id: serial("id").primaryKey(),
+    /** The day the work was done, which is not always the day it was typed. */
+    serviceDate: date("serviceDate", { mode: "date" }).notNull(),
+    serviceId: integer("serviceId").references(() => clinicServices.id, {
+      onDelete: "set null",
+    }),
+    serviceName: varchar("serviceName", { length: 160 }).notNull(),
+    clientName: varchar("clientName", { length: 160 }).notNull(),
+    amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+    paymentMethod: paymentMethodEnum("paymentMethod").notNull(),
+    workerUserId: integer("workerUserId").references(() => users.id, { onDelete: "set null" }),
+    workerName: varchar("workerName", { length: 160 }).notNull(),
+    note: text("note"),
+    /** The revenue line this raised, so an amendment can reverse exactly it. */
+    revenueTransactionId: integer("revenueTransactionId"),
+    recordedByUserId: integer("recordedByUserId").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt")
+      .defaultNow()
+      .notNull()
+      .$onUpdate(() => new Date()),
+    /** Soft, like every other removal: the takings are a financial record. */
+    deletedAt: timestamp("deletedAt"),
+  },
+  table => [
+    index("service_sales_date_idx").on(table.serviceDate),
+    index("service_sales_worker_idx").on(table.workerUserId),
+    index("service_sales_deleted_idx").on(table.deletedAt),
+  ],
+);
+
+export const serviceSalesRelations = relations(serviceSales, ({ one }) => ({
+  service: one(clinicServices, {
+    fields: [serviceSales.serviceId],
+    references: [clinicServices.id],
+  }),
+  worker: one(users, { fields: [serviceSales.workerUserId], references: [users.id] }),
+}));
+
+export type ServiceSale = typeof serviceSales.$inferSelect;
 
 export const mediaFiles = pgTable(
   "mediaFiles",

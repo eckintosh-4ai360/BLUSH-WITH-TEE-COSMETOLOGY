@@ -10,6 +10,7 @@ import {
   CreditCard,
   GraduationCap,
   LayoutDashboard,
+  Sparkles,
   LockKeyhole,
   ChartColumnBig,
   PackageSearch,
@@ -119,12 +120,18 @@ export const NAV_SECTIONS: NavSection[] = [
         icon: ReceiptText,
         permissions: ["fees.read"],
       },
-      { label: "Fees owed", path: "/finance/fees", icon: Wallet, permissions: ["fees.read"] },
+      { label: "Fee register", path: "/finance/fees", icon: Wallet, permissions: ["fees.read"] },
       {
         label: "Payments",
         path: "/finance/payments",
         icon: CreditCard,
         permissions: ["payments.read"],
+      },
+      {
+        label: "Daily services",
+        path: "/finance/services",
+        icon: Sparkles,
+        permissions: ["services.read"],
       },
       {
         label: "Expenses",

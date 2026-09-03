@@ -13,6 +13,7 @@ import { notificationsRouter } from "./routers/notifications";
 import { platformRouter } from "./routers/platform";
 import { reportsRouter } from "./routers/reports";
 import { resultsRouter } from "./routers/results";
+import { servicesRouter } from "./routers/services";
 import { ordersRouter } from "./routers/orders";
 import { staffRouter } from "./routers/staff";
 import { studentsRouter } from "./routers/students";
@@ -38,6 +39,7 @@ export const adminAppRouter = router({
   messaging: messagingRouter,
   reports: reportsRouter,
   results: resultsRouter,
+  services: servicesRouter,
   dashboard: dashboardRouter,
   notifications: notificationsRouter,
 });

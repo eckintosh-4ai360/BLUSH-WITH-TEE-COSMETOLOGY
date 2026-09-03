@@ -11,6 +11,7 @@ export const PERMISSIONS = {
   "admissions.read": "View applications and intakes",
   "admissions.write": "Create and edit applications and intakes",
   "admissions.review": "Approve or reject applications",
+  "admissions.delete": "Remove applications from the register",
 
   // Students
   "students.read": "View student records",
@@ -36,6 +37,8 @@ export const PERMISSIONS = {
   "expenses.read": "View expenses",
   "expenses.write": "Record expenses",
   "expenses.approve": "Approve or reject expenses",
+  "services.read": "View the daily services log",
+  "services.write": "Record services carried out and what was charged",
   "closing.read": "View the daily closing register",
   "closing.write": "Close the register at the end of the day",
   "closing.reopen": "Unlock a day that has already been closed",
@@ -127,6 +130,7 @@ export const ROLE_DEFINITIONS: Record<
       "admissions.read",
       "admissions.write",
       "admissions.review",
+      "admissions.delete",
       "students.read",
       "students.write",
       "academics.read",
@@ -138,6 +142,8 @@ export const ROLE_DEFINITIONS: Record<
       "certificates.write",
       "appointments.read",
       "appointments.write",
+      "services.read",
+      "services.write",
       "staff.read",
       "cms.read",
       "cms.write",
@@ -267,6 +273,12 @@ export const ROLE_DEFINITIONS: Record<
       // Student clinic bookings
       "appointments.read",
       "appointments.write",
+
+      // The day's services, as they are carried out and paid for. Recording
+      // the takings is the front desk's job; `admissions.review` and
+      // `admissions.delete` deliberately are not.
+      "services.read",
+      "services.write",
 
       "notifications.read",
     ],
