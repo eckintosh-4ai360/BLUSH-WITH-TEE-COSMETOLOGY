@@ -57,6 +57,8 @@ type ExpenseRow = {
   id: number;
   title: string;
   category: string;
+  /** The category as filed: a custom name where one was given. */
+  categoryLabel: string;
   scope: string;
   amount: number;
   expenseDate: Date;
@@ -150,7 +152,8 @@ function ExpensesContent() {
     {
       key: "category",
       header: "Category",
-      cell: row => <span className="capitalize">{row.category.replaceAll("_", " ")}</span>,
+      cell: row => <span className="capitalize">{row.categoryLabel.replaceAll("_", " ")}</span>,
+      value: row => row.categoryLabel,
     },
     {
       key: "amount",

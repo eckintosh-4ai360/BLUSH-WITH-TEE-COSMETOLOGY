@@ -58,6 +58,8 @@ export type EditableExpense = {
   id: number;
   title: string;
   category: string;
+  /** The category as filed - a custom name, or the enum when there is none. */
+  categoryLabel?: string | null;
   amount: number;
   expenseDate: Date | string;
   scope: string;
@@ -92,6 +94,8 @@ export function SaveExpenseDialog({
   const { can } = usePermissions();
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<(typeof CATEGORIES)[number]>("other");
+  /** Only meaningful under "other"; the server ignores it otherwise. */
+  const [customCategory, setCustomCategory] = useState("");
   const [scope, setScope] = useState<Scope>("school");
   const [amount, setAmount] = useState("");
   const [expenseDate, setExpenseDate] = useState(today());
@@ -106,6 +110,13 @@ export function SaveExpenseDialog({
     if (!open) return;
     setTitle(editing?.title ?? "");
     setCategory(asOption(CATEGORIES, editing?.category, "other"));
+    // An expense already filed under a named category reopens showing that
+    // name, not an empty box that would blank it on save.
+    setCustomCategory(
+      editing && editing.categoryLabel && editing.categoryLabel !== editing.category
+        ? editing.categoryLabel
+        : "",
+    );
     setScope(
       asOption(
         SCOPES.map(item => item.value),
@@ -212,6 +223,28 @@ export function SaveExpenseDialog({
               </Select>
             </div>
 
+            {/*
+              "Other" on its own records that nobody knew where to file the
+              money. Naming it here turns the entry into a real category, which
+              is then offered to whoever records the next one.
+            */}
+            {category === "other" ? (
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="expense-category-name">What kind of expense?</Label>
+                <Input
+                  id="expense-category-name"
+                  value={customCategory}
+                  onChange={event => setCustomCategory(event.target.value)}
+                  placeholder="e.g. Bank charges"
+                  maxLength={120}
+                  autoComplete="off"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Optional. Leave it blank to file this under &quot;other&quot;.
+                </p>
+              </div>
+            ) : null}
+
             <div className="space-y-2">
               <Label htmlFor="expense-amount">Amount (GHS)</Label>
               <Input
@@ -293,6 +326,8 @@ export function SaveExpenseDialog({
               const fields = {
                 title: title.trim(),
                 category,
+                customCategory:
+                  category === "other" ? customCategory.trim() || undefined : undefined,
                 scope,
                 amount: parsedAmount,
                 expenseDate: new Date(expenseDate),
