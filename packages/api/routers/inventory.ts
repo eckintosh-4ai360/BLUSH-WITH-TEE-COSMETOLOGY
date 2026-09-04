@@ -450,6 +450,116 @@ export const inventoryRouter = router({
       return outcome;
     }),
 
+  /**
+   * Takes a stock movement back.
+   *
+   * The ledger is append-only, so nothing is erased: this posts the opposite
+   * movement and leaves both rows standing. Deleting the original instead
+   * would strand every `balanceAfter` recorded after it - each one describes a
+   * running total that would no longer add up - and leave `quantityOnHand`
+   * disagreeing with the ledger that is supposed to explain it.
+   *
+   * The reversal points back at what it cancels through `referenceType` and
+   * `referenceId`, which is what lets a row be shown as already reversed and
+   * what stops it being reversed twice.
+   */
+  reverseMovement: permissionProcedure("inventory.write")
+    .input(
+      z.object({
+        movementId: z.number().int().positive(),
+        reason: z.string().max(255).optional(),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+
+      const outcome = await db.transaction(async tx => {
+        const [original] = await tx
+          .select({
+            movement: inventoryMovements,
+            itemName: inventoryItems.name,
+          })
+          .from(inventoryMovements)
+          .innerJoin(inventoryItems, eq(inventoryMovements.inventoryItemId, inventoryItems.id))
+          .where(eq(inventoryMovements.id, input.movementId))
+          .limit(1);
+
+        if (!original) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "That movement is no longer on file." });
+        }
+
+        // Reversing a reversal walks the balance back and forth and reads as
+        // noise in the ledger. Record a fresh movement instead.
+        if (original.movement.referenceType === "reversal") {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "This entry is itself a reversal. Record a new movement rather than undoing it.",
+          });
+        }
+
+        const [already] = await tx
+          .select({ id: inventoryMovements.id })
+          .from(inventoryMovements)
+          .where(
+            and(
+              eq(inventoryMovements.referenceType, "reversal"),
+              eq(inventoryMovements.referenceId, input.movementId),
+            ),
+          )
+          .limit(1);
+
+        if (already) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "That movement has already been reversed.",
+          });
+        }
+
+        const describe = original.movement.movementType.replaceAll("_", " ");
+
+        // Mirrors the original's type rather than filing everything under
+        // `adjustment`, so reversing a sale does not turn up in a report of
+        // hand corrections. `referenceType` is what marks it as a reversal.
+        const result = await applyStockMovement(tx, {
+          inventoryItemId: original.movement.inventoryItemId,
+          movementType: original.movement.movementType,
+          quantityDelta: -original.movement.quantityDelta,
+          note: input.reason?.trim()
+            ? `Reversed: ${input.reason.trim()}`
+            : `Reversed ${describe} of ${original.movement.quantityDelta > 0 ? "+" : ""}${original.movement.quantityDelta}`,
+          unitCostMinor:
+            original.movement.unitCost == null
+              ? null
+              : Math.round(Number(original.movement.unitCost) * 100),
+          referenceType: "reversal",
+          referenceId: original.movement.id,
+          performedByUserId: ctx.user.id,
+        });
+
+        await recordAudit(tx, ctx.actor, {
+          action: "reverse_stock_movement",
+          entity: "inventoryItem",
+          entityId: original.movement.inventoryItemId,
+          entityLabel: original.itemName,
+          oldValue: {
+            movementId: original.movement.id,
+            movementType: original.movement.movementType,
+            quantityDelta: original.movement.quantityDelta,
+          },
+          newValue: { quantityOnHand: result.balanceAfter },
+          summary: `${ctx.actor.name ?? "Staff"} reversed a ${describe} of ${original.movement.quantityDelta} on ${original.itemName}`,
+        });
+
+        return { ...result, itemName: original.itemName };
+      });
+
+      // Reversing a receipt takes stock back out, which can take an item low.
+      // Raised after the commit, never inside it.
+      if (outcome.crossedReorderLevel) alertLowStockInBackground(db, ctx.actor);
+
+      return outcome;
+    }),
+
   movements: permissionProcedure("inventory.read")
     .input(
       listInputSchema.extend({
@@ -478,6 +588,14 @@ export const inventoryRouter = router({
             itemName: inventoryItems.name,
             sku: inventoryItems.sku,
             performedBy: users.name,
+            // So a reversed row can be marked as such and its undo withheld,
+            // rather than the second attempt failing at the server.
+            reversedByMovementId: sql<number | null>`(
+              select r."id" from ${inventoryMovements} r
+              where r."referenceType" = 'reversal'
+                and r."referenceId" = ${inventoryMovements.id}
+              limit 1
+            )`,
           })
           .from(inventoryMovements)
           .innerJoin(inventoryItems, eq(inventoryMovements.inventoryItemId, inventoryItems.id))
@@ -500,6 +618,8 @@ export const inventoryRouter = router({
           itemName: row.itemName,
           sku: row.sku,
           performedBy: row.performedBy,
+          isReversal: row.movement.referenceType === "reversal",
+          isReversed: row.reversedByMovementId !== null,
         })),
         Number(total?.total ?? 0),
         input,

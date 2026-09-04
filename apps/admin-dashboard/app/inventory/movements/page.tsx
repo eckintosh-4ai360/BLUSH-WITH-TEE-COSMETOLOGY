@@ -1,7 +1,19 @@
 "use client";
 
 import { useState } from "react";
+import { Undo2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@blush/ui/components/ui/alert-dialog";
 import { Badge } from "@blush/ui/components/ui/badge";
+import { Button } from "@blush/ui/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -12,6 +24,8 @@ import {
 import DashboardLayout from "@/components/DashboardLayout";
 import { DataTable, type Column } from "@/components/DataTable";
 import { PermissionGate } from "@/components/PermissionGate";
+import { toast } from "@blush/ui/components/ui/sonner";
+import { usePermissions } from "@/hooks/usePermissions";
 import { collectAllPages } from "@/lib/exportAll";
 import { trpc } from "@/lib/trpc";
 
@@ -36,6 +50,10 @@ type MovementRow = {
   note: string | null;
   performedBy: string | null;
   createdAt: Date;
+  /** This row is itself the undo of another movement. */
+  isReversal: boolean;
+  /** This row has already been undone by a later one. */
+  isReversed: boolean;
 };
 
 export default function StockMovementsPage() {
@@ -49,9 +67,11 @@ export default function StockMovementsPage() {
 }
 
 function MovementsContent() {
+  const { can } = usePermissions();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [movementType, setMovementType] = useState("all");
+  const [reversing, setReversing] = useState<MovementRow | null>(null);
 
   const utils = trpc.useUtils();
 
@@ -64,6 +84,18 @@ function MovementsContent() {
   };
 
   const query = trpc.inventory.movements.useQuery({ ...filters, page, pageSize: 25 });
+
+  const reverseMovement = trpc.inventory.reverseMovement.useMutation({
+    onSuccess: result => {
+      toast.success(`Reversed. ${result.itemName} is now at ${result.balanceAfter}.`);
+      setReversing(null);
+      query.refetch();
+      // The stock screen and its low-stock count both moved with it.
+      utils.inventory.items.invalidate();
+      utils.inventory.lowStock.invalidate();
+    },
+    onError: error => toast.error(error.message),
+  });
 
   const columns: Column<MovementRow>[] = [
     {
@@ -105,15 +137,24 @@ function MovementsContent() {
       header: "Change",
       align: "right",
       cell: row => (
-        <span
-          className={`font-medium tabular-nums ${
-            row.quantityDelta > 0
-              ? "text-emerald-700 dark:text-emerald-400"
-              : "text-rose-700 dark:text-rose-400"
-          }`}
-        >
-          {row.quantityDelta > 0 ? "+" : ""}
-          {row.quantityDelta}
+        <span className="inline-flex items-center gap-2">
+          {row.isReversed ? (
+            <Badge className="bg-muted text-muted-foreground hover:bg-muted">Reversed</Badge>
+          ) : null}
+          <span
+            className={`font-medium tabular-nums ${
+              // A row that has been undone no longer describes the balance, so
+              // it reads as struck through rather than as stock that moved.
+              row.isReversed
+                ? "text-muted-foreground line-through"
+                : row.quantityDelta > 0
+                  ? "text-emerald-700 dark:text-emerald-400"
+                  : "text-rose-700 dark:text-rose-400"
+            }`}
+          >
+            {row.quantityDelta > 0 ? "+" : ""}
+            {row.quantityDelta}
+          </span>
         </span>
       ),
       value: row => row.quantityDelta,
@@ -141,6 +182,30 @@ function MovementsContent() {
     },
     { key: "performedBy", header: "By", optional: true, cell: row => row.performedBy ?? "System" },
     { key: "note", header: "Note", optional: true, cell: row => row.note ?? "-" },
+    ...(can("inventory.write")
+      ? [
+          {
+            key: "actions",
+            header: "",
+            align: "right" as const,
+            cell: (row: MovementRow) =>
+              // A reversal, and a row already reversed, have nothing left to
+              // undo. Saying so on the row beats a server error on the click.
+              row.isReversal || row.isReversed ? null : (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label={`Reverse ${row.movementType.replaceAll("_", " ")} of ${row.quantityDelta} on ${row.itemName}`}
+                  className="text-destructive"
+                  onClick={() => setReversing(row)}
+                >
+                  <Undo2 className="h-3.5 w-3.5" />
+                </Button>
+              ),
+            value: () => "",
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -191,6 +256,37 @@ function MovementsContent() {
           </Select>
         }
       />
+
+      <AlertDialog open={reversing !== null} onOpenChange={open => !open && setReversing(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reverse this movement?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {reversing
+                ? `The ledger is append-only, so this entry stays and a matching ${
+                    -reversing.quantityDelta > 0 ? "+" : ""
+                  }${-reversing.quantityDelta} is posted against ${
+                    reversing.itemName
+                  } to cancel it. Both rows remain, and stock returns to what it was before.`
+                : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={reverseMovement.isPending}>Keep it</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={reverseMovement.isPending}
+              onClick={event => {
+                // Confirming holds the dialog open until the server answers, so
+                // a refusal is read where it was asked for.
+                event.preventDefault();
+                if (reversing) reverseMovement.mutate({ movementId: reversing.id });
+              }}
+            >
+              {reverseMovement.isPending ? "Reversing..." : "Reverse movement"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
