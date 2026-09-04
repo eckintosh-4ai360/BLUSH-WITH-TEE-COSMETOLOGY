@@ -13,7 +13,7 @@ const sora = Sora({
 });
 
 export const metadata: Metadata = {
-  title: "GlowCraft Admin Dashboard",
+  title: "BWT Admin Dashboard",
   description:
     "Back-office workspace for admissions, students, inventory, orders, finance, and operations.",
 };
@@ -26,8 +26,6 @@ export default function RootLayout({
   return (
     <html lang="en" className={sora.variable} suppressHydrationWarning>
       <body suppressHydrationWarning>
-        {/* First thing in the document so the stored theme is on <html>
-            before the browser paints, instead of after React hydrates. */}
         <ThemeScript defaultTheme="system" />
         <TrpcProvider>
           <ThemeProvider defaultTheme="system" switchable>
