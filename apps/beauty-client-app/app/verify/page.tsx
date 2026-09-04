@@ -160,10 +160,10 @@ function CertificateResult({
 
       <p className={`mt-6 text-sm leading-6 ${revoked ? "text-rose-900" : "text-emerald-900"}`}>
         {revoked
-          ? `This certificate was withdrawn by Blush With Tee${
+          ? `This certificate was withdrawn by BWT School of Cosmetology${
               certificate.revokedAt ? ` on ${formatDate(certificate.revokedAt)}` : ""
             } and should not be relied on.`
-          : "This certificate was issued by Blush With Tee and remains valid."}
+          : "This certificate was issued by BWT School of Cosmetology and remains valid."}
       </p>
     </article>
   );

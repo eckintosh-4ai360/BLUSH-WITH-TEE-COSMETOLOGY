@@ -205,7 +205,7 @@ export default function PublicShell({ children }: { children: React.ReactNode })
             <div className="mt-4 grid gap-2.5 text-sm text-[#692156]">
               <p className="flex items-start gap-2">
                 <MapPin className="h-4 w-4 shrink-0 text-[#fe00b6] mt-0.5" />
-                <span>BWT School of Cosmetology Campus Studio</span>
+                <span>BWT School of Cosmetology</span>
               </p>
               <p className="flex items-center gap-2">
                 <Phone className="h-4 w-4 shrink-0 text-[#fe00b6]" />

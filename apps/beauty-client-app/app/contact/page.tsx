@@ -56,11 +56,8 @@ export default function ContactPage() {
                     <MapPin className="h-5 w-5" />
                   </div>
                   <div>
-                    <span className="block text-[10px] font-bold uppercase tracking-[.18em] text-[#8f0d6b]">
-                      Academy Campus Studio
-                    </span>
                     <span className="mt-0.5 block font-medium text-sm text-[#6a2557]">
-                      BWT School of Cosmetology Campus, Tarkwa, Ghana
+                      BWT School of Cosmetology, Tarkwa, Ghana
                     </span>
                   </div>
                 </div>
