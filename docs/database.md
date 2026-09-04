@@ -64,6 +64,7 @@ erDiagram
     classes ||--o{ classSessions : meets
     assessments ||--o{ assessmentResults : produces
     certificates ||--o{ certificateVerifications : "checked by"
+    certificates ||--o{ certificateScans : "scanned as"
 ```
 
 Attendance carries `unique(enrollmentId, classDate)` — one mark per student per

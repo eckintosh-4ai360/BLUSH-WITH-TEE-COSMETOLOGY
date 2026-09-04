@@ -99,8 +99,8 @@ Each group is permission-filtered: an accountant gets `finance` and `null` for
 ### `certificates`
 | Procedure | Permission |
 |---|---|
-| `list`, `eligible`, `detail`, `verifications` | `certificates.read` |
-| `issue`, `revoke` | `certificates.write` |
+| `list`, `eligible`, `detail`, `verifications`, `scans` | `certificates.read` |
+| `issue`, `revoke`, `uploadScan`, `deleteScan` | `certificates.write` |
 
 ### `platform`
 | Procedure | Permission |

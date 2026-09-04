@@ -179,6 +179,40 @@ export const certificates = pgTable(
   ],
 );
 
+/**
+ * Scanned copies of the award as it was actually issued.
+ *
+ * The printable certificate is generated from the row above, but what the
+ * school hands over is paper: signed, stamped, and often signed back by the
+ * student on collection. Keeping the scan against the record means the file
+ * drawer is reachable from the certificate rather than from a shelf, and a
+ * dispute years later can be answered with the document itself.
+ *
+ * Several scans per certificate are allowed - front and back, the signed copy
+ * and the collection slip - so this is a child table rather than a column.
+ */
+export const certificateScans = pgTable(
+  "certificateScans",
+  {
+    id: serial("id").primaryKey(),
+    certificateId: integer("certificateId")
+      .notNull()
+      .references(() => certificates.id, { onDelete: "cascade" }),
+    /** Private storage key. Never a public URL - scans are proxied. */
+    storageKey: varchar("storageKey", { length: 512 }).notNull(),
+    fileName: varchar("fileName", { length: 255 }).notNull(),
+    mimeType: varchar("mimeType", { length: 120 }).notNull(),
+    sizeBytes: integer("sizeBytes").notNull(),
+    /** What this particular copy is: "signed original", "collection slip". */
+    note: varchar("note", { length: 255 }),
+    uploadedByUserId: integer("uploadedByUserId").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => [index("certificate_scans_certificate_idx").on(table.certificateId)],
+);
+
 /** Audit trail of every public verification lookup. */
 export const certificateVerifications = pgTable(
   "certificateVerifications",
@@ -244,6 +278,14 @@ export const certificatesRelations = relations(certificates, ({ one, many }) => 
   }),
   course: one(courses, { fields: [certificates.courseId], references: [courses.id] }),
   verifications: many(certificateVerifications),
+  scans: many(certificateScans),
+}));
+
+export const certificateScansRelations = relations(certificateScans, ({ one }) => ({
+  certificate: one(certificates, {
+    fields: [certificateScans.certificateId],
+    references: [certificates.id],
+  }),
 }));
 
 export type StudentProfile = typeof studentProfiles.$inferSelect;
@@ -251,3 +293,4 @@ export type Enrollment = typeof enrollments.$inferSelect;
 export type AttendanceRecord = typeof attendanceRecords.$inferSelect;
 export type AssessmentResult = typeof assessmentResults.$inferSelect;
 export type Certificate = typeof certificates.$inferSelect;
+export type CertificateScan = typeof certificateScans.$inferSelect;

@@ -111,8 +111,14 @@ so is where access is decided. `storageAccessPolicy` classifies the key:
 |---|---|
 | `media/product`, `media/gallery`, `media/brochure` | Anyone — these are on the public site |
 | `applications/…` | `admissions.read`, or the applicant themselves |
+| `certificates/…` | `certificates.read`, or the graduate themselves |
 | `reports/…` | `reports.read` or `inventory.read` |
 | Anything else | Any signed-in account |
+
+`certificates/` holds the scanned copies of the paper awards. A scan carries
+the graduate's name, the award, and a signature — more than the public
+verification page gives out, and enough to forge from — so it takes a
+back-office permission, or ownership of the award itself.
 
 `reports/` is separate from "anything else" because a session is a low bar
 here: storefront customers and student portal accounts both have one, and both

@@ -21,6 +21,14 @@ describe("classifyStorageKey", () => {
     );
   });
 
+  it("treats certificate scans as their own class", () => {
+    // Not `internal`: a scanned award carries a name and a signature, and a
+    // storefront account has a session.
+    expect(classifyStorageKey(`${folder}/certificates/12/1712-signed_ab12cd34`)).toBe(
+      "certificate",
+    );
+  });
+
   it("keeps receipts and profile photos behind a session", () => {
     for (const purpose of ["receipt", "profile", "other"]) {
       expect(classifyStorageKey(`${folder}/media/${purpose}/1712-file_ab12cd34`)).toBe("internal");

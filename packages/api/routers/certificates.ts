@@ -1,9 +1,10 @@
-import { and, count, desc, eq, ilike, isNull, or } from "drizzle-orm";
+import { and, count, desc, eq, ilike, isNull, or, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
   assessmentResults,
   assessments,
+  certificateScans,
   certificateVerifications,
   certificates,
   courses,
@@ -12,6 +13,7 @@ import {
   systemSettings,
   users,
 } from "@blush/db/schema";
+import { storageDelete, storageGet, storagePut } from "@blush/storage";
 import { dbOrThrow } from "../dbOrThrow";
 import { recordAudit } from "../services/audit";
 import { announce } from "../services/messaging/announce";
@@ -24,6 +26,11 @@ import {
 import { readGrading } from "../services/grading";
 import { notify } from "../services/notify";
 import { listInputSchema, likePattern, paginate, paginationBounds } from "../services/pagination";
+import {
+  MAX_UPLOAD_BASE64_LENGTH,
+  safeFileName,
+  validateDocumentUpload,
+} from "../platform.utils";
 import { permissionProcedure, router, throttledPublicProcedure } from "../trpc";
 
 /**
@@ -58,6 +65,12 @@ export const certificatesRouter = router({
             studentName: studentProfiles.fullName,
             studentNumber: studentProfiles.studentNumber,
             courseTitle: courses.title,
+            // Counted here rather than fetched per row: the table shows only
+            // whether a scan is on file, and one query should answer that.
+            scanCount: sql<number>`(
+              select count(*) from ${certificateScans}
+              where ${certificateScans.certificateId} = ${certificates.id}
+            )`,
           })
           .from(certificates)
           .innerJoin(studentProfiles, eq(certificates.studentId, studentProfiles.id))
@@ -79,6 +92,7 @@ export const certificatesRouter = router({
           studentName: row.studentName,
           studentNumber: row.studentNumber,
           courseTitle: row.courseTitle,
+          scanCount: Number(row.scanCount ?? 0),
         })),
         Number(total?.total ?? 0),
         input,
@@ -238,6 +252,154 @@ export const certificatesRouter = router({
         oldValue: { status: before.status },
         newValue: { status: "revoked", reason: input.reason },
         summary: `${ctx.actor.name ?? "Staff"} revoked ${before.certificateNumber}`,
+      });
+
+      return { success: true };
+    }),
+
+  /**
+   * Scanned copies of the paper award.
+   *
+   * The certificate the app prints is generated from the row; what the school
+   * hands over is signed, stamped, and sometimes signed back on collection.
+   * These are those scans, kept against the record so the office file can be
+   * answered from the certificate rather than from a filing cabinet.
+   *
+   * The bytes live behind the storage proxy, so what reaches the browser is an
+   * app URL authorized on every fetch, never a Cloudinary address.
+   */
+  scans: permissionProcedure("certificates.read")
+    .input(z.object({ certificateId: z.number().int().positive() }))
+    .query(async ({ input }) => {
+      const db = await dbOrThrow();
+
+      const rows = await db
+        .select({
+          id: certificateScans.id,
+          storageKey: certificateScans.storageKey,
+          fileName: certificateScans.fileName,
+          mimeType: certificateScans.mimeType,
+          sizeBytes: certificateScans.sizeBytes,
+          note: certificateScans.note,
+          createdAt: certificateScans.createdAt,
+          uploadedBy: users.name,
+        })
+        .from(certificateScans)
+        .leftJoin(users, eq(certificateScans.uploadedByUserId, users.id))
+        .where(eq(certificateScans.certificateId, input.certificateId))
+        .orderBy(desc(certificateScans.createdAt));
+
+      return Promise.all(
+        rows.map(async row => ({ ...row, url: (await storageGet(row.storageKey)).url })),
+      );
+    }),
+
+  uploadScan: permissionProcedure("certificates.write")
+    .input(
+      z.object({
+        certificateId: z.number().int().positive(),
+        fileName: z.string().min(1).max(255),
+        mimeType: z.string().min(3).max(120),
+        base64Data: z.string().min(8).max(MAX_UPLOAD_BASE64_LENGTH),
+        note: z.string().trim().max(255).optional(),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+
+      const [certificate] = await db
+        .select({
+          id: certificates.id,
+          certificateNumber: certificates.certificateNumber,
+          studentName: studentProfiles.fullName,
+        })
+        .from(certificates)
+        .innerJoin(studentProfiles, eq(certificates.studentId, studentProfiles.id))
+        .where(eq(certificates.id, input.certificateId))
+        .limit(1);
+      if (!certificate) throw new TRPCError({ code: "NOT_FOUND", message: "Certificate not found." });
+
+      // Checks the declared type against the file's own signature, so a
+      // renamed executable cannot arrive dressed as a scan.
+      let buffer: Buffer;
+      try {
+        buffer = validateDocumentUpload(input.mimeType, input.base64Data);
+      } catch (error) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: error instanceof Error ? error.message : "Invalid file.",
+        });
+      }
+
+      const fileName = safeFileName(input.fileName);
+      const stored = await storagePut(
+        `certificates/${certificate.id}/${Date.now()}-${fileName}`,
+        buffer,
+        input.mimeType,
+      );
+
+      const [inserted] = await db
+        .insert(certificateScans)
+        .values({
+          certificateId: certificate.id,
+          storageKey: stored.key,
+          fileName,
+          mimeType: input.mimeType,
+          sizeBytes: buffer.length,
+          note: input.note || null,
+          uploadedByUserId: ctx.user.id,
+        })
+        .returning({ id: certificateScans.id });
+
+      await recordAudit(db, ctx.actor, {
+        action: "upload_certificate_scan",
+        entity: "certificate",
+        entityId: certificate.id,
+        entityLabel: certificate.certificateNumber,
+        newValue: { fileName, sizeBytes: buffer.length, note: input.note ?? null },
+        summary: `${ctx.actor.name ?? "Staff"} filed a scanned copy of ${certificate.certificateNumber} for ${certificate.studentName}`,
+      });
+
+      return { id: inserted?.id, url: stored.url, fileName };
+    }),
+
+  deleteScan: permissionProcedure("certificates.write")
+    .input(z.object({ scanId: z.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+
+      const [scan] = await db
+        .select({
+          id: certificateScans.id,
+          certificateId: certificateScans.certificateId,
+          storageKey: certificateScans.storageKey,
+          fileName: certificateScans.fileName,
+          certificateNumber: certificates.certificateNumber,
+        })
+        .from(certificateScans)
+        .innerJoin(certificates, eq(certificateScans.certificateId, certificates.id))
+        .where(eq(certificateScans.id, input.scanId))
+        .limit(1);
+      if (!scan) throw new TRPCError({ code: "NOT_FOUND", message: "That scan is no longer on file." });
+
+      await db.delete(certificateScans).where(eq(certificateScans.id, input.scanId));
+
+      // The row is what the app reads, so it goes first. An object that
+      // outlives it is unreachable - nothing holds the key any more - and a
+      // storage outage should not pin a wrongly filed scan to the record.
+      try {
+        await storageDelete(scan.storageKey);
+      } catch {
+        // Left for the storage account to tidy up.
+      }
+
+      await recordAudit(db, ctx.actor, {
+        action: "delete_certificate_scan",
+        entity: "certificate",
+        entityId: scan.certificateId,
+        entityLabel: scan.certificateNumber,
+        oldValue: { fileName: scan.fileName, storageKey: scan.storageKey },
+        summary: `${ctx.actor.name ?? "Staff"} removed a scanned copy of ${scan.certificateNumber}`,
       });
 
       return { success: true };

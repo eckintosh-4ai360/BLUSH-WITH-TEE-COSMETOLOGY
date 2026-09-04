@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Award, ExternalLink, Ban, Printer } from "lucide-react";
+import { Award, ExternalLink, Ban, Paperclip, Printer } from "lucide-react";
 import { Badge } from "@blush/ui/components/ui/badge";
 import { Button } from "@blush/ui/components/ui/button";
 import {
@@ -15,6 +15,7 @@ import { toast } from "@blush/ui/components/ui/sonner";
 import DashboardLayout from "@/components/DashboardLayout";
 import { DataTable, type Column } from "@/components/DataTable";
 import { PermissionGate } from "@/components/PermissionGate";
+import { CertificateScansDialog } from "@/components/certificates/CertificateScansDialog";
 import { IssueCertificateDialog } from "@/components/certificates/IssueCertificateDialog";
 import { RevokeCertificateDialog } from "@/components/certificates/RevokeCertificateDialog";
 import { useDocuments } from "@/hooks/useDocuments";
@@ -33,6 +34,8 @@ type CertificateRow = {
   status: string;
   completionDate: Date;
   issuedAt: Date;
+  /** How many scanned copies of the paper award are filed against this row. */
+  scanCount: number;
 };
 
 /** Where the public verification page lives, for the copyable link. */
@@ -56,6 +59,7 @@ function CertificatesContent() {
   const [status, setStatus] = useState("all");
   const [issueOpen, setIssueOpen] = useState(false);
   const [revoking, setRevoking] = useState<CertificateRow | null>(null);
+  const [scanning, setScanning] = useState<CertificateRow | null>(null);
 
   const utils = trpc.useUtils();
 
@@ -107,6 +111,28 @@ function CertificatesContent() {
           {row.status}
         </Badge>
       ),
+    },
+    {
+      key: "scanCount",
+      header: "Copies",
+      // Doubles as the way in: the count says whether the office copy is on
+      // file, and clicking it opens the copy itself.
+      cell: row => (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="gap-1.5 px-2"
+          onClick={() => setScanning(row)}
+        >
+          <Paperclip className="h-3.5 w-3.5" />
+          {row.scanCount ? (
+            row.scanCount
+          ) : (
+            <span className="text-muted-foreground">None</span>
+          )}
+        </Button>
+      ),
+      value: row => row.scanCount,
     },
     {
       key: "verify",
@@ -212,6 +238,12 @@ function CertificatesContent() {
           toast.success(`Certificate ${number} issued.`);
           query.refetch();
         }}
+      />
+
+      <CertificateScansDialog
+        certificate={scanning}
+        onOpenChange={open => !open && setScanning(null)}
+        onChanged={() => query.refetch()}
       />
 
       <RevokeCertificateDialog

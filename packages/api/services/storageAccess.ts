@@ -1,6 +1,12 @@
 import { and, eq, or } from "drizzle-orm";
 import { sdk } from "@blush/auth";
-import { applicationDocuments, applications, studentProfiles } from "@blush/db/schema";
+import {
+  applicationDocuments,
+  applications,
+  certificateScans,
+  certificates,
+  studentProfiles,
+} from "@blush/db/schema";
 import type { StorageAccessCheck, StorageAccessDecision } from "@blush/storage/proxy-route";
 import { dbOrThrow } from "../dbOrThrow";
 import { resolveAccess } from "./access";
@@ -25,6 +31,15 @@ const PUBLIC_KEY = /(^|\/)media\/(product|gallery|brochure)\//;
 const APPLICATION_KEY = /(^|\/)applications\//;
 
 /**
+ * Scanned copies of the paper certificates the school issued.
+ *
+ * A scan carries the graduate's name, the award, and a signature, which is
+ * more than the public verification page gives out and enough to forge from.
+ * So it sits above `internal`: a session alone is a storefront customer.
+ */
+const CERTIFICATE_KEY = /(^|\/)certificates\//;
+
+/**
  * Back-office reports the app generates and then links to from a message.
  *
  * These need their own class because `internal` is satisfied by a session
@@ -35,7 +50,7 @@ const APPLICATION_KEY = /(^|\/)applications\//;
  */
 const REPORT_KEY = /(^|\/)reports\//;
 
-export type StorageKeyClass = "public" | "application" | "report" | "internal";
+export type StorageKeyClass = "public" | "application" | "certificate" | "report" | "internal";
 
 /**
  * Sorts a key into what it is, kept pure so the classification can be tested
@@ -44,6 +59,7 @@ export type StorageKeyClass = "public" | "application" | "report" | "internal";
  */
 export function classifyStorageKey(key: string): StorageKeyClass {
   if (APPLICATION_KEY.test(key)) return "application";
+  if (CERTIFICATE_KEY.test(key)) return "certificate";
   if (REPORT_KEY.test(key)) return "report";
   if (PUBLIC_KEY.test(key)) return "public";
   return "internal";
@@ -65,8 +81,8 @@ export const storageAccessPolicy: StorageAccessCheck = async (
 
   // Receipts, profile photos and anything not otherwise classified: signing in
   // is enough, and these are fetched often enough that it is worth answering
-  // before resolving a permission set. Reports and admissions documents are
-  // the two that need more than a session.
+  // before resolving a permission set. Reports, admissions documents and
+  // certificate scans are the three that need more than a session.
   if (kind === "internal") return "allow";
 
   const db = await dbOrThrow();
@@ -79,6 +95,23 @@ export const storageAccessPolicy: StorageAccessCheck = async (
   // its own branch here, not on this one.
   if (kind === "report") {
     return access.canAny("reports.read", "inventory.read") ? "allow" : "forbidden";
+  }
+
+  // A certificate scan is a back-office record, and the graduate's own
+  // document. Staff who may read certificates see all of them; the graduate
+  // sees the copy of the award that is theirs, and nobody else's.
+  if (kind === "certificate") {
+    if (access.can("certificates.read")) return "allow";
+
+    const [own] = await db
+      .select({ id: certificateScans.id })
+      .from(certificateScans)
+      .innerJoin(certificates, eq(certificateScans.certificateId, certificates.id))
+      .innerJoin(studentProfiles, eq(certificates.studentId, studentProfiles.id))
+      .where(and(eq(certificateScans.storageKey, key), eq(studentProfiles.userId, user.id)))
+      .limit(1);
+
+    return own ? "allow" : "forbidden";
   }
 
   // Only admissions documents carry identity papers.
