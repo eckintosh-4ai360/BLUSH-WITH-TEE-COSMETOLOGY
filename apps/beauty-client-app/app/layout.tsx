@@ -13,7 +13,7 @@ const sora = Sora({
 });
 
 export const metadata: Metadata = {
-  title: "BWT School of Cosmetology | Blush With Tee",
+  title: "BWT School of Cosmetology",
   description: "Apply to a professional cosmetology programme, book a student-clinic beauty service, and shop academy essentials at Blush With Tee School of Cosmetology.",
   icons: {
     icon: "/logo.png",

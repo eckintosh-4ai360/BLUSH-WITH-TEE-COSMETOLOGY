@@ -96,7 +96,7 @@ export default function Home() {
           <div className="container grid items-center gap-14 pb-24 pt-24 lg:grid-cols-[1.08fr_.92fr] lg:pb-32 lg:pt-32">
             <div>
               <div className="inline-flex items-center gap-2 rounded-full border border-[#fe00b6]/35 bg-white/10 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.24em] text-[#ffb8ed] backdrop-blur-md shadow-[0_0_20px_rgba(254,0,182,0.25)]">
-                <Sparkles className="h-3.5 w-3.5 text-[#fe00b6]" /> Blush With Tee School of Cosmetology
+                <Sparkles className="h-3.5 w-3.5 text-[#fe00b6]" /> BWT School of Cosmetology
               </div>
 
               <h1 className="mt-8 text-5xl font-bold leading-[1.02] tracking-[-0.03em] sm:text-6xl lg:text-7xl">
@@ -169,7 +169,7 @@ export default function Home() {
               </h2>
             </div>
             <p className="max-w-2xl self-end text-lg leading-8 text-[#5c1c4b]">
-              At Blush With Tee School of Cosmetology, we blend technical mastery, creative innovation, and professional client etiquette. You will graduate with the portfolio, confidence, and skill set to excel in the competitive global beauty market.
+              At BWT School of Cosmetology, we blend technical mastery, creative innovation, and professional client etiquette. You will graduate with the portfolio, confidence, and skill set to excel in the competitive global beauty market.
             </p>
           </div>
 
