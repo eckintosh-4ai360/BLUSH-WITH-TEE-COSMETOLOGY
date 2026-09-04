@@ -71,6 +71,15 @@ export const certificatesRouter = router({
               select count(*) from ${certificateScans}
               where ${certificateScans.certificateId} = ${certificates.id}
             )`,
+            // The newest copy is the one Print hands over, so the row carries
+            // its key. Resolved here rather than fetched on click: opening a
+            // tab after an await is what popup blockers stop.
+            latestScanKey: sql<string | null>`(
+              select ${certificateScans.storageKey} from ${certificateScans}
+              where ${certificateScans.certificateId} = ${certificates.id}
+              order by ${certificateScans.createdAt} desc
+              limit 1
+            )`,
           })
           .from(certificates)
           .innerJoin(studentProfiles, eq(certificates.studentId, studentProfiles.id))
@@ -87,13 +96,16 @@ export const certificatesRouter = router({
       ]);
 
       return paginate(
-        rows.map(row => ({
-          ...row.certificate,
-          studentName: row.studentName,
-          studentNumber: row.studentNumber,
-          courseTitle: row.courseTitle,
-          scanCount: Number(row.scanCount ?? 0),
-        })),
+        await Promise.all(
+          rows.map(async row => ({
+            ...row.certificate,
+            studentName: row.studentName,
+            studentNumber: row.studentNumber,
+            courseTitle: row.courseTitle,
+            scanCount: Number(row.scanCount ?? 0),
+            scanUrl: row.latestScanKey ? (await storageGet(row.latestScanKey)).url : null,
+          })),
+        ),
         Number(total?.total ?? 0),
         input,
       );

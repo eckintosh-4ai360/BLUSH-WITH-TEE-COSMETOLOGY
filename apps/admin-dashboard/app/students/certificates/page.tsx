@@ -36,7 +36,21 @@ type CertificateRow = {
   issuedAt: Date;
   /** How many scanned copies of the paper award are filed against this row. */
   scanCount: number;
+  /** The newest scanned copy, which is what Print hands over. */
+  scanUrl: string | null;
 };
+
+/**
+ * Whether Print should hand over the scanned paper rather than generate one.
+ *
+ * A revoked award is the exception: the generated document is the only version
+ * that carries the REVOKED stamp, and a clean scan of a withdrawn certificate
+ * is exactly what that stamp exists to prevent. The scan stays reachable from
+ * the Copies dialog, where it reads as a record rather than as a reissue.
+ */
+function printsScan(row: CertificateRow) {
+  return Boolean(row.scanUrl) && row.status !== "revoked";
+}
 
 /** Where the public verification page lives, for the copyable link. */
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3001";
@@ -144,8 +158,24 @@ function CertificatesContent() {
             variant="ghost"
             size="sm"
             className="gap-1.5"
-            disabled={!documents.ready}
-            onClick={() => documents.certificate(row)}
+            // The generated document is a stand-in for the award. Once the
+            // signed paper is on file, that is the certificate, so it is what
+            // Print opens - except for a revoked one, where the generated copy
+            // is the only version carrying the REVOKED stamp.
+            disabled={!printsScan(row) && !documents.ready}
+            title={
+              printsScan(row)
+                ? "Open the scanned copy on file"
+                : "Download a certificate generated from this record"
+            }
+            onClick={() => {
+              const scan = printsScan(row) ? row.scanUrl : null;
+              if (scan) {
+                window.open(scan, "_blank", "noopener,noreferrer");
+                return;
+              }
+              documents.certificate(row);
+            }}
           >
             <Printer className="h-3.5 w-3.5" />
             Print
