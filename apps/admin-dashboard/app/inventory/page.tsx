@@ -2,7 +2,17 @@
 
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeftRight, BellRing, Pencil, Plus, Upload } from "lucide-react";
+import { ArrowLeftRight, BellRing, Pencil, Plus, Trash2, Upload } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@blush/ui/components/ui/alert-dialog";
 import { Badge } from "@blush/ui/components/ui/badge";
 import { Button } from "@blush/ui/components/ui/button";
 import {
@@ -66,6 +76,7 @@ function InventoryContent() {
     (params.get("filter") as "low" | "out" | null) ?? "all",
   );
   const [movingItem, setMovingItem] = useState<ItemRow | null>(null);
+  const [removingItem, setRemovingItem] = useState<ItemRow | null>(null);
   const [editingItem, setEditingItem] = useState<ItemRow | null>(null);
   const [itemDialogOpen, setItemDialogOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -84,6 +95,17 @@ function InventoryContent() {
       toast.success(
         `Reported ${result.lowCount} low item${result.lowCount === 1 ? "" : "s"} to ${result.recipients} recipient${result.recipients === 1 ? "" : "s"}.`,
       );
+    },
+    onError: error => toast.error(error.message),
+  });
+
+  const removeItem = trpc.inventory.deleteItem.useMutation({
+    onSuccess: result => {
+      toast.success(`"${result.name}" removed from stock.`);
+      setRemovingItem(null);
+      query.refetch();
+      // It may have been one of the items the alert was counting.
+      lowStock.refetch();
     },
     onError: error => toast.error(error.message),
   });
@@ -190,6 +212,15 @@ function InventoryContent() {
                 >
                   <ArrowLeftRight className="h-3.5 w-3.5" />
                   Movement
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label={`Delete ${row.name}`}
+                  className="text-destructive"
+                  onClick={() => setRemovingItem(row)}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
                 </Button>
               </span>
             ),
@@ -315,6 +346,36 @@ function InventoryContent() {
           query.refetch();
         }}
       />
+
+      <AlertDialog
+        open={removingItem !== null}
+        onOpenChange={open => !open && setRemovingItem(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {removingItem?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {removingItem?.quantityOnHand
+                ? `There ${removingItem.quantityOnHand === 1 ? "is" : "are"} still ${removingItem.quantityOnHand} in stock, so this will be refused. Record a movement to clear the balance first, so the ledger says where the stock went.`
+                : "It comes off the stock list, the storefront and the movement screens. The ledger, past orders and purchase orders that name it are kept, so its history still reads."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={removeItem.isPending}>Keep item</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={removeItem.isPending}
+              onClick={event => {
+                // Confirming holds the dialog open until the server answers, so
+                // a refusal is read where it was asked for.
+                event.preventDefault();
+                if (removingItem) removeItem.mutate({ id: removingItem.id });
+              }}
+            >
+              {removeItem.isPending ? "Deleting..." : "Delete item"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <StockMovementDialog
         item={movingItem}

@@ -299,6 +299,99 @@ export const inventoryRouter = router({
     }),
 
   /**
+   * Takes an item off the stock list.
+   *
+   * Soft, because the ledger, past orders and purchase orders all point at the
+   * row and have to keep resolving: what an invoice from last year says was
+   * sold must still name something. `deletedAt` is what every listing filters
+   * on, and the two flags come down with it so no storefront or admissions
+   * path can reach an item that has been removed.
+   *
+   * Two things refuse it, both because deleting through them would lose money
+   * quietly rather than loudly.
+   */
+  deleteItem: permissionProcedure("inventory.write")
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+
+      return db.transaction(async tx => {
+        const [existing] = await tx
+          .select()
+          .from(inventoryItems)
+          .where(and(eq(inventoryItems.id, input.id), isNull(inventoryItems.deletedAt)))
+          .limit(1);
+
+        if (!existing) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "That item is no longer on the list." });
+        }
+
+        // Stock on hand is money on a shelf. Deleting the item drops it out of
+        // the valuation without a movement saying where it went, which is
+        // exactly the hole the ledger exists to prevent. Write it off first.
+        if (existing.quantityOnHand !== 0) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: `"${existing.name}" still has ${existing.quantityOnHand} in stock. Record a movement to clear the balance first, so the ledger says where it went.`,
+          });
+        }
+
+        // An order already placed with a supplier will be received against
+        // this item later, and receiving puts stock back on a row nothing can
+        // show you.
+        const [onOrder] = await tx
+          .select({ total: count() })
+          .from(purchaseOrderItems)
+          .innerJoin(purchaseOrders, eq(purchaseOrderItems.purchaseOrderId, purchaseOrders.id))
+          .where(
+            and(
+              eq(purchaseOrderItems.inventoryItemId, input.id),
+              inArray(purchaseOrders.status, ["draft", "ordered", "partially_received"]),
+            ),
+          );
+
+        const pending = Number(onOrder?.total ?? 0);
+        if (pending > 0) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: `"${existing.name}" is on ${pending} open purchase order${pending === 1 ? "" : "s"}. Receive or cancel ${pending === 1 ? "it" : "them"} first.`,
+          });
+        }
+
+        await tx
+          .update(inventoryItems)
+          // Removed as well as withdrawn: `deletedAt` hides it from the lists
+          // that filter on it, and the flags are what the selling and
+          // classroom paths check.
+          .set({
+            deletedAt: new Date(),
+            isActive: false,
+            isSellable: false,
+            updatedAt: new Date(),
+          })
+          .where(eq(inventoryItems.id, input.id));
+
+        await recordAudit(tx, ctx.actor, {
+          action: "delete",
+          entity: "inventoryItem",
+          entityId: existing.id,
+          entityLabel: `${existing.sku} · ${existing.name}`,
+          oldValue: {
+            sku: existing.sku,
+            name: existing.name,
+            category: existing.category,
+            quantityOnHand: existing.quantityOnHand,
+            unitCost: existing.unitCost,
+            sellingPrice: existing.sellingPrice,
+          },
+          summary: `${ctx.actor.name ?? "Staff"} removed stock item "${existing.name}" (${existing.sku})`,
+        });
+
+        return { id: existing.id, name: existing.name };
+      });
+    }),
+
+  /**
    * Every stock change goes through here, so quantity on hand and the ledger
    * are written together and can never disagree (§48). Only an explicit
    * adjustment may push a balance below zero, and only with the right
