@@ -656,7 +656,7 @@ export const studentsRouter = router({
    * is: writing off a debt is a finance decision, and it should not happen as
    * a side effect of a ceremony.
    */
-  graduate: permissionProcedure("students.write")
+  graduate: permissionProcedure("certificates.write")
     .input(
       z.object({
         id: z.number().int().positive(),
@@ -804,7 +804,7 @@ export const studentsRouter = router({
    * is a new enrolment rather than an old one reopened, and it carries its own
    * fees.
    */
-  reinstate: permissionProcedure("students.write")
+  reinstate: permissionProcedure("certificates.write")
     .input(z.object({ id: z.number().int().positive() }))
     .mutation(async ({ input, ctx }) => {
       const db = await dbOrThrow();
@@ -860,7 +860,7 @@ export const studentsRouter = router({
    * decision, and it should not happen as a side effect of tidying the
    * register.
    */
-  archive: permissionProcedure("students.write")
+  archive: permissionProcedure("students.delete")
     .input(z.object({ id: z.number().int().positive() }))
     .mutation(async ({ input, ctx }) => {
       const db = await dbOrThrow();

@@ -309,6 +309,17 @@ export const servicesRouter = router({
   remove: permissionProcedure("services.write")
     .input(z.object({ id: z.number().int().positive() }))
     .mutation(async ({ input, ctx }) => {
+      const isAdministrator =
+        ctx.user.role === "admin" ||
+        ctx.access.roles.includes("super_admin") ||
+        ctx.access.roles.includes("administrator");
+      if (!isAdministrator) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Only administrators can remove recorded salon services and reverse revenue.",
+        });
+      }
+
       const db = await dbOrThrow();
 
       return db.transaction(async tx => {

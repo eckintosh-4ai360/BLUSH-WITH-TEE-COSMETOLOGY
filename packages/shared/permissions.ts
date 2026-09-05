@@ -133,6 +133,7 @@ export const ROLE_DEFINITIONS: Record<
       "admissions.delete",
       "students.read",
       "students.write",
+      "students.delete",
       "academics.read",
       "academics.write",
       "attendance.read",

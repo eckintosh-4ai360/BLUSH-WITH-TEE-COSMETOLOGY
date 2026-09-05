@@ -263,7 +263,7 @@ function RolesContent() {
         account={resetting}
         onOpenChange={open => !open && setResetting(null)}
         onReset={() => {
-          toast.success("Password reset. They will choose a new one on next sign-in.");
+          toast.success("Password reset. Share the new password with them directly.");
           setResetting(null);
           accounts.refetch();
         }}

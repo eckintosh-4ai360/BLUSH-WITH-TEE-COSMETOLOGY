@@ -149,7 +149,7 @@ function GraduatesContent() {
       value: row =>
         row.graduatedAt ? new Date(row.graduatedAt).toISOString().slice(0, 10) : "",
     },
-    ...(can("students.write")
+    ...(can("certificates.write")
       ? [
           {
             key: "actions",

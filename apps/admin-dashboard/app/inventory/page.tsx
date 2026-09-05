@@ -68,7 +68,7 @@ export default function InventoryPage() {
 
 function InventoryContent() {
   const params = useSearchParams();
-  const { can } = usePermissions();
+  const { can, isAdmin } = usePermissions();
 
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -213,15 +213,17 @@ function InventoryContent() {
                   <ArrowLeftRight className="h-3.5 w-3.5" />
                   Movement
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  aria-label={`Delete ${row.name}`}
-                  className="text-destructive"
-                  onClick={() => setRemovingItem(row)}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
+                {isAdmin ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    aria-label={`Delete ${row.name}`}
+                    className="text-destructive"
+                    onClick={() => setRemovingItem(row)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                ) : null}
               </span>
             ),
             value: () => "",

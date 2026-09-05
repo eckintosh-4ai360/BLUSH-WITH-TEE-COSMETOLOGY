@@ -247,30 +247,34 @@ function StudentsContent() {
                   <Pencil className="h-3.5 w-3.5" />
                   Edit
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="gap-1.5"
-                  onClick={event => {
-                    event.stopPropagation();
-                    setGraduating(row);
-                  }}
-                >
-                  <GraduationCap className="h-3.5 w-3.5" />
-                  Graduate
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="gap-1.5 text-destructive hover:text-destructive"
-                  onClick={event => {
-                    event.stopPropagation();
-                    setRemoving(row);
-                  }}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  Remove
-                </Button>
+                {can("certificates.write") ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1.5"
+                    onClick={event => {
+                      event.stopPropagation();
+                      setGraduating(row);
+                    }}
+                  >
+                    <GraduationCap className="h-3.5 w-3.5" />
+                    Graduate
+                  </Button>
+                ) : null}
+                {can("students.delete") ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1.5 text-destructive hover:text-destructive"
+                    onClick={event => {
+                      event.stopPropagation();
+                      setRemoving(row);
+                    }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Remove
+                  </Button>
+                ) : null}
               </span>
             ),
             value: () => "",
@@ -311,10 +315,12 @@ function StudentsContent() {
         actions={
           can("students.write") ? (
             <>
-              <Button variant="outline" className="gap-2" onClick={() => setImportOpen(true)}>
-                <Upload className="h-4 w-4" />
-                Import
-              </Button>
+              {can("students.delete") ? (
+                <Button variant="outline" className="gap-2" onClick={() => setImportOpen(true)}>
+                  <Upload className="h-4 w-4" />
+                  Import
+                </Button>
+              ) : null}
               <Button
                 className="gap-2"
                 onClick={() => {

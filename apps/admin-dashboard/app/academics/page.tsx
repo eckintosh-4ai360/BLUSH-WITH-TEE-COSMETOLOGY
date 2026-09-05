@@ -329,7 +329,8 @@ function AcademicsContent() {
 
         {/* Tab 2: Enrolment */}
         <TabsContent value="enrolments" className="space-y-6">
-          <div className="grid gap-6 xl:grid-cols-3">
+          <div className={`grid gap-6 ${canWriteAcademics ? "xl:grid-cols-3" : "xl:grid-cols-1"}`}>
+            {canWriteAcademics ? (
             <div className="xl:col-span-1">
               <form
                 onSubmit={submitEnrollment}
@@ -385,8 +386,9 @@ function AcademicsContent() {
                 </Button>
               </form>
             </div>
+            ) : null}
 
-            <div className="xl:col-span-2 space-y-4">
+            <div className={canWriteAcademics ? "xl:col-span-2 space-y-4" : "space-y-4"}>
               <Card className="border-border/60 bg-white/70 shadow-sm backdrop-blur dark:bg-white/5">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg font-bold">Active Enrolment Register</CardTitle>
@@ -416,22 +418,24 @@ function AcademicsContent() {
                             <Badge className="bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 capitalize">
                               {enrollment.status}
                             </Badge>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-                              aria-label={`Remove ${studentName} from ${courseTitle ?? "this programme"}`}
-                              onClick={() =>
-                                setRemoving({
-                                  id: enrollment.id,
-                                  studentName,
-                                  courseTitle,
-                                })
-                              }
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            {canWriteAcademics ? (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                                aria-label={`Remove ${studentName} from ${courseTitle ?? "this programme"}`}
+                                onClick={() =>
+                                  setRemoving({
+                                    id: enrollment.id,
+                                    studentName,
+                                    courseTitle,
+                                  })
+                                }
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            ) : null}
                           </div>
                         </div>
                       ))}
@@ -449,7 +453,8 @@ function AcademicsContent() {
 
         {/* Tab 3: Assessments */}
         <TabsContent value="assessments" className="space-y-6">
-          <div className="grid gap-6 xl:grid-cols-3">
+          <div className={`grid gap-6 ${canWriteAcademics ? "xl:grid-cols-3" : "xl:grid-cols-1"}`}>
+            {canWriteAcademics ? (
             <div className="xl:col-span-1">
               <form
                 onSubmit={submitAssessment}
@@ -528,8 +533,9 @@ function AcademicsContent() {
                 </Button>
               </form>
             </div>
+            ) : null}
 
-            <div className="xl:col-span-2 space-y-4">
+            <div className={canWriteAcademics ? "xl:col-span-2 space-y-4" : "space-y-4"}>
               <Card className="border-border/60 bg-white/70 shadow-sm backdrop-blur dark:bg-white/5">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg font-bold">Assessments Catalogue</CardTitle>

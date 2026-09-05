@@ -220,26 +220,26 @@ function ExpensesContent() {
                 ) : null}
 
                 {writable ? (
-                  <>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 w-8 p-0"
-                      aria-label={`Edit ${row.title}`}
-                      onClick={() => setEditing(row)}
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-                      aria-label={`Remove ${row.title}`}
-                      onClick={() => setRemoving(row)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    aria-label={`Edit ${row.title}`}
+                    onClick={() => setEditing(row)}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                ) : null}
+                {approver ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                    aria-label={`Remove ${row.title}`}
+                    onClick={() => setRemoving(row)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
                 ) : null}
               </span>
             ),

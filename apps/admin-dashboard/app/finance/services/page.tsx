@@ -77,7 +77,7 @@ export default function DailyServicesPage() {
 }
 
 function DailyServicesContent() {
-  const { can } = usePermissions();
+  const { can, isAdmin } = usePermissions();
   const [search, setSearch] = useState("");
   const [method, setMethod] = useState("all");
   const [page, setPage] = useState(1);
@@ -165,15 +165,17 @@ function DailyServicesContent() {
                 >
                   <Pencil className="h-3.5 w-3.5" />
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-                  aria-label={`Remove ${row.serviceName} for ${row.clientName}`}
-                  onClick={() => setRemoving(row)}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
+                {isAdmin ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                    aria-label={`Remove ${row.serviceName} for ${row.clientName}`}
+                    onClick={() => setRemoving(row)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                ) : null}
               </span>
             ),
             value: () => "",

@@ -29,9 +29,18 @@ export function usePermissions() {
     [granted],
   );
 
+  const isAdmin = useMemo(() => {
+    if (session.data?.user?.role === "admin") return true;
+    const roleKeys = (session.data?.roles ?? []).map(r =>
+      typeof r === "string" ? r : (r as { key: string }).key,
+    );
+    return roleKeys.includes("super_admin") || roleKeys.includes("administrator");
+  }, [session.data?.user?.role, session.data?.roles]);
+
   return {
     can,
     canAny,
+    isAdmin,
     permissions: granted,
     roles: session.data?.roles ?? [],
     user: session.data?.user ?? null,
