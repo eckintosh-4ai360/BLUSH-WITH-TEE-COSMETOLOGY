@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, Sparkles, X, Phone, MapPin, Mail, Instagram } from "lucide-react";
 import { Button } from "@blush/ui/components/ui/button";
+import { AskAssistant } from "@/components/AskAssistant";
 import { useAuth } from "@/hooks/useAuth";
 import { startLogin } from "@/lib/auth";
 
@@ -234,6 +235,8 @@ export default function PublicShell({ children }: { children: React.ReactNode })
           </div>
         </div>
       </footer>
+
+      <AskAssistant />
     </div>
   );
 }
