@@ -21,6 +21,7 @@
     "smoke": "tsx --env-file=../db/.env smoke.mts"
   },
   "dependencies": {
+    "@blush/ai": "workspace:*",
     "@blush/auth": "workspace:*",
     "@blush/db": "workspace:*",
     "@blush/env": "workspace:*",

@@ -200,6 +200,9 @@ importers:
 
   packages/api:
     dependencies:
+      '@blush/ai':
+        specifier: workspace:*
+        version: link:../ai
       '@blush/auth':
         specifier: workspace:*
         version: link:../auth

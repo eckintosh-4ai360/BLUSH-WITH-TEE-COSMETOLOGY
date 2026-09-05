@@ -1,5 +1,6 @@
 import { admissionsRouter } from "./routers/admissions";
 import { appointmentsRouter } from "./routers/appointments";
+import { assistantRouter } from "./routers/assistant";
 import { authRouter } from "./routers/auth";
 import { contentRouter } from "./routers/content";
 import { certificateVerificationRouter } from "./routers/certificates";
@@ -17,6 +18,7 @@ export const clientAppRouter = router({
   admissions: admissionsRouter,
   store: storeRouter,
   appointments: appointmentsRouter,
+  assistant: assistantRouter,
   portal: portalRouter,
   payments: paymentsRouter,
   certificates: certificateVerificationRouter,
