@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, BookOpen, Sparkles, WandSparkles, Award, Users, CheckCircle2, ShoppingBag } from "lucide-react";
 import { Button } from "@blush/ui/components/ui/button";
@@ -87,9 +88,25 @@ export default function Home() {
   return (
     <PublicShell>
       <main>
-        {/* Deep Glamour Hero with Magenta & Plum accents */}
-        <section className="hero-deep relative isolate overflow-hidden text-white">
-          <div className="hero-grain pointer-events-none absolute inset-0 -z-10 opacity-40" />
+        {/* Deep Glamour Hero with Salon Wallpaper Background */}
+        <section className="relative isolate overflow-hidden text-white">
+          {/* Background Wallpaper Image */}
+          <div className="absolute inset-0 -z-30">
+            <Image
+              src="/salon_wallpaper.png"
+              alt="Blush With Tee Salon Academy Studio"
+              fill
+              priority
+              quality={90}
+              className="object-cover object-center"
+              sizes="100vw"
+            />
+            {/* Rich editorial dark plum/magenta ambient overlay */}
+            <div className="absolute inset-0 bg-gradient-to-r from-[#170113]/92 via-[#2b0222]/82 to-[#140010]/72" />
+            <div className="absolute inset-0 bg-gradient-to-b from-[#170113]/50 via-transparent to-[#140010]/80" />
+          </div>
+
+          <div className="hero-grain pointer-events-none absolute inset-0 -z-10 opacity-30" />
           <div className="pointer-events-none absolute -left-40 top-[-15%] -z-10 h-[36rem] w-[36rem] rounded-full bg-[#fe00b6]/25 blur-[140px]" />
           <div className="pointer-events-none absolute -right-32 bottom-[-20%] -z-10 h-[32rem] w-[32rem] rounded-full bg-[#8f0d6b]/40 blur-[140px]" />
 
