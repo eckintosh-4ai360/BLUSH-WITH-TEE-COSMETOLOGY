@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, ilike, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import {
   clinicServices,
@@ -12,7 +12,7 @@ import {
   testimonials,
 } from "@blush/db/schema";
 import { defineTool } from "../types";
-import { likeTerm } from "./shared";
+import { matchesWords } from "./shared";
 
 /**
  * What the website assistant may look at.
@@ -39,13 +39,10 @@ export const publicTools = [
     async run(args, ctx) {
       const filters = [isNull(courses.deletedAt), eq(courses.isActive, true)];
       if (args.search) {
-        const term = likeTerm(args.search);
         filters.push(
-          or(
-            ilike(courses.title, term),
-            ilike(courses.code, term),
-            ilike(courses.category, term),
-            ilike(courses.summary, term),
+          matchesWords(
+            [courses.title, courses.code, courses.category, courses.summary],
+            args.search,
           )!,
         );
       }
@@ -115,9 +112,8 @@ export const publicTools = [
         eq(inventoryItems.isSellable, true),
       ];
       if (args.search) {
-        const term = likeTerm(args.search);
         filters.push(
-          or(ilike(inventoryItems.name, term), ilike(inventoryItems.category, term))!,
+          matchesWords([inventoryItems.name, inventoryItems.category], args.search)!,
         );
       }
 
@@ -229,9 +225,8 @@ export const publicTools = [
     async run(args, ctx) {
       const questionFilters = [eq(faqs.status, "published")];
       if (args.topic) {
-        const term = likeTerm(args.topic);
         questionFilters.push(
-          or(ilike(faqs.question, term), ilike(faqs.answer, term), ilike(faqs.category, term))!,
+          matchesWords([faqs.question, faqs.answer, faqs.category], args.topic)!,
         );
       }
 

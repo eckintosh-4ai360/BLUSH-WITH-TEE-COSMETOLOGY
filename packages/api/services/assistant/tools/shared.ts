@@ -1,4 +1,29 @@
+import { and, ilike, or, type SQL } from "drizzle-orm";
+
 /** Small helpers shared by every tool in the catalogue. */
+
+type Searchable = Parameters<typeof ilike>[0];
+
+/** More than this and the query costs more than the extra precision is worth. */
+const MAX_SEARCH_WORDS = 6;
+
+/**
+ * Matches a search phrase word by word across several columns.
+ *
+ * A single `ilike '%ultimate cosmetology%'` looks reasonable and fails on the
+ * first real question: the course is called "Ultimate Full Cosmetology Course",
+ * so the phrase never appears and the assistant reports there is no such
+ * course. Requiring each word somewhere in the row, rather than all of them
+ * adjacently, is what the person asking meant.
+ */
+export function matchesWords(columns: Searchable[], term: string): SQL | undefined {
+  const words = term.trim().split(/\s+/).filter(Boolean).slice(0, MAX_SEARCH_WORDS);
+  if (!words.length || !columns.length) return undefined;
+
+  return and(
+    ...words.map(word => or(...columns.map(column => ilike(column, likeTerm(word))))!),
+  );
+}
 
 /**
  * Escapes a caller-supplied search term for `ilike`.

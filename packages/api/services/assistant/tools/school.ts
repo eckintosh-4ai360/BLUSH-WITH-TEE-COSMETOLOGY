@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, gte, ilike, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, ilike, inArray, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import {
   applications,
@@ -15,7 +15,7 @@ import {
 } from "@blush/db/schema";
 import { studentAccountSummary } from "../../fees";
 import { defineTool } from "../types";
-import { isoDay, likeTerm, since } from "./shared";
+import { isoDay, likeTerm, matchesWords, since } from "./shared";
 
 const STUDENT_STATUS = ["active", "suspended", "completed", "graduated", "withdrawn"] as const;
 
@@ -75,13 +75,15 @@ export const studentTools = [
       const filters = [isNull(studentProfiles.deletedAt)];
       if (args.status) filters.push(eq(studentProfiles.status, args.status));
       if (args.search) {
-        const term = likeTerm(args.search);
         filters.push(
-          or(
-            ilike(studentProfiles.fullName, term),
-            ilike(studentProfiles.studentNumber, term),
-            ilike(studentProfiles.email, term),
-            ilike(studentProfiles.phone, term),
+          matchesWords(
+            [
+              studentProfiles.fullName,
+              studentProfiles.studentNumber,
+              studentProfiles.email,
+              studentProfiles.phone,
+            ],
+            args.search,
           )!,
         );
       }
@@ -113,7 +115,6 @@ export const studentTools = [
       identifier: z.string().min(2).describe("Student number, name or email."),
     }),
     async run(args, ctx) {
-      const term = likeTerm(args.identifier);
       const [student] = await ctx.db
         .select({
           id: studentProfiles.id,
@@ -130,10 +131,13 @@ export const studentTools = [
         .where(
           and(
             isNull(studentProfiles.deletedAt),
-            or(
-              ilike(studentProfiles.studentNumber, term),
-              ilike(studentProfiles.fullName, term),
-              ilike(studentProfiles.email, term),
+            matchesWords(
+              [
+                studentProfiles.studentNumber,
+                studentProfiles.fullName,
+                studentProfiles.email,
+              ],
+              args.identifier,
             ),
           ),
         )
@@ -295,9 +299,8 @@ export const academicTools = [
     async run(args, ctx) {
       const filters = [isNull(courses.deletedAt), eq(courses.isActive, true)];
       if (args.search) {
-        const term = likeTerm(args.search);
         filters.push(
-          or(ilike(courses.title, term), ilike(courses.code, term), ilike(courses.category, term))!,
+          matchesWords([courses.title, courses.code, courses.category, courses.summary], args.search)!,
         );
       }
 
@@ -399,9 +402,8 @@ export const academicTools = [
       const filters = [];
       if (args.status) filters.push(eq(certificates.status, args.status));
       if (args.search) {
-        const term = likeTerm(args.search);
         filters.push(
-          or(ilike(certificates.certificateNumber, term), ilike(studentProfiles.fullName, term))!,
+          matchesWords([certificates.certificateNumber, studentProfiles.fullName], args.search)!,
         );
       }
 
@@ -445,13 +447,15 @@ export const admissionTools = [
       const filters = [isNull(applications.deletedAt)];
       if (args.status) filters.push(eq(applications.status, args.status));
       if (args.search) {
-        const term = likeTerm(args.search);
         filters.push(
-          or(
-            ilike(applications.fullName, term),
-            ilike(applications.reference, term),
-            ilike(applications.email, term),
-            ilike(applications.phone, term),
+          matchesWords(
+            [
+              applications.fullName,
+              applications.reference,
+              applications.email,
+              applications.phone,
+            ],
+            args.search,
           )!,
         );
       }

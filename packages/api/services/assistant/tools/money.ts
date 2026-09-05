@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, ilike, isNull, or, sql } from "drizzle-orm";
+import { and, desc, eq, gte, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import {
   expenseCategories,
@@ -12,7 +12,7 @@ import {
 import { expensesByCategory, financeMetrics, revenueByMonth } from "../../analytics";
 import { fromMinor, toMinor } from "../../money";
 import { defineTool } from "../types";
-import { isoDay, likeTerm, since } from "./shared";
+import { isoDay, matchesWords, since } from "./shared";
 
 export const financeTools = [
   defineTool({
@@ -61,10 +61,7 @@ export const financeTools = [
       const filters = [gte(payments.createdAt, from), eq(payments.status, "completed")];
       if (args.method) filters.push(eq(payments.paymentMethod, args.method));
       if (args.search) {
-        const term = likeTerm(args.search);
-        filters.push(
-          or(ilike(payments.reference, term), ilike(studentProfiles.fullName, term))!,
-        );
+        filters.push(matchesWords([payments.reference, studentProfiles.fullName], args.search)!);
       }
 
       const [rows, totals] = await Promise.all([

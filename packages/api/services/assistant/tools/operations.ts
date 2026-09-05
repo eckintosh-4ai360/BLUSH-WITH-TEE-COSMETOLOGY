@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, gte, ilike, isNull, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import {
   appointments,
@@ -16,7 +16,7 @@ import {
 } from "@blush/db/schema";
 import { fromMinor, toMinor } from "../../money";
 import { defineTool } from "../types";
-import { isoDay, likeTerm, since } from "./shared";
+import { isoDay, matchesWords, since } from "./shared";
 
 export const inventoryTools = [
   defineTool({
@@ -35,12 +35,10 @@ export const inventoryTools = [
         filters.push(sql`${inventoryItems.quantityOnHand} <= ${inventoryItems.reorderLevel}`);
       }
       if (args.search) {
-        const term = likeTerm(args.search);
         filters.push(
-          or(
-            ilike(inventoryItems.name, term),
-            ilike(inventoryItems.sku, term),
-            ilike(inventoryItems.category, term),
+          matchesWords(
+            [inventoryItems.name, inventoryItems.sku, inventoryItems.category],
+            args.search,
           )!,
         );
       }
@@ -103,8 +101,7 @@ export const inventoryTools = [
       const from = since(ctx.now, args.days);
       const filters = [gte(inventoryMovements.createdAt, from)];
       if (args.itemSearch) {
-        const term = likeTerm(args.itemSearch);
-        filters.push(or(ilike(inventoryItems.name, term), ilike(inventoryItems.sku, term))!);
+        filters.push(matchesWords([inventoryItems.name, inventoryItems.sku], args.itemSearch)!);
       }
 
       const [rows, byType] = await Promise.all([
@@ -152,8 +149,7 @@ export const inventoryTools = [
     async run(args, ctx) {
       const filters = [isNull(suppliers.deletedAt)];
       if (args.search) {
-        const term = likeTerm(args.search);
-        filters.push(or(ilike(suppliers.name, term), ilike(suppliers.company, term))!);
+        filters.push(matchesWords([suppliers.name, suppliers.company], args.search)!);
       }
 
       const rows = await ctx.db
@@ -231,9 +227,8 @@ export const commerceTools = [
         filters.push(eq(storeOrders.fulfillmentStatus, args.fulfillmentStatus));
       }
       if (args.search) {
-        const term = likeTerm(args.search);
         filters.push(
-          or(ilike(storeOrders.orderNumber, term), ilike(storeOrders.customerName, term))!,
+          matchesWords([storeOrders.orderNumber, storeOrders.customerName], args.search)!,
         );
       }
 
@@ -326,9 +321,8 @@ export const commerceTools = [
     async run(args, ctx) {
       const filters = [isNull(customers.deletedAt)];
       if (args.search) {
-        const term = likeTerm(args.search);
         filters.push(
-          or(ilike(people.fullName, term), ilike(people.email, term), ilike(people.phone, term))!,
+          matchesWords([people.fullName, people.email, people.phone], args.search)!,
         );
       }
 
@@ -368,12 +362,10 @@ export const peopleTools = [
       const filters = [isNull(staffProfiles.deletedAt)];
       if (args.status) filters.push(eq(staffProfiles.status, args.status));
       if (args.search) {
-        const term = likeTerm(args.search);
         filters.push(
-          or(
-            ilike(people.fullName, term),
-            ilike(staffProfiles.staffNumber, term),
-            ilike(staffProfiles.position, term),
+          matchesWords(
+            [people.fullName, staffProfiles.staffNumber, staffProfiles.position],
+            args.search,
           )!,
         );
       }

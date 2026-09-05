@@ -1,4 +1,4 @@
-import { and, desc, eq, ilike, isNull, or } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import {
   applications,
@@ -18,7 +18,7 @@ import {
   studentMetrics,
 } from "../../analytics";
 import { defineTool } from "../types";
-import { likeTerm } from "./shared";
+import { matchesWords } from "./shared";
 
 export const overviewTools = [
   defineTool({
@@ -74,8 +74,9 @@ export const overviewTools = [
       term: z.string().min(2).describe("Name, number or reference to look for."),
     }),
     async run(args, ctx) {
-      const term = likeTerm(args.term);
       const access = ctx.access;
+      const nameLike = (columns: Parameters<typeof matchesWords>[0]) =>
+        matchesWords(columns, args.term);
 
       const [student, application, order, product, customer, certificate] = await Promise.all([
         access?.can("students.read")
@@ -89,12 +90,12 @@ export const overviewTools = [
               .where(
                 and(
                   isNull(studentProfiles.deletedAt),
-                  or(
-                    ilike(studentProfiles.fullName, term),
-                    ilike(studentProfiles.studentNumber, term),
-                    ilike(studentProfiles.email, term),
-                    ilike(studentProfiles.phone, term),
-                  ),
+                  nameLike([
+                    studentProfiles.fullName,
+                    studentProfiles.studentNumber,
+                    studentProfiles.email,
+                    studentProfiles.phone,
+                  ]),
                 ),
               )
               .limit(5)
@@ -112,12 +113,12 @@ export const overviewTools = [
               .where(
                 and(
                   isNull(applications.deletedAt),
-                  or(
-                    ilike(applications.fullName, term),
-                    ilike(applications.reference, term),
-                    ilike(applications.email, term),
-                    ilike(applications.phone, term),
-                  ),
+                  nameLike([
+                    applications.fullName,
+                    applications.reference,
+                    applications.email,
+                    applications.phone,
+                  ]),
                 ),
               )
               .limit(5)
@@ -132,9 +133,7 @@ export const overviewTools = [
                 fulfillmentStatus: storeOrders.fulfillmentStatus,
               })
               .from(storeOrders)
-              .where(
-                or(ilike(storeOrders.orderNumber, term), ilike(storeOrders.customerName, term)),
-              )
+              .where(nameLike([storeOrders.orderNumber, storeOrders.customerName]))
               .orderBy(desc(storeOrders.createdAt))
               .limit(5)
           : [],
@@ -150,7 +149,7 @@ export const overviewTools = [
               .where(
                 and(
                   isNull(inventoryItems.deletedAt),
-                  or(ilike(inventoryItems.name, term), ilike(inventoryItems.sku, term)),
+                  nameLike([inventoryItems.name, inventoryItems.sku]),
                 ),
               )
               .limit(5)
@@ -168,11 +167,7 @@ export const overviewTools = [
               .where(
                 and(
                   isNull(customers.deletedAt),
-                  or(
-                    ilike(people.fullName, term),
-                    ilike(people.email, term),
-                    ilike(people.phone, term),
-                  ),
+                  nameLike([people.fullName, people.email, people.phone]),
                 ),
               )
               .limit(5)
@@ -189,10 +184,7 @@ export const overviewTools = [
               .innerJoin(studentProfiles, eq(certificates.studentId, studentProfiles.id))
               .innerJoin(courses, eq(certificates.courseId, courses.id))
               .where(
-                or(
-                  ilike(certificates.certificateNumber, term),
-                  ilike(studentProfiles.fullName, term),
-                ),
+                nameLike([certificates.certificateNumber, studentProfiles.fullName]),
               )
               .limit(5)
           : [],
