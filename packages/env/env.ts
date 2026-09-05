@@ -19,4 +19,18 @@ export const ENV = {
   cloudinaryApiKey: process.env.CLOUDINARY_API_KEY ?? "",
   cloudinaryApiSecret: process.env.CLOUDINARY_API_SECRET ?? "",
   cloudinaryFolder: process.env.CLOUDINARY_FOLDER ?? "blush-with-tee",
+  /**
+   * Groq, which serves the in-app assistant.
+   *
+   * Server-side only - the key is never sent to a browser, and every model
+   * call goes through the API package so the assistant can only see what the
+   * signed-in caller is allowed to see.
+   */
+  groqApiKey: process.env.GROQ_API_KEY ?? "",
+  /**
+   * The model the assistant runs on. Overridable so the school can move to a
+   * newer one without a code change; the default is the strongest tool-calling
+   * model on Groq's catalogue.
+   */
+  groqModel: process.env.GROQ_MODEL ?? "openai/gpt-oss-120b",
 };

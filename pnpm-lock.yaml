@@ -188,6 +188,16 @@ importers:
         specifier: 5.9.3
         version: 5.9.3
 
+  packages/ai:
+    dependencies:
+      '@blush/env':
+        specifier: workspace:*
+        version: link:../env
+    devDependencies:
+      vitest:
+        specifier: ^2.1.4
+        version: 2.1.9(@types/node@24.7.0)(lightningcss@1.32.0)
+
   packages/api:
     dependencies:
       '@blush/auth':
