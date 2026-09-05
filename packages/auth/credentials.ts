@@ -209,7 +209,7 @@ export async function createAccount(
 export const DEFAULT_ADMIN = {
   email: "admin@bwtee.com",
   password: "blush@2026",
-  name: "Blush With Tee Owner",
+  name: "Augustina Appiah",
 } as const;
 
 /** Creates the owner account if the system has no administrator yet. */
