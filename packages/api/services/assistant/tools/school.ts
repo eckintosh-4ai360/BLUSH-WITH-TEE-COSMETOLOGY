@@ -23,17 +23,11 @@ export const studentTools = [
   defineTool({
     name: "count_students",
     description:
-      "Count students on the register, optionally narrowed by status or course. Use this for questions about how many students there are, rather than listing them all.",
+      "Count students on the register, optionally by status or course. Use for how-many questions.",
     permissions: ["students.read"],
     input: z.object({
-      status: z
-        .enum(STUDENT_STATUS)
-        .optional()
-        .describe("Restrict to one status. Omit to count every live record."),
-      courseTitle: z
-        .string()
-        .optional()
-        .describe("Only students with an enrolment on a course whose title contains this."),
+      status: z.enum(STUDENT_STATUS).optional(),
+      courseTitle: z.string().optional().describe("Only students enrolled on a matching course."),
     }),
     async run(args, ctx) {
       const filters = [isNull(studentProfiles.deletedAt)];
@@ -70,10 +64,10 @@ export const studentTools = [
   defineTool({
     name: "list_students",
     description:
-      "List students with their status, contact details and student number. Use when the question asks who, not how many.",
+      "List students with status, contact details and student number. Use when asked who, not how many.",
     permissions: ["students.read"],
     input: z.object({
-      search: z.string().optional().describe("Match on name, student number, email or phone."),
+      search: z.string().optional().describe("Name, student number, email or phone."),
       status: z.enum(STUDENT_STATUS).optional(),
       limit: z.number().int().min(1).max(40).default(15),
     }),
@@ -113,10 +107,10 @@ export const studentTools = [
   defineTool({
     name: "student_record",
     description:
-      "Everything held about one student: their courses, fee balance, attendance rate, results and certificates. Identify them by student number, full name or email.",
+      "One student in full: courses, fee balance, attendance, results, certificates.",
     permissions: ["students.read"],
     input: z.object({
-      identifier: z.string().min(2).describe("Student number, name or email address."),
+      identifier: z.string().min(2).describe("Student number, name or email."),
     }),
     async run(args, ctx) {
       const term = likeTerm(args.identifier);
@@ -237,10 +231,10 @@ export const studentTools = [
   defineTool({
     name: "attendance_summary",
     description:
-      "Attendance across the school over a recent window, overall and per course. Answers questions about how attendance is going.",
+      "Attendance across the school over recent days, overall and per course.",
     permissions: ["attendance.read"],
     input: z.object({
-      days: z.number().int().min(1).max(365).default(30).describe("Window ending today."),
+      days: z.number().int().min(1).max(365).default(30),
     }),
     async run(args, ctx) {
       const from = since(ctx.now, args.days);
@@ -291,14 +285,11 @@ export const academicTools = [
   defineTool({
     name: "list_courses",
     description:
-      "The course catalogue: title, code, tuition, duration, what it covers and how many students are on it. Use for any question about programmes, what the school teaches, or what a course costs.",
+      "Course catalogue: tuition, duration, syllabus and enrolment counts. Use for anything about programmes or course fees.",
     permissions: ["academics.read", "students.read", "admissions.read"],
     input: z.object({
-      search: z.string().optional().describe("Match on course title, code or category."),
-      includeModules: z
-        .boolean()
-        .default(false)
-        .describe("Include the syllabus outline for each course."),
+      search: z.string().optional().describe("Course title, code or category."),
+      includeModules: z.boolean().default(false).describe("Include the syllabus outline."),
       limit: z.number().int().min(1).max(30).default(20),
     }),
     async run(args, ctx) {
@@ -365,7 +356,7 @@ export const academicTools = [
   defineTool({
     name: "list_intakes",
     description:
-      "Course intakes with their start dates, application deadlines and capacity. Use for questions about when the next class starts.",
+      "Intakes with start dates, deadlines and capacity. Use for when the next class starts.",
     permissions: ["academics.read", "admissions.read"],
     input: z.object({
       status: z.enum(["open", "closed", "completed"]).optional(),
@@ -397,10 +388,10 @@ export const academicTools = [
 
   defineTool({
     name: "list_certificates",
-    description: "Certificates awarded to graduates, with the grade and whether they still stand.",
+    description: "Certificates awarded to graduates, with grade and status.",
     permissions: ["certificates.read"],
     input: z.object({
-      search: z.string().optional().describe("Match on certificate number or student name."),
+      search: z.string().optional().describe("Certificate number or student name."),
       status: z.enum(["issued", "revoked"]).optional(),
       limit: z.number().int().min(1).max(30).default(15),
     }),
@@ -441,13 +432,13 @@ export const admissionTools = [
   defineTool({
     name: "list_applications",
     description:
-      "The admissions pipeline: who has applied, for what course, and where each application stands.",
+      "Admissions pipeline: who applied, for what, and where each application stands.",
     permissions: ["admissions.read"],
     input: z.object({
       status: z
         .enum(["draft", "submitted", "under_review", "more_information", "approved", "rejected"])
         .optional(),
-      search: z.string().optional().describe("Match on applicant name, reference, email or phone."),
+      search: z.string().optional().describe("Applicant name, reference, email or phone."),
       limit: z.number().int().min(1).max(30).default(15),
     }),
     async run(args, ctx) {

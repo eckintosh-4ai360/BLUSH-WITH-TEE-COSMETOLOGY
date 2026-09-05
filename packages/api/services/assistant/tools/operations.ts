@@ -22,14 +22,11 @@ export const inventoryTools = [
   defineTool({
     name: "inventory_status",
     description:
-      "Stock on hand, what is running low and what the stock is worth. Use for questions about stock levels, reordering, or whether an item is available.",
+      "Stock on hand, what is low, and what it is worth. Use for stock levels and reordering.",
     permissions: ["inventory.read", "products.read"],
     input: z.object({
-      search: z.string().optional().describe("Match on item name, SKU or category."),
-      lowStockOnly: z
-        .boolean()
-        .default(false)
-        .describe("Only items at or below their reorder level."),
+      search: z.string().optional().describe("Item name, SKU or category."),
+      lowStockOnly: z.boolean().default(false).describe("Only items at or below reorder level."),
       limit: z.number().int().min(1).max(40).default(20),
     }),
     async run(args, ctx) {
@@ -95,11 +92,11 @@ export const inventoryTools = [
   defineTool({
     name: "stock_movements",
     description:
-      "Recent stock movements - what came in, what was sold, what the classroom used and what was written off.",
+      "Recent stock movements: received, sold, used in class, written off.",
     permissions: ["inventory.read"],
     input: z.object({
       days: z.number().int().min(1).max(180).default(30),
-      itemSearch: z.string().optional().describe("Restrict to one item by name or SKU."),
+      itemSearch: z.string().optional().describe("One item, by name or SKU."),
       limit: z.number().int().min(1).max(40).default(20),
     }),
     async run(args, ctx) {
@@ -146,10 +143,10 @@ export const inventoryTools = [
 
   defineTool({
     name: "list_suppliers",
-    description: "Suppliers, what they supply, and anything still owed to them.",
+    description: "Suppliers, what they supply and what is owed to them.",
     permissions: ["suppliers.read", "purchases.read"],
     input: z.object({
-      search: z.string().optional().describe("Match on supplier or company name."),
+      search: z.string().optional().describe("Supplier or company name."),
       limit: z.number().int().min(1).max(30).default(15),
     }),
     async run(args, ctx) {
@@ -180,7 +177,7 @@ export const inventoryTools = [
 
   defineTool({
     name: "list_purchase_orders",
-    description: "Purchase orders raised with suppliers and how far along each one is.",
+    description: "Purchase orders raised with suppliers and their progress.",
     permissions: ["purchases.read"],
     input: z.object({
       status: z
@@ -215,7 +212,7 @@ export const commerceTools = [
   defineTool({
     name: "list_orders",
     description:
-      "Store orders with their totals, payment state and delivery state. Use for questions about online sales or a particular order.",
+      "Store orders with totals, payment and delivery state. Use for online sales or one order.",
     permissions: ["orders.read"],
     input: z.object({
       days: z.number().int().min(1).max(365).default(30),
@@ -223,7 +220,7 @@ export const commerceTools = [
       fulfillmentStatus: z
         .enum(["new", "confirmed", "processing", "ready", "shipped", "delivered", "cancelled"])
         .optional(),
-      search: z.string().optional().describe("Match on order number or customer name."),
+      search: z.string().optional().describe("Order number or customer name."),
       limit: z.number().int().min(1).max(40).default(15),
     }),
     async run(args, ctx) {
@@ -284,7 +281,7 @@ export const commerceTools = [
   defineTool({
     name: "best_selling_products",
     description:
-      "Which products actually sell, by units and by value, over a window. Use for questions about top sellers or what to restock.",
+      "Top-selling products by units and value. Use for best sellers and what to restock.",
     permissions: ["orders.read", "products.read"],
     input: z.object({
       days: z.number().int().min(1).max(365).default(90),
@@ -320,10 +317,10 @@ export const commerceTools = [
 
   defineTool({
     name: "list_customers",
-    description: "Store customers with how much they have spent and when they last ordered.",
+    description: "Store customers, what they have spent and when they last ordered.",
     permissions: ["customers.read"],
     input: z.object({
-      search: z.string().optional().describe("Match on customer name, email or phone."),
+      search: z.string().optional().describe("Customer name, email or phone."),
       limit: z.number().int().min(1).max(30).default(15),
     }),
     async run(args, ctx) {
@@ -360,10 +357,10 @@ export const peopleTools = [
   defineTool({
     name: "list_staff",
     description:
-      "The staff directory: position, contact details and employment status. Salary is included only for callers allowed to see it.",
+      "Staff directory: position, contact details, employment status.",
     permissions: ["staff.read"],
     input: z.object({
-      search: z.string().optional().describe("Match on staff name, number or position."),
+      search: z.string().optional().describe("Staff name, number or position."),
       status: z.enum(["active", "inactive", "on_leave"]).optional(),
       limit: z.number().int().min(1).max(40).default(20),
     }),
@@ -412,13 +409,13 @@ export const peopleTools = [
   defineTool({
     name: "list_appointments",
     description:
-      "Clinic and salon appointments with the service booked, the client and the time. Use for questions about the diary or who is booked in.",
+      "Clinic and salon appointments: service, client and time. Use for the diary.",
     permissions: ["appointments.read"],
     input: z.object({
       status: z
         .enum(["requested", "confirmed", "completed", "cancelled", "no_show"])
         .optional(),
-      upcomingOnly: z.boolean().default(true).describe("Only appointments from now onwards."),
+      upcomingOnly: z.boolean().default(true).describe("Only from now onwards."),
       limit: z.number().int().min(1).max(40).default(20),
     }),
     async run(args, ctx) {

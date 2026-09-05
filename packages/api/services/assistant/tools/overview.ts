@@ -24,7 +24,7 @@ export const overviewTools = [
   defineTool({
     name: "school_overview",
     description:
-      "The state of the whole school in one call: student numbers, money, stock, store orders and the admissions pipeline. Reach for this first on any broad question about how things are going, then follow up with a narrower tool if more detail is needed.",
+      "Headline numbers for the whole school: students, money, stock, store orders, admissions. Use first for any broad question about how things are going.",
     permissions: [
       "students.read",
       "finance.read",
@@ -61,7 +61,7 @@ export const overviewTools = [
   defineTool({
     name: "find_record",
     description:
-      "Look up any reference in the system when it is not clear what kind of thing it is: a student number, an order number, a certificate number, a person, or a product SKU. Use this when the question mentions a name or code but not what it belongs to.",
+      "Resolve a name, number or reference of unknown kind across students, applications, orders, products, customers and certificates.",
     permissions: [
       "students.read",
       "admissions.read",
@@ -71,7 +71,7 @@ export const overviewTools = [
       "certificates.read",
     ],
     input: z.object({
-      term: z.string().min(2).describe("The name, number or reference to look for."),
+      term: z.string().min(2).describe("Name, number or reference to look for."),
     }),
     async run(args, ctx) {
       const term = likeTerm(args.term);

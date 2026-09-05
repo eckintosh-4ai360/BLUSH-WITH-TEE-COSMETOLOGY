@@ -47,10 +47,10 @@ function staffPrompt(caller: Caller, now: Date): string {
     "- Use a short markdown table when comparing several records, and plain sentences otherwise. Do not pad the reply with headings it does not need.",
     "- Quote the actual names and numbers you were given rather than describing them in general terms.",
     "",
-    `Tools available to you on this account: ${caller.toolNames.join(", ") || "none"}.`,
-    "That list is already limited to what this person is allowed to see, so anything missing from it is something they cannot be shown.",
-    "",
-    "You can only read. You cannot record a payment, enrol a student, change stock or send a message - if asked to do something like that, say it has to be done from the relevant screen, and name the screen.",
+    caller.toolNames.length
+      ? "Your tools are already limited to what this person is allowed to see, so anything you have no tool for is something they cannot be shown."
+      : "You have no tools on this account, so you cannot look anything up. Say so if asked.",
+    "You can only read. You cannot record a payment, enrol a student, change stock or send a message - if asked to do that, say it has to be done from the relevant screen, and name the screen.",
   ]
     .filter(Boolean)
     .join("\n");

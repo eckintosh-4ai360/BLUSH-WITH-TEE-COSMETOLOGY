@@ -48,11 +48,27 @@ export function availableTools(audience: Audience, ctx: ToolContext): AssistantT
   );
 }
 
-/** Renders the catalogue in the shape the model expects. */
+/**
+ * Keys that describe a bound rather than a choice.
+ *
+ * The catalogue is resent in full on every turn, so its size is paid for
+ * repeatedly - and on a metered plan that is the difference between answering
+ * and being throttled. These tell the model nothing it needs: `zod` validates
+ * the same bounds when the call comes back, and clamping an over-large limit
+ * is better handled there than explained here.
+ */
+const UNINFORMATIVE_KEYS = ["default", "minimum", "maximum", "minLength", "maxLength", "exclusiveMinimum", "exclusiveMaximum"];
+
+/** Renders the catalogue in the shape the model expects, as tersely as it can. */
 export function toolSchemas(tools: AssistantTool<never>[]): ToolSchema[] {
   return tools.map(tool => {
     const schema = z.toJSONSchema(tool.input, { io: "input" }) as Record<string, unknown>;
-    delete schema.$schema;
+
+    const properties = Object.fromEntries(
+      Object.entries((schema.properties as Record<string, Record<string, unknown>>) ?? {}).map(
+        ([name, definition]) => [name, trim(definition)],
+      ),
+    );
 
     return {
       type: "function" as const,
@@ -61,13 +77,19 @@ export function toolSchemas(tools: AssistantTool<never>[]): ToolSchema[] {
         description: tool.description,
         parameters: {
           type: "object" as const,
-          properties: (schema.properties as Record<string, unknown>) ?? {},
+          properties,
           required: (schema.required as string[]) ?? [],
           additionalProperties: false,
         },
       },
     };
   });
+}
+
+function trim(definition: Record<string, unknown>): Record<string, unknown> {
+  const trimmed = { ...definition };
+  for (const key of UNINFORMATIVE_KEYS) delete trimmed[key];
+  return trimmed;
 }
 
 /**

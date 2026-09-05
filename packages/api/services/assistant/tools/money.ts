@@ -18,7 +18,7 @@ export const financeTools = [
   defineTool({
     name: "finance_summary",
     description:
-      "Headline money figures: income today, this month and overall, expenses, profit and outstanding fees. Start here for any question about how the business is doing financially.",
+      "Income today and this month, expenses, profit and outstanding fees. Start here for money questions.",
     permissions: ["finance.read"],
     input: z.object({}),
     async run(_args, ctx) {
@@ -30,7 +30,7 @@ export const financeTools = [
   defineTool({
     name: "revenue_trend",
     description:
-      "Income and expenses month by month, so trends and comparisons between months can be answered.",
+      "Income and expenses month by month, for trends and comparisons.",
     permissions: ["finance.read"],
     input: z.object({
       months: z.number().int().min(2).max(24).default(12),
@@ -48,12 +48,12 @@ export const financeTools = [
   defineTool({
     name: "list_payments",
     description:
-      "Payments received, newest first. Covers student fees, store orders and services. Use for questions about what has been paid, by whom, and how.",
+      "Payments received, newest first: fees, orders and services. Use for what was paid, by whom, how.",
     permissions: ["payments.read"],
     input: z.object({
-      days: z.number().int().min(1).max(365).default(30).describe("Window ending today."),
+      days: z.number().int().min(1).max(365).default(30),
       method: z.enum(["cash", "mobile_money", "bank", "card", "online"]).optional(),
-      search: z.string().optional().describe("Match on payment reference or student name."),
+      search: z.string().optional().describe("Payment reference or student name."),
       limit: z.number().int().min(1).max(40).default(15),
     }),
     async run(args, ctx) {
@@ -110,7 +110,7 @@ export const financeTools = [
   defineTool({
     name: "fee_arrears",
     description:
-      "Students who still owe money, largest debt first, with what each of them owes. Use for questions about arrears, debtors, or who has not paid.",
+      "Students who still owe money, largest debt first. Use for arrears, debtors, who has not paid.",
     permissions: ["fees.read"],
     input: z.object({
       limit: z.number().int().min(1).max(40).default(15),
@@ -165,7 +165,7 @@ export const financeTools = [
   defineTool({
     name: "list_expenses",
     description:
-      "Money spent, newest first, with the category and whether it has been approved. Use for questions about costs, spending or a particular supplier bill.",
+      "Money spent, newest first, by category and approval state. Use for costs and spending.",
     permissions: ["expenses.read"],
     input: z.object({
       days: z.number().int().min(1).max(365).default(30),
@@ -223,7 +223,7 @@ export const financeTools = [
   defineTool({
     name: "services_log",
     description:
-      "Salon and clinic work carried out and what was charged for it, with who did the work. Use for questions about daily service takings.",
+      "Salon and clinic work done, what was charged and by whom. Use for daily service takings.",
     permissions: ["services.read"],
     input: z.object({
       days: z.number().int().min(1).max(180).default(14),
@@ -276,7 +276,7 @@ export const financeTools = [
   defineTool({
     name: "income_sources",
     description:
-      "Where income came from over a window - student fees, product sales, services and the rest - so takings can be broken down by source.",
+      "Income broken down by source: fees, product sales, services and the rest.",
     permissions: ["finance.read"],
     input: z.object({
       days: z.number().int().min(1).max(365).default(30),

@@ -10,11 +10,23 @@ const REQUEST_TIMEOUT_MS = 60_000;
 const MAX_ATTEMPTS = 3;
 const BACKOFF_MS = [400, 1200];
 
+/**
+ * The longest we will sit waiting out a rate limit.
+ *
+ * Groq meters tokens per minute, so a busy moment asks us to come back in
+ * twenty or thirty seconds. Waiting that out beats failing in front of the
+ * person who asked - but only up to a point, past which they would rather be
+ * told than left watching a spinner.
+ */
+const MAX_RATE_LIMIT_WAIT_MS = 30_000;
+
 export class AiError extends Error {
   constructor(
     message: string,
     readonly status?: number,
     readonly retryable = false,
+    /** How long the provider asked us to wait, when it said. */
+    readonly retryAfterMs?: number,
   ) {
     super(message);
     this.name = "AiError";
@@ -73,8 +85,22 @@ export async function chatCompletion(request: ChatRequest): Promise<ChatResult> 
       const failure =
         error instanceof AiError ? error : new AiError((error as Error).message, undefined, true);
       if (!failure.retryable || attempt === MAX_ATTEMPTS - 1) throw failure;
+
+      // A rate limit comes with the moment the budget refills. Honour it: a
+      // fixed backoff of a second against a window that resets in twenty-five
+      // burns the remaining attempts for nothing and fails anyway.
+      const wait = failure.retryAfterMs ?? BACKOFF_MS[attempt] ?? 1200;
+      if (wait > MAX_RATE_LIMIT_WAIT_MS) {
+        throw new AiError(
+          `The assistant has used up its allowance for the moment. Try again in about ${Math.ceil(wait / 1000)} seconds.`,
+          failure.status,
+          false,
+          wait,
+        );
+      }
+
       lastError = failure;
-      await delay(BACKOFF_MS[attempt] ?? 1200);
+      await delay(wait);
     }
   }
 
@@ -106,6 +132,7 @@ async function send(body: Record<string, unknown>, signal?: AbortSignal): Promis
         describeFailure(response.status, detail),
         response.status,
         response.status === 429 || response.status >= 500,
+        response.status === 429 ? retryAfterFrom(response.headers) : undefined,
       );
     }
 
@@ -122,6 +149,49 @@ async function send(body: Record<string, unknown>, signal?: AbortSignal): Promis
     clearTimeout(timer);
     signal?.removeEventListener("abort", onAbort);
   }
+}
+
+/**
+ * When the provider will accept the next request.
+ *
+ * `retry-after` is the standard header but Groq does not always send it; the
+ * per-budget reset headers carry the same fact in Go duration notation
+ * (`25.672s`, `1m30s`), and the token budget is the one that actually bites.
+ */
+export function retryAfterFrom(headers: Headers): number | undefined {
+  const retryAfter = headers.get("retry-after");
+  if (retryAfter) {
+    const seconds = Number(retryAfter);
+    if (Number.isFinite(seconds)) return Math.ceil(seconds * 1000);
+  }
+
+  const resets = [
+    headers.get("x-ratelimit-reset-tokens"),
+    headers.get("x-ratelimit-reset-requests"),
+  ]
+    .map(parseDuration)
+    .filter((value): value is number => value !== undefined);
+
+  // The soonest budget to refill is the one that unblocks the next call.
+  return resets.length ? Math.min(...resets) : undefined;
+}
+
+/** Parses `1m30.5s`, `25.672s` or `500ms` into milliseconds. */
+export function parseDuration(value: string | null): number | undefined {
+  if (!value) return undefined;
+
+  const pattern = /(\d+(?:\.\d+)?)(ms|[hms])/g;
+  const unitMs: Record<string, number> = { h: 3_600_000, m: 60_000, s: 1000, ms: 1 };
+
+  let total = 0;
+  let matched = false;
+
+  for (const [, amount, unit] of value.matchAll(pattern)) {
+    total += Number(amount) * (unitMs[unit ?? "s"] ?? 1000);
+    matched = true;
+  }
+
+  return matched ? Math.ceil(total) : undefined;
 }
 
 /** Turns a provider status into something a member of staff can act on. */

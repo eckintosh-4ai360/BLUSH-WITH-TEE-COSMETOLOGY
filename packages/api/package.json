@@ -18,7 +18,8 @@
   },
   "scripts": {
     "test": "vitest run",
-    "smoke": "tsx --env-file=../db/.env smoke.mts"
+    "smoke": "tsx --env-file=../db/.env smoke.mts",
+    "assistant-smoke": "tsx --env-file=../db/.env assistant.smoke.mts"
   },
   "dependencies": {
     "@blush/ai": "workspace:*",
