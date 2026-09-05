@@ -35,6 +35,7 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@blush/ui/components/ui/sidebar";
+import { AssistantLauncher } from "./assistant/AssistantLauncher";
 import { GlobalSearch } from "./GlobalSearch";
 import { ThemeToggle } from "./ThemeToggle";
 import { NotificationBell } from "./NotificationBell";
@@ -246,6 +247,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
           <div className="flex-1">
             <GlobalSearch />
           </div>
+          <AssistantLauncher />
           <ThemeToggle />
           <NotificationBell />
         </header>
