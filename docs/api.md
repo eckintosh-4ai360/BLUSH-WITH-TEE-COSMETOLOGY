@@ -9,8 +9,8 @@ procedure:
 
 | Router | Mounted by | Contains |
 |---|---|---|
-| `clientAppRouter` | `beauty-client-app` | Public content, store, admissions, student portal, online payments, certificate verification |
-| `adminAppRouter` | `admin-dashboard` | Dashboard, finance, inventory, orders, certificates, platform administration |
+| `clientAppRouter` | `beauty-client-app` | Public content, store, admissions, student portal, online payments, certificate verification, the website assistant |
+| `adminAppRouter` | `admin-dashboard` | Dashboard, finance, inventory, orders, certificates, platform administration, the assistant |
 
 ## Procedure kinds
 
@@ -116,6 +116,17 @@ Each group is permission-filtered: an accountant gets `finance` and `null` for
 `updatePreference` — all scoped to the caller, who cannot read or dismiss
 anybody else's.
 
+### `assistant`
+| Procedure | Notes |
+|---|---|
+| `status` | Whether a key is configured, the model, and how many tools this caller may use |
+| `ask` | One question. Any signed-in account; throttled to 60 questions per 10 minutes |
+
+`ask` runs a tool-calling loop against a catalogue of read-only lookups. The
+catalogue is filtered by `ctx.access` before the model is told what exists, and
+each call is checked again on the way in, so the assistant is bounded by exactly
+what the caller could have opened a screen to see. No tool writes.
+
 ## Client surface
 
 ### `payments` — online fee payment
@@ -131,6 +142,17 @@ anybody else's.
 `verify` takes a certificate number or a QR token and returns
 `verified` / `revoked` / `not_found` with the minimum an employer needs. Every
 lookup is logged, found or not.
+
+### `assistant`
+| Procedure | Notes |
+|---|---|
+| `available` | Whether the chat bubble should render at all |
+| `chat` | One question from a visitor. Unauthenticated, throttled to 20 per 10 minutes per address |
+
+The public catalogue reaches only published content - courses, intakes,
+services, sellable products, FAQs, events, testimonials. Student records, money
+and stock are not withheld by a permission check here; they are simply not in
+the catalogue this surface is given.
 
 ### Others
 `store` (products, cart, checkout, order lookup), `admissions`, `appointments`,

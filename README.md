@@ -65,6 +65,43 @@ reachable from anywhere but your machine. Every other account is created from
 | `pnpm db:seed:demo` | Realistic demo school (refuses in production) |
 | `pnpm db:reconcile` | Repair derived values from their ledgers |
 | `pnpm --filter @blush/api smoke` | Run every read endpoint against the real database |
+| `pnpm --filter @blush/api assistant-smoke` | Ask the assistant real questions against the real database |
+
+---
+
+## The assistant
+
+Both apps carry an assistant that answers from this database rather than from a
+model's memory. It runs on Groq — `openai/gpt-oss-120b` by default — and needs
+`GROQ_API_KEY` set; without one, the dashboard panel says it is switched off and
+the website bubble is not rendered at all.
+
+It works by tool calling. The model cannot see the database; it can only ask for
+one of a fixed catalogue of read-only lookups, and **each lookup is gated by the
+same permission as the screen that shows the same figures**. The catalogue is
+filtered per caller before the model is told what exists, and checked again when
+a call comes back — so a storekeeper asking about revenue is told they cannot see
+it, rather than being told the number.
+
+| Surface | Where | Reaches |
+|---|---|---|
+| Staff | Dashboard header, `Ctrl + /` | Students, fees, payments, expenses, stock, orders, suppliers, staff, bookings — permission by permission |
+| Public | "Ask BWT" bubble on the website | Only what is already published: courses, fees, intakes, services, products, site content |
+
+Two limits are deliberate:
+
+- **It cannot write.** No tool records a payment, enrols a student or moves
+  stock. A model that misreads a question should cost a wrong sentence, never a
+  wrong payment.
+- **It does not answer money questions from memory.** Figures come from a tool
+  call or not at all, because a plausible invented number is worse than an
+  admission of ignorance — it gets acted on.
+
+Ordinary conversation still works: a greeting gets a greeting, not a refusal.
+
+Free-tier Groq keys are metered at 8,000 tokens a minute, which is roughly one
+question at a time. The client waits out a rate limit when the provider says how
+long, and says so plainly when the wait is too long to sit through.
 
 ---
 
@@ -76,6 +113,7 @@ apps/
   beauty-client-app/   Public website, store, portals (port 3001)
 packages/
   api/                 tRPC routers + business services
+  ai/                  Groq client for the assistant
   db/                  Drizzle schema, migrations, seeds
   auth/                Passwords, sessions, accounts
   ui/                  Design system, charts
