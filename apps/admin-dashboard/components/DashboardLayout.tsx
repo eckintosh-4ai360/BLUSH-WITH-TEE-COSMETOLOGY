@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -8,7 +9,6 @@ import {
   LogOut,
   PanelLeft,
   ShieldAlert,
-  Sparkles,
   TriangleAlert,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@blush/ui/components/ui/avatar";
@@ -110,12 +110,18 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
               aria-label="Toggle navigation"
               className="grid size-9 shrink-0 place-items-center rounded-xl bg-[#22b8bd] text-white shadow-[0_14px_28px_rgba(34,184,189,0.25)] transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring dark:bg-[#3fd0d8] dark:text-[#04252a] dark:shadow-[0_14px_28px_rgba(63,208,216,0.2)]"
             >
-              <Sparkles className="size-4 group-data-[collapsible=icon]:hidden" />
+              <Image
+                src="/logo.png"
+                alt="Logo"
+                width={24}
+                height={24}
+                className="size-6 object-contain group-data-[collapsible=icon]:hidden"
+              />
               <PanelLeft className="hidden size-4 group-data-[collapsible=icon]:block" />
             </button>
             <span className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
               <span className="block truncate font-semibold leading-tight">
-                Blush With Tee
+                BWT Artistry
               </span>
               <span className="block truncate text-[11px] text-sidebar-foreground/50">
                 Admin console
