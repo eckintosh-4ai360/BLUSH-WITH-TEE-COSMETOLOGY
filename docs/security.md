@@ -43,6 +43,48 @@ deploy; the static catalogue is the seed and the fallback for a cold database.
 `staffProfiles.salary` requires `staff.salary.read`, which only the accountant
 and ownership roles carry. A test asserts the other roles do not have it.
 
+### The assistant
+
+The assistant is a fourth caller of the same control, not an exception to it.
+
+It cannot see the database. It can only ask for one of a fixed catalogue of
+read-only lookups in `services/assistant/tools/`, and each one declares the
+permissions it needs:
+
+```ts
+defineTool({
+  name: "fee_arrears",
+  permissions: ["fees.read"],
+  ...
+})
+```
+
+Two checks, for the same reason the UI and the procedure are separate:
+
+1. `availableTools()` filters the catalogue by `ctx.access` **before the model
+   is told what exists** — so a storekeeper is never tempted toward a tool
+   whose answer they could not be given.
+2. `runTool()` checks the permissions again when the call comes back — **the
+   control**. It holds even if the filtering above is ever changed or a model
+   invents a tool name.
+
+Within one answer the rule is finer than the tool: `student_record` returns a
+fee balance only to a caller with `fees.read`, and `list_staff` omits salary
+without `staff.salary.read`, matching the screens.
+
+Two limits are structural rather than configured:
+
+- **No tool writes.** The catalogue contains no mutation, so the worst a
+  misread question can produce is a wrong sentence.
+- **The public catalogue is a different catalogue.** The website assistant is
+  given only tools over published content. Student records and money are not
+  withheld from it by a permission check — there is no session on that
+  surface to check — they are simply not among the tools it has.
+
+The model provider sees whatever a tool returns in service of a question, which
+can include personal data. That is the same trade as any hosted service, and it
+is why the key is server-side only and the catalogue is read-only.
+
 ## Payments
 
 The rule from §49 is that a payment is only successful once the server has
