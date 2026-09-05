@@ -193,7 +193,7 @@ export async function createAccount(
       personId: input.personId ?? null,
       passwordHash: await hashPassword(input.password),
       passwordUpdatedAt: new Date(),
-      mustChangePassword: input.mustChangePassword ?? true,
+      mustChangePassword: input.mustChangePassword ?? false,
     })
     .returning({ id: users.id });
 
@@ -201,11 +201,6 @@ export async function createAccount(
   return { ok: true, userId: created.id };
 }
 
-/**
- * The credentials the system ships with, so a fresh install can be signed into
- * before any account exists. Seeded with `mustChangePassword` set, and the
- * dashboard says so until it is changed.
- */
 export const DEFAULT_ADMIN = {
   email: "admin@bwtee.com",
   password: "blush@2026",
@@ -223,14 +218,20 @@ export async function ensureDefaultAdmin(): Promise<{ created: boolean }> {
     .where(sql`lower(${users.email}) = ${DEFAULT_ADMIN.email}`)
     .limit(1);
 
-  if (existing) return { created: false };
+  if (existing) {
+    await db
+      .update(users)
+      .set({ mustChangePassword: false })
+      .where(sql`lower(${users.email}) = ${DEFAULT_ADMIN.email} and ${users.mustChangePassword} = true`);
+    return { created: false };
+  }
 
   const result = await createAccount({
     email: DEFAULT_ADMIN.email,
     password: DEFAULT_ADMIN.password,
     name: DEFAULT_ADMIN.name,
     role: "admin",
-    mustChangePassword: true,
+    mustChangePassword: false,
   });
 
   return { created: result.ok };

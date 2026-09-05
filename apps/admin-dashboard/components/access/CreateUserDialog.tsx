@@ -53,7 +53,7 @@ export function CreateUserDialog({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState(() => suggestPassword());
   const [role, setRole] = useState("administrator");
-  const [mustChange, setMustChange] = useState(true);
+  const [mustChange, setMustChange] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -62,7 +62,7 @@ export function CreateUserDialog({
       setEmail("");
       setPassword(suggestPassword());
       setRole("administrator");
-      setMustChange(true);
+      setMustChange(false);
       setError(null);
     }
   }, [open]);
@@ -145,7 +145,7 @@ export function CreateUserDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="user-password">Temporary password</Label>
+            <Label htmlFor="user-password">Password</Label>
             <div className="flex gap-2">
               <Input
                 id="user-password"
@@ -165,8 +165,7 @@ export function CreateUserDialog({
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Anything you like. The suggested one is a strong starting point if you would rather
-              not think about it.
+              Set a password or generate one. The user can sign in directly with this password.
             </p>
           </div>
 
@@ -182,7 +181,7 @@ export function CreateUserDialog({
                 Require a new password on first sign-in
               </span>
               <span className="mt-0.5 block text-xs text-muted-foreground">
-                Recommended, so the password you set here is never the one in use.
+                Optional. If unchecked, the user can continue using the password you set without changing it.
               </span>
             </span>
           </label>
@@ -259,14 +258,13 @@ export function ResetPasswordDialog({
         <DialogHeader>
           <DialogTitle>Reset password</DialogTitle>
           <DialogDescription>
-            {account?.name ?? account?.email} will be asked to choose their own password on the
-            next sign-in.
+            Set a new password for {account?.name ?? account?.email}.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="reset-password">New temporary password</Label>
+            <Label htmlFor="reset-password">New password</Label>
             <div className="flex gap-2">
               <Input
                 id="reset-password"

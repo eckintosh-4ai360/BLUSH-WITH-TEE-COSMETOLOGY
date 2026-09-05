@@ -195,10 +195,8 @@ export const platformRouter = router({
   /**
    * Creates a sign-in account (§45).
    *
-   * The password is hashed before it is stored and is flagged for change on
-   * first use, so an administrator setting one up never leaves a shared secret
-   * in place. Granting the role is part of the same call, because an account
-   * with no role can sign in and see nothing, which reads as a broken system.
+   * The password is hashed before it is stored. Users can directly sign in
+   * with the password set here without being forced to change it.
    */
   createUser: permissionProcedure("roles.write")
     .input(
@@ -207,7 +205,7 @@ export const platformRouter = router({
         email: z.string().trim().email().max(320),
         password: z.string().min(MIN_PASSWORD_LENGTH).max(MAX_PASSWORD_LENGTH),
         role: ROLE_KEY_ENUM,
-        mustChangePassword: z.boolean().default(true),
+        mustChangePassword: z.boolean().default(false),
       }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -246,12 +244,13 @@ export const platformRouter = router({
       return { id: created.userId };
     }),
 
-  /** Sets a new password for another account, flagged for change on first use. */
+  /** Sets a new password for another account. */
   resetUserPassword: permissionProcedure("roles.write")
     .input(
       z.object({
         userId: z.number().int().positive(),
         password: z.string().min(MIN_PASSWORD_LENGTH).max(MAX_PASSWORD_LENGTH),
+        mustChangePassword: z.boolean().default(false),
       }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -264,7 +263,9 @@ export const platformRouter = router({
         .limit(1);
       if (!target) throw new TRPCError({ code: "NOT_FOUND", message: "Account was not found." });
 
-      const result = await setPassword(input.userId, input.password, { mustChange: true });
+      const result = await setPassword(input.userId, input.password, {
+        mustChange: input.mustChangePassword,
+      });
       if (!result.ok) throw new TRPCError({ code: "BAD_REQUEST", message: result.message });
 
       await recordAudit(db, ctx.actor, {
