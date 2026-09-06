@@ -170,8 +170,6 @@ export function AssistantPanel({
                 <RotateCcw className="size-3" />
                 Clear
               </button>
-            ) : status.data?.model ? (
-              <span className="truncate">{status.data.model}</span>
             ) : null}
           </div>
         </div>
