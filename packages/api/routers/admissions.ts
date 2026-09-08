@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, or, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { applicationDocuments, applications, courses } from "@blush/db/schema";
@@ -21,7 +21,7 @@ const lookupLimit = throttledPublicProcedure({ bucket: "admissions.lookup", limi
 
 const applicationInput = z.object({
   fullName: z.string().trim().min(2).max(160),
-  email: z.string().trim().email().max(320),
+  email: z.string().trim().email().max(320).optional().or(z.literal("")),
   phone: z.string().trim().min(7).max(40),
   whatsapp: z.string().trim().max(40).optional(),
   birthDate: z.coerce.date().optional(),
@@ -60,13 +60,14 @@ export const admissionsRouter = router({
     if (!course) throw new TRPCError({ code: "NOT_FOUND", message: "The selected program is unavailable." });
 
     const reference = buildReference("APP");
+    const email = input.email && input.email.trim().length > 0 ? input.email.trim().toLowerCase() : null;
     const [inserted] = await db
       .insert(applications)
       .values({
         reference,
         userId: ctx.user?.id,
         fullName: input.fullName,
-        email: input.email.toLowerCase(),
+        email,
         phone: input.phone,
         whatsapp: input.whatsapp,
         birthDate: input.birthDate,
@@ -108,7 +109,7 @@ export const admissionsRouter = router({
       type: "application_submitted",
       recipient: {
         name: input.fullName,
-        email: input.email.toLowerCase(),
+        email,
         phone: input.phone,
         userId: ctx.user?.id ?? null,
       },
@@ -125,16 +126,17 @@ export const admissionsRouter = router({
   }),
   uploadDocument: uploadLimit.input(z.object({
     reference: z.string().min(6).max(32),
-    email: z.string().email(),
+    email: z.string().email().optional().or(z.literal("")),
     documentType: z.enum(["transcript", "government_id", "passport_photo", "certificate", "other"]),
     fileName: z.string().min(1).max(255),
     mimeType: z.string().min(3).max(120),
     base64Data: z.string().min(8).max(MAX_UPLOAD_BASE64_LENGTH),
   })).mutation(async ({ input, ctx }) => {
     const db = await dbOrThrow();
+    const email = input.email && input.email.trim().length > 0 ? input.email.trim().toLowerCase() : null;
     const [application] = await db.select().from(applications).where(and(
       eq(applications.reference, input.reference),
-      eq(applications.email, input.email.toLowerCase()),
+      email ? eq(applications.email, email) : undefined,
     )).limit(1);
     if (!application) throw new TRPCError({ code: "NOT_FOUND", message: "Application could not be verified." });
 
@@ -172,8 +174,9 @@ export const admissionsRouter = router({
    * applicant's own submission, and reference-plus-email is a weak enough key
    * that it should only unlock the latter.
    */
-  lookup: lookupLimit.input(z.object({ reference: z.string().min(6), email: z.string().email() })).query(async ({ input }) => {
+  lookup: lookupLimit.input(z.object({ reference: z.string().min(6), email: z.string().optional().or(z.literal("")) })).query(async ({ input }) => {
     const db = await dbOrThrow();
+    const query = input.email && input.email.trim().length > 0 ? input.email.trim().toLowerCase() : null;
     const rows = await db.select({
       reference: applications.reference,
       status: applications.status,
@@ -216,9 +219,9 @@ export const admissionsRouter = router({
       statement: applications.statement,
     }).from(applications).innerJoin(courses, eq(applications.courseId, courses.id)).where(and(
       eq(applications.reference, input.reference),
-      eq(applications.email, input.email.toLowerCase()),
+      query ? or(eq(applications.email, query), eq(applications.phone, input.email!.trim())) : undefined,
     )).limit(1);
-    if (!rows[0]) throw new TRPCError({ code: "NOT_FOUND", message: "No application matches that reference and email." });
+    if (!rows[0]) throw new TRPCError({ code: "NOT_FOUND", message: "No application matches that reference." });
     return rows[0];
   }),
 });

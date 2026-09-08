@@ -36,7 +36,7 @@ export const studentProfiles = pgTable(
       .references(() => applications.id, { onDelete: "set null" }),
     studentNumber: varchar("studentNumber", { length: 40 }).notNull().unique(),
     fullName: varchar("fullName", { length: 160 }).notNull(),
-    email: varchar("email", { length: 320 }).notNull(),
+    email: varchar("email", { length: 320 }),
     phone: varchar("phone", { length: 40 }).notNull(),
     profileImageKey: varchar("profileImageKey", { length: 512 }),
     status: studentStatus("status").default("active").notNull(),

@@ -29,7 +29,7 @@ export const applications = pgTable(
     personId: integer("personId").references(() => people.id, { onDelete: "set null" }),
     userId: integer("userId").references(() => users.id, { onDelete: "set null" }),
     fullName: varchar("fullName", { length: 160 }).notNull(),
-    email: varchar("email", { length: 320 }).notNull(),
+    email: varchar("email", { length: 320 }),
     phone: varchar("phone", { length: 40 }).notNull(),
     whatsapp: varchar("whatsapp", { length: 40 }),
     birthDate: date("birthDate", { mode: "date" }),

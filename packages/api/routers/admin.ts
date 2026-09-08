@@ -481,7 +481,7 @@ export const adminNamespaceRouter = router({
     .input(
       z.object({
         fullName: z.string().trim().min(2).max(160),
-        email: z.string().trim().email().max(320),
+        email: z.string().trim().email().max(320).optional().or(z.literal("")),
         phone: z.string().trim().min(7).max(40),
         whatsapp: z.string().trim().max(40).optional(),
         courseId: z.number().int().positive(),
@@ -511,7 +511,7 @@ export const adminNamespaceRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       const db = await dbOrThrow();
-      const email = input.email.toLowerCase();
+      const email = input.email && input.email.trim().length > 0 ? input.email.trim().toLowerCase() : null;
 
       const [course] = await db
         .select({
@@ -547,7 +547,7 @@ export const adminNamespaceRouter = router({
           .insert(applications)
           .values({
             reference,
-            userId: await findStudentAccountForEmail(tx, email),
+            userId: email ? await findStudentAccountForEmail(tx, email) : null,
             fullName: input.fullName,
             email,
             phone: input.phone,
@@ -629,7 +629,7 @@ export const adminNamespaceRouter = router({
       z.object({
         applicationId: z.number().int().positive(),
         fullName: z.string().trim().min(2).max(160),
-        email: z.string().trim().email().max(320),
+        email: z.string().trim().email().max(320).optional().or(z.literal("")),
         phone: z.string().trim().min(7).max(40),
         whatsapp: z.string().trim().max(40).optional(),
         courseId: z.number().int().positive(),
@@ -657,7 +657,7 @@ export const adminNamespaceRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       const db = await dbOrThrow();
-      const email = input.email.toLowerCase();
+      const email = input.email && input.email.trim().length > 0 ? input.email.trim().toLowerCase() : null;
 
       const [existing] = await db
         .select()
@@ -864,7 +864,7 @@ export const adminNamespaceRouter = router({
     if (input.status === "approved") {
       const [existing] = await db.select().from(studentProfiles).where(eq(studentProfiles.applicationId, application.id)).limit(1);
       if (!existing) {
-        const accountId = application.userId ?? (await findStudentAccountForEmail(db, application.email));
+        const accountId = application.userId ?? (application.email ? await findStudentAccountForEmail(db, application.email) : null);
         // Linked to a person like every other route that creates a student.
         // Without it an approved student who later shops becomes a second
         // identity, which is the exact duplication resolvePerson exists to
@@ -879,7 +879,7 @@ export const adminNamespaceRouter = router({
           address: application.address,
         });
         studentNumber = buildReference("STU");
-        const [student] = await db.insert(studentProfiles).values({ applicationId: application.id, personId, userId: accountId, studentNumber, fullName: application.fullName, email: application.email, phone: application.phone }).returning({ id: studentProfiles.id });
+        const [student] = await db.insert(studentProfiles).values({ applicationId: application.id, personId, userId: accountId, studentNumber, fullName: application.fullName, email: application.email ?? null, phone: application.phone }).returning({ id: studentProfiles.id });
         if (student?.id) {
           await db.insert(enrollments).values({ studentId: student.id, courseId: application.courseId, status: "active" });
           // Was a hardcoded `0.00` "Program tuition" row, which is why an
