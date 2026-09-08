@@ -63,7 +63,7 @@ type ApplicationRow = {
     reference: string;
     courseId: number;
     fullName: string;
-    email: string;
+    email: string | null;
     phone: string;
     whatsapp?: string | null;
     birthDate?: Date | string | null;
@@ -161,7 +161,7 @@ function AdmissionsContent() {
         <span>
           <span className="font-medium text-foreground">{row.application.fullName}</span>
           <span className="block text-xs text-muted-foreground">
-            {row.application.reference} · {row.application.email}
+            {row.application.reference}{row.application.email ? ` · ${row.application.email}` : ""}
           </span>
         </span>
       ),

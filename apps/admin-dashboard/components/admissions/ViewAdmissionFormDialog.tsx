@@ -30,7 +30,7 @@ export type AdmissionApplicationData = {
     id: number;
     reference: string;
     fullName: string;
-    email: string;
+    email: string | null;
     phone: string;
     whatsapp?: string | null;
     birthDate?: Date | string | null;

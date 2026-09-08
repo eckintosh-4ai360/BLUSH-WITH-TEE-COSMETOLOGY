@@ -70,7 +70,7 @@ type StudentRow = {
   id: number;
   studentNumber: string;
   fullName: string;
-  email: string;
+  email: string | null;
   phone: string;
   status: string;
   createdAt: Date;
@@ -163,9 +163,11 @@ function StudentsContent() {
       cell: row => (
         <span>
           <span className="font-medium text-foreground">{row.fullName}</span>
-          <span className="block text-xs text-muted-foreground">
-            {row.email}
-          </span>
+          {row.email ? (
+            <span className="block text-xs text-muted-foreground">
+              {row.email}
+            </span>
+          ) : null}
         </span>
       ),
     },

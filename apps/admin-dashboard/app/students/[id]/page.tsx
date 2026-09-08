@@ -118,8 +118,12 @@ function StudentDetailContent({ studentId }: { studentId: number }) {
           <h1 className="text-2xl font-semibold tracking-tight">{student.fullName}</h1>
           <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
             <span>{student.studentNumber}</span>
-            <span aria-hidden>·</span>
-            <span>{student.email}</span>
+            {student.email ? (
+              <>
+                <span aria-hidden>·</span>
+                <span>{student.email}</span>
+              </>
+            ) : null}
             <span aria-hidden>·</span>
             <span>{student.phone}</span>
             <Badge variant="outline" className="capitalize">

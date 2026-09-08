@@ -34,7 +34,7 @@ type GraduateRow = {
   id: number;
   studentNumber: string;
   fullName: string;
-  email: string;
+  email: string | null;
   phone: string;
   graduatedAt: Date | null;
   programmes: { id: number; courseTitle: string; status: string }[];
@@ -90,7 +90,9 @@ function GraduatesContent() {
       cell: row => (
         <span>
           <span className="font-medium text-foreground">{row.fullName}</span>
-          <span className="block text-xs text-muted-foreground">{row.email}</span>
+          {row.email ? (
+            <span className="block text-xs text-muted-foreground">{row.email}</span>
+          ) : null}
         </span>
       ),
     },

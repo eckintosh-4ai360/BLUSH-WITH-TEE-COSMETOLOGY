@@ -114,7 +114,7 @@ export function SaveStudentDialog({
     const row = existing.data;
     if (!row) return;
     setFullName(row.fullName);
-    setEmail(row.email);
+    setEmail(row.email ?? "");
     setPhone(row.phone);
     setStudentNumber(row.studentNumber);
     setStatus(row.status as (typeof STATUS)[number]);
@@ -149,7 +149,7 @@ export function SaveStudentDialog({
 
   const validation = useMemo(() => {
     if (fullName.trim().length < 2) return "Enter the student's full name.";
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) {
+    if (email.trim() && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) {
       return "Enter a valid email address.";
     }
     if (phone.trim().length < 7) return "Enter a phone number.";
@@ -171,7 +171,7 @@ export function SaveStudentDialog({
 
     const person = {
       fullName: fullName.trim(),
-      email: email.trim(),
+      email: email.trim() || undefined,
       phone: phone.trim(),
       gender: gender.trim() || undefined,
       birthDate: birthDate ? new Date(birthDate) : undefined,
@@ -235,7 +235,7 @@ export function SaveStudentDialog({
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="student-email">Email</Label>
+                <Label htmlFor="student-email">Email <span className="text-muted-foreground text-xs">(optional)</span></Label>
                 <Input
                   id="student-email"
                   type="email"

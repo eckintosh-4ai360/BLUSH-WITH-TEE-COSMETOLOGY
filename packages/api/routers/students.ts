@@ -190,7 +190,7 @@ export const studentsRouter = router({
     .input(
       z.object({
         fullName: z.string().trim().min(2).max(160),
-        email: z.string().trim().email().max(320),
+        email: z.string().trim().email().max(320).optional().or(z.literal("")),
         phone: z.string().trim().min(7).max(40),
         studentNumber: z.string().trim().max(40).optional(),
         status: z.enum(STUDENT_STATUS).default("active"),
@@ -205,29 +205,26 @@ export const studentsRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       const db = await dbOrThrow();
-      const email = input.email.toLowerCase();
+      const email = input.email && input.email.trim().length > 0 ? input.email.trim().toLowerCase() : null;
 
-      // An archived student still holds their email, and refusing on it is
-      // right - re-adding somebody would open a second record rather than
-      // bring back the one with all their history on it. What matters is that
-      // the message says which of the two situations this is, because they
-      // need different things done about them and only one of them is visible
-      // in the register.
-      const [duplicate] = await db
-        .select({
-          studentNumber: studentProfiles.studentNumber,
-          deletedAt: studentProfiles.deletedAt,
-        })
-        .from(studentProfiles)
-        .where(sql`lower(${studentProfiles.email}) = ${email}`)
-        .limit(1);
-      if (duplicate) {
-        throw new TRPCError({
-          code: "CONFLICT",
-          message: duplicate.deletedAt
-            ? `That email belongs to ${duplicate.studentNumber}, who was removed from the register. Ask an administrator to restore them rather than adding them again.`
-            : `A student with that email is already on file as ${duplicate.studentNumber}.`,
-        });
+      // Only check for duplicate email when one was provided.
+      if (email) {
+        const [duplicate] = await db
+          .select({
+            studentNumber: studentProfiles.studentNumber,
+            deletedAt: studentProfiles.deletedAt,
+          })
+          .from(studentProfiles)
+          .where(sql`lower(${studentProfiles.email}) = ${email}`)
+          .limit(1);
+        if (duplicate) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: duplicate.deletedAt
+              ? `That email belongs to ${duplicate.studentNumber}, who was removed from the register. Ask an administrator to restore them rather than adding them again.`
+              : `A student with that email is already on file as ${duplicate.studentNumber}.`,
+          });
+        }
       }
 
       if (input.studentNumber) {
@@ -269,7 +266,7 @@ export const studentsRouter = router({
 
         // Only links an account that already exists; it never creates one, so
         // no password is invented on the student's behalf.
-        const accountId = await findStudentAccountForEmail(tx, email);
+        const accountId = email ? await findStudentAccountForEmail(tx, email) : null;
 
         const studentNumber = input.studentNumber || buildReference("STU");
 
@@ -379,7 +376,7 @@ export const studentsRouter = router({
       z.object({
         id: z.number().int().positive(),
         fullName: z.string().trim().min(2).max(160),
-        email: z.string().trim().email().max(320),
+        email: z.string().trim().email().max(320).optional().or(z.literal("")),
         phone: z.string().trim().min(7).max(40),
         studentNumber: z.string().trim().min(1).max(40),
         status: z.enum(STUDENT_STATUS),
@@ -392,7 +389,7 @@ export const studentsRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       const db = await dbOrThrow();
-      const email = input.email.toLowerCase();
+      const email = input.email && input.email.trim().length > 0 ? input.email.trim().toLowerCase() : null;
 
       const [existing] = await db
         .select()
@@ -404,22 +401,25 @@ export const studentsRouter = router({
         throw new TRPCError({ code: "NOT_FOUND", message: "That student is not on file." });
       }
 
-      const [emailTaken] = await db
-        .select({ studentNumber: studentProfiles.studentNumber })
-        .from(studentProfiles)
-        .where(
-          and(
-            sql`lower(${studentProfiles.email}) = ${email}`,
-            ne(studentProfiles.id, input.id),
-            isNull(studentProfiles.deletedAt),
-          ),
-        )
-        .limit(1);
-      if (emailTaken) {
-        throw new TRPCError({
-          code: "CONFLICT",
-          message: `That email is already on file for ${emailTaken.studentNumber}.`,
-        });
+      // Only check for duplicate email when one was provided.
+      if (email) {
+        const [emailTaken] = await db
+          .select({ studentNumber: studentProfiles.studentNumber })
+          .from(studentProfiles)
+          .where(
+            and(
+              sql`lower(${studentProfiles.email}) = ${email}`,
+              ne(studentProfiles.id, input.id),
+              isNull(studentProfiles.deletedAt),
+            ),
+          )
+          .limit(1);
+        if (emailTaken) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: `That email is already on file for ${emailTaken.studentNumber}.`,
+          });
+        }
       }
 
       if (input.studentNumber !== existing.studentNumber) {
@@ -445,7 +445,7 @@ export const studentsRouter = router({
       // be known to the school in another capacity entirely - a customer, or a
       // supplier contact. Merging two people is not something an edit should
       // decide on its own, so it is refused with the reason.
-      if (existing.personId) {
+      if (email && existing.personId) {
         const [personClash] = await db
           .select({ fullName: people.fullName })
           .from(people)

@@ -522,7 +522,7 @@ type GraduateRow = {
   certificateNumber: string;
   studentNumber: string;
   fullName: string;
-  email: string;
+  email: string | null;
   courseTitle: string;
   finalGrade: string | null;
   completionDate: Date;

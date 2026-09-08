@@ -101,7 +101,7 @@ function ApplyFormContent() {
   const submit = trpc.admissions.submit.useMutation();
   const upload = trpc.admissions.uploadDocument.useMutation();
 
-  const [lookupInput, setLookupInput] = useState<{ reference: string; email: string } | null>(null);
+  const [lookupInput, setLookupInput] = useState<{ reference: string; email?: string } | null>(null);
   const [lookupError, setLookupError] = useState("");
   const lookup = trpc.admissions.lookup.useQuery(
     lookupInput ?? { reference: "APP-000000", email: "placeholder@example.com" },
@@ -140,7 +140,7 @@ function ApplyFormContent() {
 
   const [success, setSuccess] = useState<{
     reference: string;
-    email: string;
+    email?: string;
     courseTitle: string;
     applicantName: string;
     /** Everything that was submitted, kept so it can be printed. */
@@ -185,7 +185,7 @@ function ApplyFormContent() {
     try {
       const result = await submit.mutateAsync({
         fullName: fullName.trim(),
-        email: email.trim().toLowerCase(),
+        email: email.trim() ? email.trim().toLowerCase() : undefined,
         phone: phone.trim(),
         whatsapp: whatsapp.trim() || undefined,
         birthDate: birthDate ? new Date(birthDate) : undefined,
@@ -216,7 +216,7 @@ function ApplyFormContent() {
       if (transcript) {
         await upload.mutateAsync({
           reference: result.reference,
-          email: email.trim().toLowerCase(),
+          email: email.trim() ? email.trim().toLowerCase() : undefined,
           documentType: "transcript",
           fileName: transcript.name,
           mimeType: transcript.type,
@@ -227,7 +227,7 @@ function ApplyFormContent() {
       if (governmentId) {
         await upload.mutateAsync({
           reference: result.reference,
-          email: email.trim().toLowerCase(),
+          email: email.trim() ? email.trim().toLowerCase() : undefined,
           documentType: "government_id",
           fileName: governmentId.name,
           mimeType: governmentId.type,
@@ -237,7 +237,7 @@ function ApplyFormContent() {
 
       setSuccess({
         reference: result.reference,
-        email: email.trim(),
+        email: email.trim() || undefined,
         courseTitle: result.courseTitle || selectedCourse?.title || "Cosmetology Programme",
         applicantName: fullName.trim(),
         tuition: selectedCourse?.tuition ?? null,
@@ -245,7 +245,7 @@ function ApplyFormContent() {
         form: {
           reference: result.reference,
           fullName: fullName.trim(),
-          email: email.trim().toLowerCase(),
+          email: email.trim() ? email.trim().toLowerCase() : null,
           phone: phone.trim(),
           whatsapp: whatsapp.trim() || null,
           birthDate: birthDate || null,
@@ -370,9 +370,7 @@ function ApplyFormContent() {
                 />
                 <input
                   name="lookupEmail"
-                  required
-                  type="email"
-                  placeholder="Applicant Email Address"
+                  placeholder="Applicant Email or Phone (Optional)"
                   className="soft-input"
                 />
                 <Button
@@ -566,9 +564,15 @@ function ApplyFormContent() {
                   <p className="font-mono text-2xl font-bold text-[#fe00b6]">
                     {success.reference}
                   </p>
-                  <p className="text-xs text-[#692156] pt-1">
-                    A confirmation has been sent to <b>{success.email}</b>. Our admissions office will contact you via phone/WhatsApp to confirm your orientation date and stationery list.
-                  </p>
+                  {success.email ? (
+                    <p className="text-xs text-[#692156] pt-1">
+                      A confirmation has been sent to <b>{success.email}</b>. Our admissions office will contact you via phone/WhatsApp to confirm your orientation date and stationery list.
+                    </p>
+                  ) : (
+                    <p className="text-xs text-[#692156] pt-1">
+                      Our admissions office will contact you via phone/WhatsApp to confirm your orientation date and stationery list.
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex items-center justify-center gap-3 flex-wrap pt-4">
@@ -636,9 +640,8 @@ function ApplyFormContent() {
 
                   <div className="grid gap-4 sm:grid-cols-2">
                     <label className="field-label">
-                      Email Address <span className="text-[#fe00b6]">*</span>
+                      Email Address <span className="text-muted-foreground text-xs font-normal">(Optional)</span>
                       <input
-                        required
                         type="email"
                         value={email}
                         onChange={e => setEmail(e.target.value)}

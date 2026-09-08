@@ -129,11 +129,16 @@ export const paymentsRouter = router({
         })
         .returning({ id: paymentIntents.id });
 
+      const email =
+        student.email ||
+        ctx.user.email ||
+        `${student.studentNumber.toLowerCase()}@bwtee.internal`;
+
       const opened = await gateway.initiate({
         reference,
         amountMinor,
         currency: "GHS",
-        email: student.email,
+        email,
         callbackUrl: input.callbackUrl,
       });
 

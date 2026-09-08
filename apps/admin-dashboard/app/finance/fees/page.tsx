@@ -43,7 +43,7 @@ type RegisterRow = {
   studentNumber: string;
   fullName: string;
   phone: string;
-  email: string;
+  email: string | null;
   status: string;
   programme: string | null;
   intake: string | null;

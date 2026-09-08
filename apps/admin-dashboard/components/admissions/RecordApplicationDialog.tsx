@@ -37,7 +37,7 @@ export type EditableApplication = {
   id: number;
   reference: string;
   fullName: string;
-  email: string;
+  email?: string | null;
   phone: string;
   whatsapp?: string | null;
   birthDate?: Date | string | null;
@@ -217,7 +217,7 @@ export function RecordApplicationDialog({
 
   const validation = useMemo(() => {
     if (fullName.trim().length < 2) return "Enter the applicant's full name.";
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) {
+    if (email.trim() && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) {
       return "Enter a valid email address.";
     }
     if (phone.trim().length < 7) return "Enter a valid phone number.";
@@ -234,7 +234,7 @@ export function RecordApplicationDialog({
 
     const form = {
       fullName: fullName.trim(),
-      email: email.trim().toLowerCase(),
+      email: email.trim() ? email.trim().toLowerCase() : undefined,
       phone: phone.trim(),
       whatsapp: whatsapp.trim() || undefined,
       birthDate: birthDate ? new Date(birthDate) : undefined,
@@ -320,7 +320,7 @@ export function RecordApplicationDialog({
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="app-email">
-                    Email Address <span className="text-destructive">*</span>
+                    Email Address <span className="text-muted-foreground text-xs">(Optional)</span>
                   </Label>
                   <Input
                     id="app-email"

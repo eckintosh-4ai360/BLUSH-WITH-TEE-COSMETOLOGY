@@ -224,7 +224,12 @@ export const importsRouter = router({
           : [],
       ]);
 
-      const idByEmail = new Map(existingByEmail.map(row => [row.email.toLowerCase(), row.id]));
+      const idByEmail = new Map<string, number>();
+      for (const row of existingByEmail) {
+        if (row.email) {
+          idByEmail.set(row.email.toLowerCase(), row.id);
+        }
+      }
       const idByNumber = new Map(existingByNumber.map(row => [row.studentNumber, row.id]));
 
       const toCreate: ValidStudent[] = [];
