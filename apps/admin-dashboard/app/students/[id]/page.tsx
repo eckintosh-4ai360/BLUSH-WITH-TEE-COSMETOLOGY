@@ -2,7 +2,7 @@
 
 import { use, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, FileText, Percent, Plus, Printer, Receipt } from "lucide-react";
+import { ArrowLeft, FileText, Pencil, Percent, Plus, Printer, Receipt } from "lucide-react";
 import { Badge } from "@blush/ui/components/ui/badge";
 import { Button } from "@blush/ui/components/ui/button";
 import { Card } from "@blush/ui/components/ui/card";
@@ -21,6 +21,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { PermissionGate } from "@/components/PermissionGate";
 import { AddChargeDialog } from "@/components/finance/AddChargeDialog";
 import { AdjustAccountDialog } from "@/components/finance/AdjustAccountDialog";
+import { EditAccountDialog } from "@/components/finance/EditAccountDialog";
 import { RecordPaymentDialog } from "@/components/finance/RecordPaymentDialog";
 import { useDocuments } from "@/hooks/useDocuments";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -51,10 +52,11 @@ function formatDate(value: Date | string | null | undefined) {
  * every payment and adjustment that moved it.
  */
 function StudentDetailContent({ studentId }: { studentId: number }) {
-  const { can } = usePermissions();
+  const { can, isAdmin } = usePermissions();
   const documents = useDocuments();
   const [chargeOpen, setChargeOpen] = useState(false);
   const [adjustOpen, setAdjustOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
 
   const query = trpc.finance.studentAccount.useQuery(
@@ -154,6 +156,12 @@ function StudentDetailContent({ studentId }: { studentId: number }) {
                 <Percent className="h-4 w-4" />
                 Adjust
               </Button>
+              {isAdmin ? (
+                <Button variant="outline" className="gap-2" onClick={() => setEditOpen(true)}>
+                  <Pencil className="h-4 w-4" />
+                  Edit account
+                </Button>
+              ) : null}
             </>
           ) : null}
           {can("payments.write") ? (
@@ -406,6 +414,31 @@ function StudentDetailContent({ studentId }: { studentId: number }) {
         onRecorded={() => {
           toast.success("Payment recorded and the balance updated.");
           setPayOpen(false);
+          refresh();
+        }}
+      />
+
+      <EditAccountDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        studentName={student.fullName}
+        adjustments={adjustments.map(adj => ({
+          id: adj.id,
+          adjustmentType: adj.adjustmentType as "discount" | "surcharge",
+          amount: adj.amount,
+          reason: adj.reason,
+          createdAt: adj.createdAt,
+        }))}
+        charges={charges.map(charge => ({
+          id: charge.id,
+          description: charge.description,
+          feeType: charge.feeType,
+          amountDue: charge.amountDue,
+          amountPaid: charge.amountPaid,
+          balance: charge.balance,
+          status: charge.status,
+        }))}
+        onSaved={() => {
           refresh();
         }}
       />

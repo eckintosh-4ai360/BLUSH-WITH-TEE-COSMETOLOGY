@@ -29,7 +29,7 @@ import { fromMinor, money, toAmountString, toMinor } from "../services/money";
 import { notify, staffRecipients } from "../services/notify";
 import { listInputSchema, likePattern, paginate, paginationBounds } from "../services/pagination";
 import { recordRevenue, reverseRevenue } from "../services/revenue";
-import { permissionProcedure, router } from "../trpc";
+import { adminProcedure, permissionProcedure, router } from "../trpc";
 
 const FEE_TYPES = ["tuition", "registration", "materials", "exam", "certification", "other"] as const;
 const PAYMENT_METHODS = ["cash", "mobile_money", "bank", "card", "online"] as const;
@@ -938,6 +938,154 @@ export const financeRouter = router({
       });
 
       return { id: row?.id };
+    }),
+
+  /**
+   * Corrects an existing discount or surcharge row.
+   *
+   * The original `adjust` endpoint only adds rows; this one lets an admin
+   * overwrite a row that was recorded at the wrong amount. The old amount and
+   * reason are read first and stored in the audit log so nothing is ever lost.
+   * Admin-only: a plain staff member can still add adjustments via `adjust`.
+   */
+  updateAdjustment: adminProcedure
+    .input(
+      z.object({
+        id: z.number().int().positive(),
+        amount: z.number().positive(),
+        reason: z.string().min(2).max(255),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+
+      const [existing] = await db
+        .select()
+        .from(feeAdjustments)
+        .where(eq(feeAdjustments.id, input.id))
+        .limit(1);
+
+      if (!existing) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "That adjustment is not on file." });
+      }
+
+      await db
+        .update(feeAdjustments)
+        .set({
+          amount: toAmountString(toMinor(input.amount)),
+          reason: input.reason,
+        })
+        .where(eq(feeAdjustments.id, input.id));
+
+      await recordAudit(db, ctx.actor, {
+        action: "update",
+        entity: "feeAdjustment",
+        entityId: input.id,
+        oldValue: { amount: money(existing.amount), reason: existing.reason },
+        newValue: { amount: input.amount, reason: input.reason },
+        summary: `${ctx.actor.name ?? "Admin"} corrected a ${existing.adjustmentType} on student ${existing.studentId}: GHS ${money(existing.amount).toFixed(2)} → GHS ${input.amount.toFixed(2)}`,
+      });
+
+      return { id: input.id };
+    }),
+
+  /**
+   * Removes a mistakenly-recorded adjustment row.
+   *
+   * Deleting an adjustment is a finance correction, not a data-purge, so it is
+   * logged in full before the row is removed. Admin-only.
+   */
+  deleteAdjustment: adminProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+
+      const [existing] = await db
+        .select()
+        .from(feeAdjustments)
+        .where(eq(feeAdjustments.id, input.id))
+        .limit(1);
+
+      if (!existing) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "That adjustment is not on file." });
+      }
+
+      await db.delete(feeAdjustments).where(eq(feeAdjustments.id, input.id));
+
+      await recordAudit(db, ctx.actor, {
+        action: "delete",
+        entity: "feeAdjustment",
+        entityId: input.id,
+        oldValue: {
+          adjustmentType: existing.adjustmentType,
+          amount: money(existing.amount),
+          reason: existing.reason,
+        },
+        newValue: null,
+        summary: `${ctx.actor.name ?? "Admin"} removed a ${existing.adjustmentType} of GHS ${money(existing.amount).toFixed(2)} from student ${existing.studentId} (reason: ${existing.reason})`,
+      });
+
+      return { id: input.id };
+    }),
+
+  /**
+   * Corrects a fee charge's billed amount and/or description.
+   *
+   * The only safe reason to use this is fixing a data-entry mistake in the
+   * original charge. Re-computes the charge status after the update so it
+   * stays consistent with the new amount. Admin-only.
+   */
+  updateCharge: adminProcedure
+    .input(
+      z.object({
+        id: z.number().int().positive(),
+        amountDue: z.number().positive(),
+        description: z.string().min(2).max(255),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+
+      const [existing] = await db
+        .select()
+        .from(feeCharges)
+        .where(eq(feeCharges.id, input.id))
+        .limit(1);
+
+      if (!existing) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "That charge is not on file." });
+      }
+
+      // Recompute status so it stays consistent with the corrected amount.
+      const newDueMinor = toMinor(input.amountDue);
+      const paidMinor = toMinor(existing.amountPaid);
+      const newStatus =
+        paidMinor <= 0
+          ? "open"
+          : paidMinor >= newDueMinor
+            ? "paid"
+            : "partially_paid";
+
+      await db
+        .update(feeCharges)
+        .set({
+          amountDue: toAmountString(newDueMinor),
+          description: input.description,
+          status: newStatus,
+        })
+        .where(eq(feeCharges.id, input.id));
+
+      await recordAudit(db, ctx.actor, {
+        action: "update",
+        entity: "feeCharge",
+        entityId: input.id,
+        entityLabel: input.description,
+        oldValue: { amountDue: money(existing.amountDue), description: existing.description },
+        newValue: { amountDue: input.amountDue, description: input.description },
+        summary: `${ctx.actor.name ?? "Admin"} corrected charge on student ${existing.studentId}: GHS ${money(existing.amountDue).toFixed(2)} → GHS ${input.amountDue.toFixed(2)}`,
+      });
+
+      return { id: input.id };
     }),
 
   /* ---------------------------------------------------------------------- */
