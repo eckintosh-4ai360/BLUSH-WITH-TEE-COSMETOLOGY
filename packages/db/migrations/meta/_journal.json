@@ -106,6 +106,13 @@
       "when": 1788566400000,
       "tag": "0014_add_certificate_scans",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1788652800000,
+      "tag": "0015_make_admission_email_optional",
+      "breakpoints": true
     }
   ]
 }
