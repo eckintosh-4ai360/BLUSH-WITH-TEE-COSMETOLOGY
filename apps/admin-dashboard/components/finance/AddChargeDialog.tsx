@@ -89,8 +89,8 @@ export function AddChargeDialog({
   const validation = useMemo(() => {
     if (description.trim().length < 2) return "Describe what this charge is for.";
     if (!amountDue.trim()) return "Enter an amount.";
-    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-      return "Amount must be a positive number.";
+    if (!Number.isFinite(parsedAmount) || parsedAmount < 0) {
+      return "Amount cannot be negative.";
     }
     return null;
   }, [description, amountDue, parsedAmount]);

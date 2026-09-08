@@ -871,7 +871,7 @@ export const financeRouter = router({
         enrollmentId: z.number().int().positive().optional(),
         feeType: z.enum(FEE_TYPES),
         description: z.string().min(2).max(255),
-        amountDue: z.number().positive(),
+        amountDue: z.number().min(0),
         dueDate: z.coerce.date().optional(),
       }),
     )
@@ -1039,7 +1039,7 @@ export const financeRouter = router({
     .input(
       z.object({
         id: z.number().int().positive(),
-        amountDue: z.number().positive(),
+        amountDue: z.number().min(0),
         description: z.string().min(2).max(255),
       }),
     )

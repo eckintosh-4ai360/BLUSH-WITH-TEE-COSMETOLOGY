@@ -267,7 +267,7 @@ function ChargeRow({
   const canSave =
     amountDue.trim() !== "" &&
     Number.isFinite(parsedAmount) &&
-    parsedAmount > 0 &&
+    parsedAmount >= 0 &&
     description.trim().length >= 2;
 
   if (editing) {
