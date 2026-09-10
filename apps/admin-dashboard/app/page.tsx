@@ -7,6 +7,7 @@ import {
   Ban,
   BadgeCheck,
   Boxes,
+  ChevronDown,
   ChevronRight,
   CircleDollarSign,
   ClipboardList,
@@ -27,6 +28,11 @@ import {
   Wallet,
 } from "lucide-react";
 import { Badge } from "@blush/ui/components/ui/badge";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@blush/ui/components/ui/collapsible";
 import { ChartFrame } from "@blush/ui/components/viz/ChartFrame";
 import {
   CategoryBarChart,
@@ -109,10 +115,10 @@ export default function AdminOverviewPage() {
           </div>
         </header>
 
-        {/* The four figures the day is judged on, painted so they read first. */}
+        {/* The three figures the day is judged on, painted so they read first. */}
         <section
           aria-label="Headline figures"
-          className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
+          className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3"
         >
           <StatTile
             label="Total students"
@@ -122,16 +128,6 @@ export default function AdminOverviewPage() {
             accent="magenta"
             emphasis
             href="/students"
-            isLoading={loading}
-          />
-          <StatTile
-            label="Monthly income"
-            value={formatMoney(finance?.monthlyIncome ?? 0)}
-            hint="This month"
-            icon={CircleDollarSign}
-            accent="plum"
-            emphasis
-            href="/finance"
             isLoading={loading}
           />
           <StatTile
@@ -160,6 +156,8 @@ export default function AdminOverviewPage() {
           <StatGroup
             title="Students"
             description="Enrolment health across the school."
+            collapsible
+            defaultOpen={false}
           >
             <StatTile
               label="Total students"
@@ -214,6 +212,8 @@ export default function AdminOverviewPage() {
           <StatGroup
             title="Finance"
             description="Money in, money out, and what is still owed."
+            collapsible
+            defaultOpen={false}
           >
             <StatTile
               label="Today's income"
@@ -283,7 +283,12 @@ export default function AdminOverviewPage() {
 
         <div className="grid gap-4 xl:grid-cols-2">
           {inventory ? (
-            <StatGroup title="Inventory" description="One shared stock pool.">
+            <StatGroup
+              title="Inventory"
+              description="One shared stock pool."
+              collapsible
+              defaultOpen={false}
+            >
               <StatTile
                 label="Products"
                 value={compactNumber(inventory.totalProducts)}
@@ -322,6 +327,8 @@ export default function AdminOverviewPage() {
             <StatGroup
               title="E-commerce"
               description="Storefront orders and revenue."
+              collapsible
+              defaultOpen={false}
             >
               <StatTile
                 label="Today's orders"
@@ -358,7 +365,12 @@ export default function AdminOverviewPage() {
         </div>
 
         {admissions ? (
-          <StatGroup title="Admissions" description="The application pipeline.">
+          <StatGroup
+            title="Admissions"
+            description="The application pipeline."
+            collapsible
+            defaultOpen={false}
+          >
             <StatTile
               label="Applications"
               value={compactNumber(admissions.total)}
@@ -701,39 +713,56 @@ function ActivityPanel({
   children: React.ReactNode;
 }) {
   return (
-    <section className="admin-glass-card rounded-[1.45rem] border p-5 sm:p-6">
-      <div className="flex items-center justify-between gap-3">
-        <h3 className="text-base font-semibold text-foreground">{title}</h3>
-        <Link
-          href={href}
-          className="group flex shrink-0 items-center gap-1 rounded-full border border-white/70 bg-white/45 px-3 py-1 text-xs font-medium text-[#24747c] shadow-sm transition-colors hover:bg-white/70 dark:border-white/10 dark:bg-white/5 dark:text-[#9fe4ea] dark:hover:bg-white/10"
-        >
-          View all
-          <ArrowRight
-            aria-hidden
-            className="size-3 transition-transform group-hover:translate-x-0.5"
-          />
-        </Link>
-      </div>
-      <div className="mt-4 space-y-1.5">
-        {isLoading ? (
-          <div className="space-y-1.5">
-            {[0, 1, 2].map(index => (
-              <div
-                key={index}
-                className="h-16 animate-pulse rounded-[1.05rem] bg-white/50 dark:bg-white/6"
+    <Collapsible defaultOpen={false}>
+      <section className="admin-glass-card rounded-[1.45rem] border p-5 sm:p-6">
+        <div className="flex items-center justify-between gap-3">
+          <CollapsibleTrigger asChild>
+            <button
+              type="button"
+              className="group flex min-w-0 flex-1 items-center justify-between gap-3 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <h3 className="text-base font-semibold text-foreground">
+                {title}
+              </h3>
+              <ChevronDown
+                aria-hidden
+                className="size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180"
               />
-            ))}
+            </button>
+          </CollapsibleTrigger>
+          <Link
+            href={href}
+            className="group flex shrink-0 items-center gap-1 rounded-full border border-white/70 bg-white/45 px-3 py-1 text-xs font-medium text-[#24747c] shadow-sm transition-colors hover:bg-white/70 dark:border-white/10 dark:bg-white/5 dark:text-[#9fe4ea] dark:hover:bg-white/10"
+          >
+            View all
+            <ArrowRight
+              aria-hidden
+              className="size-3 transition-transform group-hover:translate-x-0.5"
+            />
+          </Link>
+        </div>
+        <CollapsibleContent>
+          <div className="mt-4 space-y-1.5">
+            {isLoading ? (
+              <div className="space-y-1.5">
+                {[0, 1, 2].map(index => (
+                  <div
+                    key={index}
+                    className="h-16 animate-pulse rounded-[1.05rem] bg-white/50 dark:bg-white/6"
+                  />
+                ))}
+              </div>
+            ) : isEmpty ? (
+              <p className="rounded-[1.05rem] border border-dashed border-white/70 bg-white/35 px-4 py-8 text-center text-sm text-muted-foreground dark:border-white/12 dark:bg-white/4">
+                {emptyMessage}
+              </p>
+            ) : (
+              children
+            )}
           </div>
-        ) : isEmpty ? (
-          <p className="rounded-[1.05rem] border border-dashed border-white/70 bg-white/35 px-4 py-8 text-center text-sm text-muted-foreground dark:border-white/12 dark:bg-white/4">
-            {emptyMessage}
-          </p>
-        ) : (
-          children
-        )}
-      </div>
-    </section>
+        </CollapsibleContent>
+      </section>
+    </Collapsible>
   );
 }
 

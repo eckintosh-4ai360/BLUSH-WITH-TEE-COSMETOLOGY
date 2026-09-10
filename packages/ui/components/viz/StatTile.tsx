@@ -1,8 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { ArrowUpRight, type LucideIcon } from "lucide-react";
+import { ArrowUpRight, ChevronDown, type LucideIcon } from "lucide-react";
 import { cn } from "../../lib/utils";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "../ui/collapsible";
 import { Skeleton } from "../ui/skeleton";
 
 export type StatTone = "default" | "good" | "warning" | "critical";
@@ -171,29 +176,65 @@ export function StatGroup({
   description,
   action,
   children,
+  collapsible = false,
+  defaultOpen = true,
 }: {
   title: string;
   description?: string;
   action?: React.ReactNode;
   children: React.ReactNode;
+  /** Lets a dashboard hide a secondary group until the reader asks for it. */
+  collapsible?: boolean;
+  defaultOpen?: boolean;
 }) {
+  const heading = (
+    <div className="flex items-center gap-2.5">
+      <span aria-hidden className="h-4 w-1 rounded-full bg-[#22b8bd]" />
+      <div>
+        <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+        {description ? (
+          <p className="text-xs text-muted-foreground">{description}</p>
+        ) : null}
+      </div>
+    </div>
+  );
+
+  const tiles = (
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      {children}
+    </div>
+  );
+
+  if (collapsible) {
+    return (
+      <Collapsible defaultOpen={defaultOpen} className="space-y-3">
+        <div className="flex flex-wrap items-end justify-between gap-2 px-1">
+          <CollapsibleTrigger asChild>
+            <button
+              type="button"
+              className="group flex min-w-0 flex-1 items-center justify-between gap-3 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {heading}
+              <ChevronDown
+                aria-hidden
+                className="size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180"
+              />
+            </button>
+          </CollapsibleTrigger>
+          {action}
+        </div>
+        <CollapsibleContent>{tiles}</CollapsibleContent>
+      </Collapsible>
+    );
+  }
+
   return (
     <section className="space-y-3">
       <div className="flex flex-wrap items-end justify-between gap-2 px-1">
-        <div className="flex items-center gap-2.5">
-          <span aria-hidden className="h-4 w-1 rounded-full bg-[#22b8bd]" />
-          <div>
-            <h2 className="text-sm font-semibold text-foreground">{title}</h2>
-            {description ? (
-              <p className="text-xs text-muted-foreground">{description}</p>
-            ) : null}
-          </div>
-        </div>
+        {heading}
         {action}
       </div>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {children}
-      </div>
+      {tiles}
     </section>
   );
 }
