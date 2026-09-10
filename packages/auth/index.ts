@@ -7,16 +7,10 @@ export * from "./password";
 export * from "./session";
 export * from "./credentials";
 
-/** Result of `sdk.authenticateRequest`. */
+// Authenticated user record returned by authentication check.
 export type AuthenticatedUser = User;
 
-/**
- * Turns a request into the account behind it.
- *
- * The token carries only a user id; the account is re-read every request, so a
- * deactivated user or a changed role takes effect immediately instead of when
- * their token happens to expire.
- */
+// Authenticates incoming request from session token and re-reads user from database.
 async function authenticateRequest(req: Request): Promise<AuthenticatedUser> {
   const claims = await verifySession(readSessionToken(req));
   if (!claims) throw ForbiddenError("No valid session");
@@ -32,8 +26,5 @@ async function authenticateRequest(req: Request): Promise<AuthenticatedUser> {
   return account;
 }
 
-/**
- * Kept as an object so existing call sites read the same. It is now a thin
- * wrapper over local session verification rather than an OAuth client.
- */
+// SDK adapter for backward compatibility.
 export const sdk = { authenticateRequest };

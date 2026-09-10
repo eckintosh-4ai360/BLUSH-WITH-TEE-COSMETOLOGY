@@ -3,7 +3,7 @@ import { assertTransition, canTransition, releasesStock } from "./orderFlow";
 
 describe("order lifecycle", () => {
   it("refuses to mark a brand new order delivered", () => {
-    // The rule from §64: delivery has to be earned by confirming and processing.
+    // The rule from: delivery has to be earned by confirming and processing.
     expect(canTransition("new", "delivered")).toBe(false);
     expect(() => assertTransition("new", "delivered")).toThrow(/can only move to/i);
   });

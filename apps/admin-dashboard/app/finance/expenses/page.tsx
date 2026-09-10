@@ -57,7 +57,7 @@ type ExpenseRow = {
   id: number;
   title: string;
   category: string;
-  /** The category as filed: a custom name where one was given. */
+  // The category as filed.
   categoryLabel: string;
   scope: string;
   amount: number;
@@ -91,8 +91,7 @@ function ExpensesContent() {
 
   const utils = trpc.useUtils();
 
-  // Shared by the table and by export, so a download covers exactly what the
-  // filters describe rather than the page on screen.
+  // Shared by the table and by export.
   const filters = {
     sortDir: "desc" as const,
     search: search || undefined,
@@ -118,8 +117,7 @@ function ExpensesContent() {
       toast.success(`"${result.title}" removed.`);
       query.refetch();
     },
-    // Kept open on failure: the commonest refusal is that the expense is
-    // already approved, which is a message about this row.
+    // Kept open on failure.
     onError: error => toast.error(error.message),
   });
 

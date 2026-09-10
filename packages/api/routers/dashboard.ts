@@ -39,11 +39,7 @@ const overviewProcedure = anyPermissionProcedure(
 );
 
 export const dashboardRouter = router({
-  /**
-   * Everything the owner asks at a glance (§20). Each group is permission
-   * filtered, so an accountant sees money and a storekeeper sees stock without
-   * either being handed the other.
-   */
+  // Everything the owner asks at a glance.
   overview: overviewProcedure.query(async ({ ctx }) => {
     const db = await dbOrThrow();
     await ensurePlatformBootstrapped(db);
@@ -59,7 +55,7 @@ export const dashboardRouter = router({
     return { students, finance, inventory, commerce, admissions };
   }),
 
-  /** The six analytics series named in §20 and §70. */
+  // The six analytics series named in and.
   charts: overviewProcedure.query(async ({ ctx }) => {
     const db = await dbOrThrow();
     const canSeeMoney = ctx.access.can("finance.read");
@@ -76,7 +72,7 @@ export const dashboardRouter = router({
     return { revenue, expenses, enrollment, products, popularity, movement };
   }),
 
-  /** Recent activity strip under the metric tiles. */
+  // Recent activity strip under the metric tiles.
   activity: overviewProcedure.query(async ({ ctx }) => {
     const db = await dbOrThrow();
 
@@ -161,10 +157,7 @@ export const dashboardRouter = router({
     };
   }),
 
-  /**
-   * Global admin search (§61). One box that resolves a student number, an
-   * order reference, a certificate number, a person, or a product.
-   */
+  // Global admin search.
   search: authedProcedure
     .input(z.object({ term: z.string().trim().min(2).max(80) }))
     .query(async ({ input, ctx }) => {

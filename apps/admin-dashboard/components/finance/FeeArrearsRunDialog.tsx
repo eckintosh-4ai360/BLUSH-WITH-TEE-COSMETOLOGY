@@ -23,15 +23,7 @@ export type ArrearsRunResult = {
   firstError: string | null;
 };
 
-/**
- * Confirms an arrears run before a few hundred text messages leave.
- *
- * Everything shown comes from the server, from the same code that does the
- * sending: the number of students, the total they owe between them, and one
- * real message rendered for a real student. A count typed out on the client
- * could disagree with what actually goes, and this is the screen whose whole
- * job is that it does not.
- */
+// Confirms an arrears run before a few hundred text messages leave.
 export function FeeArrearsRunDialog({
   open,
   onOpenChange,
@@ -43,8 +35,7 @@ export function FeeArrearsRunDialog({
 }) {
   const preview = trpc.finance.arrearsRunPreview.useQuery(undefined, {
     enabled: open,
-    // Always re-read on open: this decides how many messages go out, and a
-    // cached count from ten minutes ago is not good enough for that.
+    // Always re-read on open.
     staleTime: 0,
     refetchOnMount: "always",
   });

@@ -10,14 +10,7 @@ import type { ExportMeta } from "@/lib/exportTable";
 import { describeRange, resolveRange, type RangeKey } from "@/lib/reportRange";
 import { trpc } from "@/lib/trpc";
 
-/**
- * The individual reports.
- *
- * Two shapes, for two kinds of question. A report that aggregates the whole
- * database into a handful of rows renders with ReportTable; one that lists
- * records renders with DataTable, which pages on the server and walks every
- * page when exporting so a download is never just the rows on screen.
- */
+// The individual reports.
 
 function percent(value: number): string {
   return `${value.toFixed(1)}%`;
@@ -27,12 +20,12 @@ function useRange(rangeKey: RangeKey) {
   return useMemo(() => resolveRange(rangeKey), [rangeKey]);
 }
 
-/** The window is printed on the export, so a saved file says what it covers. */
+// The window is printed on the export, so a saved file says what it covers.
 function rangeMeta(rangeKey: RangeKey): ExportMeta[] {
   return [{ label: "Period", value: describeRange(resolveRange(rangeKey)) }];
 }
 
-/** Headline figures above a report. */
+// Headline figures above a report.
 function Figures({ items }: { items: Array<{ label: string; value: ReactNode; tone?: "good" | "bad" }> }) {
   return (
     <Card className="p-5">
@@ -60,7 +53,7 @@ function Figures({ items }: { items: Array<{ label: string; value: ReactNode; to
   );
 }
 
-/** Reads "2026-03" as a month a person recognises. */
+// Reads "2026-03" as a month a person recognises.
 function monthLabel(value: string): string {
   const [year, month] = value.split("-").map(Number);
   if (!year || !month) return value;
@@ -70,9 +63,7 @@ function monthLabel(value: string): string {
   });
 }
 
-/* -------------------------------------------------------------------------- */
-/* Finance                                                                    */
-/* -------------------------------------------------------------------------- */
+// Finance.
 
 type MonthRow = { month: string; income: number; expenses: number; profit: number };
 
@@ -331,9 +322,7 @@ export function FeeCollectionReport({ rangeKey }: { rangeKey: RangeKey }) {
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/* School                                                                     */
-/* -------------------------------------------------------------------------- */
+// School.
 
 type CourseRow = {
   courseId: number;
@@ -604,9 +593,7 @@ export function GraduatesReport({ rangeKey }: { rangeKey: RangeKey }) {
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/* Stock and commerce                                                         */
-/* -------------------------------------------------------------------------- */
+// Stock and commerce.
 
 type StockRow = {
   id: number;

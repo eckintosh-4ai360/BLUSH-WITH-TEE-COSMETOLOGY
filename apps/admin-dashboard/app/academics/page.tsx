@@ -38,7 +38,7 @@ import {
 import { usePermissions } from "@/hooks/usePermissions";
 import { trpc } from "@/lib/trpc";
 
-/** One catalogue row, however it was fetched. */
+// One catalogue row, however it was fetched.
 type CatalogueRow = {
   id: number;
   title: string;
@@ -46,7 +46,7 @@ type CatalogueRow = {
   totalScore: number;
   dueDate: Date | string | null;
   courseTitle: string | null;
-  /** Null when the reader may not see marks, not zero - nothing is claimed. */
+  // Null when the reader may not see marks, not zero - nothing is claimed.
   enrolled: number | null;
   marked: number | null;
 };
@@ -61,10 +61,7 @@ export default function AdminAcademicPage() {
   );
 }
 
-/**
- * A count only means something once it has been counted. Rendering `0` while
- * the query is still out reads as a real answer, then contradicts itself.
- */
+// A count only means something once it has been counted.
 function StatValue({ value, loading }: { value: number; loading: boolean }) {
   if (loading) return <Skeleton className="mt-1 h-7 w-12" />;
   return <p className="font-serif text-2xl font-bold text-foreground">{value}</p>;
@@ -83,14 +80,11 @@ function AcademicsContent() {
   const [scoring, setScoring] = useState<ScorableAssessment | null>(null);
   const [removingAssessment, setRemovingAssessment] = useState<CatalogueRow | null>(null);
 
-  // Marks sit behind their own permission: a secretary keeps the register and
-  // the enrolments but has no business reading what anyone scored. Without it
-  // the catalogue still lists the assessments, just without the marking.
+  // Marks sit behind their own permission.
   const canReadResults = can("results.read");
   const canWriteAcademics = can("academics.write");
 
-  // Queries. Programmes themselves are created and priced on the Programmes
-  // screen; what is needed here is only the count and the list to enrol into.
+  // Queries.
   const coursesQuery = trpc.admin.courses.useQuery({ status: "all" });
 
   const studentsQuery = trpc.admin.students.useQuery();
@@ -98,8 +92,6 @@ function AcademicsContent() {
   const staffEnrollments = trpc.staff.enrollments.useQuery();
 
   // The same catalogue from whichever endpoint the reader is allowed to use.
-  // `results.catalogue` carries how much of each sheet is marked, which is the
-  // whole point of the tab; `staff.assessments` is the titles alone.
   const resultsCatalogue = trpc.results.catalogue.useQuery(undefined, {
     enabled: canReadResults,
   });
@@ -134,8 +126,7 @@ function AcademicsContent() {
       utils.staff.enrollments.invalidate();
       utils.admin.students.invalidate();
     },
-    // The dialog stays open on failure so the refusal is read where it was
-    // asked for, the same way removing a student behaves.
+    // The dialog stays open on failure so the refusal is read where it was asked for, the same.
     onError: err => toast.error(err.message),
   });
 
@@ -159,15 +150,13 @@ function AcademicsContent() {
       utils.staff.assessments.invalidate();
       utils.results.catalogue.invalidate();
     },
-    // Left open on failure so the refusal is read where it was asked for, the
-    // same way removing an enrolment behaves.
+    // Left open on failure so the refusal is read where it was asked for, the same way removing.
     onError: err => toast.error(err.message),
   });
 
   async function submitEnrollment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    // Held before the await: React clears `currentTarget` once the handler
-    // returns, so reading it after the round trip would be reading null.
+    // Held before the await.
     const form = event.currentTarget;
     const data = new FormData(form);
     await createEnrollment.mutateAsync({
@@ -228,7 +217,7 @@ function AcademicsContent() {
 
   return (
     <div className="mx-auto max-w-[1400px] space-y-6">
-      {/* Header */}
+      {/* Header. */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="eyebrow flex items-center gap-1.5">
@@ -255,7 +244,7 @@ function AcademicsContent() {
         </Button>
       </div>
 
-      {/* KPI Stats Tiles */}
+      {/* KPI Stats Tiles. */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card className="border-border/60 bg-white/70 shadow-sm backdrop-blur dark:bg-white/5">
           <CardContent className="flex items-center gap-4 p-5">
@@ -314,7 +303,7 @@ function AcademicsContent() {
         </Card>
       </div>
 
-      {/* Main Tabs */}
+      {/* Main Tabs. */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="grid w-full max-w-xs grid-cols-2 rounded-2xl bg-muted/60 p-1">
           <TabsTrigger value="enrolments" className="rounded-xl gap-1.5">
@@ -327,7 +316,7 @@ function AcademicsContent() {
           </TabsTrigger>
         </TabsList>
 
-        {/* Tab 2: Enrolment */}
+        {/* Tab 2: Enrolment. */}
         <TabsContent value="enrolments" className="space-y-6">
           <div className={`grid gap-6 ${canWriteAcademics ? "xl:grid-cols-3" : "xl:grid-cols-1"}`}>
             {canWriteAcademics ? (
@@ -451,7 +440,7 @@ function AcademicsContent() {
           </div>
         </TabsContent>
 
-        {/* Tab 3: Assessments */}
+        {/* Tab 3: Assessments. */}
         <TabsContent value="assessments" className="space-y-6">
           <div className={`grid gap-6 ${canWriteAcademics ? "xl:grid-cols-3" : "xl:grid-cols-1"}`}>
             {canWriteAcademics ? (
@@ -669,11 +658,7 @@ function AcademicsContent() {
               Remove &quot;{removingAssessment?.title}&quot;?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {/*
-                The count is the decision. Removing an assessment nobody has
-                marked is tidying up; removing one holding a cohort's exam
-                results changes what every one of their certificates says.
-              */}
+              {/* The count is the decision. */}
               {removingAssessment?.marked
                 ? `It leaves the catalogue and stops counting towards final grades, so every student on ${removingAssessment.courseTitle ?? "this programme"} may end up graded differently. The ${removingAssessment.marked} mark${removingAssessment.marked === 1 ? "" : "s"} already recorded on it stay on file for the audit trail rather than being deleted.`
                 : "It leaves the catalogue and can no longer be marked. Nothing has been scored on it, so no student's grade changes."}
@@ -701,8 +686,7 @@ function AcademicsContent() {
       <ScoreAssessmentDialog
         assessment={scoring}
         onOpenChange={open => !open && setScoring(null)}
-        // The card shows how much of the sheet is marked, so it has to be
-        // re-read once marks are saved.
+        // The card shows how much of the sheet is marked.
         onSaved={() => utils.results.catalogue.invalidate()}
       />
 

@@ -58,8 +58,7 @@ describe("password strength", () => {
   });
 
   it("accepts a short one", () => {
-    // The eight-character floor was removed on request. An administrator
-    // setting a colleague up decides what the temporary password is.
+    // The eight-character floor was removed on request.
     expect(checkPasswordStrength("abc").ok).toBe(true);
     expect(checkPasswordStrength("1").ok).toBe(true);
   });
@@ -81,8 +80,7 @@ describe("password strength", () => {
   });
 
   it("still refuses one long enough to be a denial-of-service", () => {
-    // Not a strength rule: scrypt's cost scales with the input, so this limit
-    // protects the server rather than the account.
+    // Not a strength rule.
     const result = checkPasswordStrength("x".repeat(5000));
     expect(result.ok).toBe(false);
     expect(result.ok === false && result.message).toMatch(/under 200/i);

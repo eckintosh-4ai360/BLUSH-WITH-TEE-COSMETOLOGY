@@ -21,7 +21,7 @@ export const courses = pgTable(
   {
     id: serial("id").primaryKey(),
     code: varchar("code", { length: 32 }).notNull().unique(),
-    /** SEO-friendly public URL segment. */
+    // URL slug for public course page.
     slug: varchar("slug", { length: 180 }).unique(),
     title: varchar("title", { length: 160 }).notNull(),
     summary: text("summary").notNull(),
@@ -59,7 +59,7 @@ export const courseModules = pgTable(
     code: varchar("code", { length: 32 }).notNull(),
     title: varchar("title", { length: 180 }).notNull(),
     description: text("description"),
-    /** Position in the syllabus, used for ordering and progress maths. */
+    // Syllabus order index.
     sequence: integer("sequence").default(1).notNull(),
     durationHours: integer("durationHours"),
     isActive: boolean("isActive").default(true).notNull(),
@@ -92,7 +92,7 @@ export const intakes = pgTable(
   ],
 );
 
-/** A taught cohort: one course/intake pairing led by an instructor. */
+// Cohort class led by an instructor.
 export const classes = pgTable(
   "classes",
   {
@@ -107,7 +107,7 @@ export const classes = pgTable(
     }),
     title: varchar("title", { length: 180 }).notNull(),
     room: varchar("room", { length: 80 }),
-    /** 0 = Sunday through 6 = Saturday, matching the JS Date getDay() index. */
+    // Day of week index (0 = Sunday through 6 = Saturday).
     dayOfWeek: integer("dayOfWeek"),
     startsAt: time("startsAt"),
     endsAt: time("endsAt"),
@@ -125,7 +125,7 @@ export const classes = pgTable(
   ],
 );
 
-/** One dated meeting of a class - the unit attendance is recorded against. */
+// Single dated class session for attendance tracking.
 export const classSessions = pgTable(
   "classSessions",
   {
@@ -157,23 +157,14 @@ export const assessments = pgTable(
     title: varchar("title", { length: 180 }).notNull(),
     assessmentType: assessmentTypeEnum("assessmentType").notNull(),
     totalScore: integer("totalScore").notNull(),
-    /** Relative contribution to the final grade. */
+    // Assessment weight contributing to final grade calculation.
     weight: numeric("weight", { precision: 5, scale: 2 }).default("1.00").notNull(),
     dueDate: date("dueDate", { mode: "date" }),
     createdByUserId: integer("createdByUserId").references(() => users.id, {
       onDelete: "set null",
     }),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
-    /**
-     * Removed from the catalogue, but still on file.
-     *
-     * `assessmentResults` cascades from `assessmentId`, so deleting the row
-     * outright would take every student's mark on it with them - marks that
-     * attendance-style corrections aside are the only record that the practical
-     * was ever sat. Soft, therefore, like every other removal here: it drops
-     * out of the catalogue, the mark sheets and the weighted grade, and the
-     * marks stay where they are.
-     */
+    // Soft-delete timestamp preserving historical student grades.
     deletedAt: timestamp("deletedAt"),
   },
   table => [

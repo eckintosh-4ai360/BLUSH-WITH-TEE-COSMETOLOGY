@@ -1,14 +1,8 @@
-/**
- * The wire vocabulary of a chat completion.
- *
- * Groq speaks the OpenAI chat-completions dialect, so these mirror it rather
- * than inventing a house format - a model swap is then a change of string,
- * not a change of shape.
- */
+// OpenAI-compatible chat completion types for Groq.
 
 export type ChatRole = "system" | "user" | "assistant" | "tool";
 
-/** A function the model may ask us to run. */
+// Function call request emitted by the model.
 export type ToolCall = {
   id: string;
   type: "function";
@@ -20,10 +14,7 @@ export type ChatMessage =
   | { role: "assistant"; content?: string | null; tool_calls?: ToolCall[] }
   | { role: "tool"; content: string; tool_call_id: string; name?: string };
 
-/**
- * A tool as the model sees it: a name, a sentence saying when to reach for it,
- * and a JSON Schema for its arguments.
- */
+// Tool definition schema exposed to the model.
 export type ToolSchema = {
   type: "function";
   function: {
@@ -41,11 +32,11 @@ export type ToolSchema = {
 export type ChatRequest = {
   messages: ChatMessage[];
   tools?: ToolSchema[];
-  /** Ceiling on the reply, not on the conversation. */
+  // Maximum tokens allowed for response generation.
   maxTokens?: number;
   temperature?: number;
   model?: string;
-  /** Trades depth of deliberation against latency on reasoning models. */
+  // Reasoning effort level for supported models.
   reasoningEffort?: "low" | "medium" | "high";
   signal?: AbortSignal;
 };

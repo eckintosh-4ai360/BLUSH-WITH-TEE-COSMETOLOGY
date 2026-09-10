@@ -67,25 +67,12 @@ export const appointments = pgTable(
   ],
 );
 
-/**
- * The day's services, as they are carried out and paid for.
- *
- * Not the same thing as an `appointment`, which is a booking made in advance
- * and carries no money at all. This is the counter record: somebody came in,
- * something was done, this much was taken and this is who did it. A walk-in has
- * no email address and no booking, so requiring either would mean the takings
- * that actually happened could not be written down.
- *
- * The service and the worker are snapshotted by name as well as linked. A
- * catalogue entry renamed next season, or a stylist who leaves and has their
- * account deactivated, must not silently rewrite what last month's log says
- * happened.
- */
+// Record of services provided and paid for at the counter.
 export const serviceSales = pgTable(
   "serviceSales",
   {
     id: serial("id").primaryKey(),
-    /** The day the work was done, which is not always the day it was typed. */
+    // Service completion date.
     serviceDate: date("serviceDate", { mode: "date" }).notNull(),
     serviceId: integer("serviceId").references(() => clinicServices.id, {
       onDelete: "set null",
@@ -97,7 +84,7 @@ export const serviceSales = pgTable(
     workerUserId: integer("workerUserId").references(() => users.id, { onDelete: "set null" }),
     workerName: varchar("workerName", { length: 160 }).notNull(),
     note: text("note"),
-    /** The revenue line this raised, so an amendment can reverse exactly it. */
+    // Associated revenue ledger transaction.
     revenueTransactionId: integer("revenueTransactionId"),
     recordedByUserId: integer("recordedByUserId").references(() => users.id, {
       onDelete: "set null",
@@ -107,7 +94,7 @@ export const serviceSales = pgTable(
       .defaultNow()
       .notNull()
       .$onUpdate(() => new Date()),
-    /** Soft, like every other removal: the takings are a financial record. */
+    // Soft-delete timestamp for service sales record.
     deletedAt: timestamp("deletedAt"),
   },
   table => [
@@ -138,7 +125,7 @@ export const mediaFiles = pgTable(
     mimeType: varchar("mimeType", { length: 120 }).notNull(),
     sizeBytes: integer("sizeBytes").notNull(),
     altText: varchar("altText", { length: 255 }),
-    /** Private files are only reachable through the authenticated proxy. */
+    // Private files are only reachable through the authenticated proxy.
     isPublic: boolean("isPublic").default(false).notNull(),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
   },
@@ -155,7 +142,7 @@ export const notifications = pgTable(
     type: notificationType("type").notNull(),
     title: varchar("title", { length: 180 }).notNull(),
     body: text("body"),
-    /** Where clicking the notification should land the reader. */
+    // Where clicking the notification should land the reader.
     entityType: varchar("entityType", { length: 48 }),
     entityId: integer("entityId"),
     link: varchar("link", { length: 255 }),
@@ -184,20 +171,7 @@ export const notificationPreferences = pgTable(
   table => [unique("notification_preference_unique").on(table.userId, table.type)],
 );
 
-/**
- * The outbox: one row per message per channel, so a failed email is visible
- * rather than silent.
- *
- * `notificationId` is nullable because most people the school writes to have
- * no account to hang an in-app notification on. An applicant is the ordinary
- * case - they are told their application arrived, and whether it was accepted,
- * long before there is a student record or a sign-in for them. Those rows
- * carry their own recipient, subject and body and stand alone.
- *
- * Rows are written inside the transaction that caused them and sent
- * afterwards, so a message is never sent for a change that then rolled back,
- * and a send that fails leaves a row to retry rather than nothing at all.
- */
+// Outbox delivery queue tracking outgoing messages across channels.
 export const notificationDeliveries = pgTable(
   "notificationDeliveries",
   {
@@ -205,17 +179,17 @@ export const notificationDeliveries = pgTable(
     notificationId: integer("notificationId").references(() => notifications.id, {
       onDelete: "cascade",
     }),
-    /** What happened, for rows that have no notification to read it from. */
+    // Notification type identifier for standalone messages.
     type: notificationType("type"),
     channel: notificationChannel("channel").notNull(),
-    /** Email address or phone number, depending on the channel. */
+    // Recipient email or phone number.
     destination: varchar("destination", { length: 320 }),
     recipientName: varchar("recipientName", { length: 160 }),
     subject: varchar("subject", { length: 255 }),
     body: text("body"),
     status: deliveryStatus("status").default("queued").notNull(),
     error: text("error"),
-    /** Counted so a permanently failing message stops being retried. */
+    // Retry count for delivery attempts.
     attempts: integer("attempts").default(0).notNull(),
     lastAttemptAt: timestamp("lastAttemptAt"),
     sentAt: timestamp("sentAt"),
@@ -223,15 +197,12 @@ export const notificationDeliveries = pgTable(
   },
   table => [
     index("notification_deliveries_notification_idx").on(table.notificationId),
-    // The drain query is "oldest queued first", and it runs on every dispatch.
+    // Index for processing queued deliveries by creation time.
     index("notification_deliveries_pending_idx").on(table.status, table.createdAt),
   ],
 );
 
-/**
- * Immutable record of sensitive actions (§44). Rows are written inside the
- * same transaction as the change they describe and are never updated.
- */
+// Immutable audit trail for administrative operations.
 export const auditLogs = pgTable(
   "auditLogs",
   {

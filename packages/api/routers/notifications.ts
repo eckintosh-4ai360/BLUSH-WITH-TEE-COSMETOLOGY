@@ -22,11 +22,7 @@ const NOTIFICATION_TYPES = [
   "general",
 ] as const;
 
-/**
- * The notification centre behind the dashboard bell (§63). Everything here is
- * scoped to the caller - a notification belongs to one user and cannot be read
- * or dismissed by anybody else.
- */
+// The notification centre behind the dashboard bell.
 export const notificationsRouter = router({
   list: authedProcedure
     .input(

@@ -2,21 +2,11 @@ import nodemailer, { type Transporter } from "nodemailer";
 import type { EmailConfig } from "./config";
 import type { SendResult } from "./sms";
 
-/**
- * Gmail, over SMTP, using an app password.
- *
- * An app password rather than the account password because Google refuses
- * plain password SMTP on any account with two-step verification, which is
- * every account worth using. The school generates one at
- * myaccount.google.com/apppasswords and pastes it into the settings page.
- *
- * Nothing here is Gmail-specific beyond the default host, so a school on
- * another provider only has to change the host and port.
- */
+// Gmail, over SMTP, using an app password.
 
 let cached: { key: string; transporter: Transporter } | null = null;
 
-/** Changing any connection field must produce a new transport, not reuse the old one. */
+// Changing any connection field must produce a new transport, not reuse the old one.
 function configKey(config: EmailConfig): string {
   return [config.host, config.port, config.secure, config.user, config.appPassword].join("|");
 }
@@ -28,8 +18,7 @@ function buildTransport(config: EmailConfig): Transporter {
   const transporter = nodemailer.createTransport({
     host: config.host,
     port: config.port,
-    // Port 465 is implicit TLS; 587 starts plaintext and upgrades. Getting
-    // this pair wrong is the usual cause of a connection that hangs.
+    // Port 465 is implicit TLS; 587 starts plaintext and upgrades.
     secure: config.secure || config.port === 465,
     auth: { user: config.user, pass: config.appPassword },
   });
@@ -38,7 +27,7 @@ function buildTransport(config: EmailConfig): Transporter {
   return transporter;
 }
 
-/** Dropped so the next send rebuilds with whatever was just saved. */
+// Dropped so the next send rebuilds with whatever was just saved.
 export function resetEmailTransport(): void {
   cached = null;
 }
@@ -78,7 +67,7 @@ export async function sendEmail(
   }
 }
 
-/** Proves the credentials before anyone relies on them for a real message. */
+// Proves the credentials before anyone relies on them for a real message.
 export async function verifyEmail(config: EmailConfig): Promise<SendResult> {
   const problem = describeEmailConfig(config);
   if (problem) return { ok: false, error: problem };
@@ -102,14 +91,7 @@ const ESCAPES: Record<string, string> = {
   "'": "&#39;",
 };
 
-/**
- * The plain-text body, wrapped for mail clients that prefer HTML.
- *
- * Templates are written as prose by school staff, so the text version is the
- * real one and this is a faithful rendering of it - escaped, with paragraphs
- * where the blank lines are. Nothing is interpreted as markup, because a
- * student's name is allowed to contain an ampersand.
- */
+// The plain-text body, wrapped for mail clients that prefer HTML.
 function toHtml(body: string): string {
   const paragraphs = body
     .split(/\n{2,}/)

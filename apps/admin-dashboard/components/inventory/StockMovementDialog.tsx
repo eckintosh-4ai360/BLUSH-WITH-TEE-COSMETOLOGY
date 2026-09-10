@@ -24,7 +24,7 @@ import {
 import { Textarea } from "@blush/ui/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
 
-/** Movement types a person records by hand; sales come from checkout. */
+// Movement types a person records by hand; sales come from checkout.
 const TYPES = [
   { key: "received", label: "Received from supplier", direction: 1 },
   { key: "classroom_use", label: "Used in class", direction: -1 },
@@ -35,14 +35,7 @@ const TYPES = [
 
 type StockItem = { id: number; name: string; sku: string; quantityOnHand: number };
 
-/**
- * Records a stock movement.
- *
- * The quantity is entered as a plain positive number and the movement type
- * decides the direction, so an operator cannot accidentally add stock when
- * they meant to remove it. A count adjustment is the one case that may go
- * either way, and the only one allowed to drive a balance negative.
- */
+// Records a stock movement.
 export function StockMovementDialog({
   item,
   onOpenChange,
@@ -78,7 +71,7 @@ export function StockMovementDialog({
   const config = TYPES.find(entry => entry.key === type)!;
   const isAdjustment = type === "adjustment";
 
-  /** For an adjustment the operator types the counted total, not a delta. */
+  // For an adjustment the operator types the counted total, not a delta.
   const delta = useMemo(() => {
     if (!item) return 0;
     if (isAdjustment) {

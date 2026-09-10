@@ -49,8 +49,7 @@ describe("retryAfterFrom", () => {
     expect(retryAfterFrom(headers)).toBe(12_000);
   });
 
-  // Groq does not always send retry-after; the budget resets carry the same
-  // fact, and the soonest one is what unblocks the next call.
+  // Falls back to soonest budget reset when retry-after is absent.
   it("falls back to the soonest budget reset", () => {
     const headers = new Headers({
       "x-ratelimit-reset-tokens": "25.672s",

@@ -1,20 +1,8 @@
-/**
- * The official admission form, as one self-contained A4 document.
- *
- * Shared deliberately. An applicant prints their copy the moment they submit
- * and the office prints one from the dossier later; those have to be the same
- * sheet, or two copies of a signed document disagree.
- *
- * Returns a complete HTML document, meant to be written into a window of its
- * own. Built that way rather than as print styles over the page, because a
- * print stylesheet still prints the page it sits on - the navigation, the
- * marketing copy, the sidebar - and an admission form is not a screenshot of a
- * website.
- */
+// Official admission form printable HTML document.
 
 export type AdmissionFormData = {
   application: {
-    /** Absent when printing straight after an online submission. */
+    // Absent when printing immediately after online submission.
     id?: number;
     reference: string;
     fullName: string;
@@ -51,23 +39,18 @@ export type AdmissionFormData = {
     createdAt: Date | string;
   };
   courseTitle: string;
-  /** Tuition quoted for the programme, as agreed on this form. */
+  // Tuition quoted for the programme.
   tuition?: number | string | null;
-  /** Tools and product kit, where the programme charges for one. */
+  // Tools and product kit fee if applicable.
   productFee?: number | string | null;
 };
 
-/** An empty field prints as a dash rather than as a gap. */
+// Formats empty fields as dashes.
 function d(val: string | null | undefined, fallback = "\u2014") {
   return val && val.trim() ? val : fallback;
 }
 
-/**
- * A figure the applicant can check against a receipt: "GH¢ 13,000.00".
- *
- * Returns null rather than a zero for anything unset, so a programme with no
- * product fee prints no product fee line at all.
- */
+// Formats currency string in Ghana Cedis or returns null if empty.
 function cedis(value: number | string | null | undefined): string | null {
   if (value === null || value === undefined || value === "") return null;
   const amount = typeof value === "number" ? value : Number(value);
@@ -137,7 +120,7 @@ export function buildAdmissionFormHtml(
     height: 100%;
   }
 
-  /* ── HEADER ── */
+  /* Header */
   .header {
     border: 1.5pt solid #8f0d6b;
     border-radius: 6pt;
@@ -225,7 +208,7 @@ export function buildAdmissionFormHtml(
     margin-top: 2pt;
   }
 
-  /* ── SECTIONS ── */
+  /* Sections */
   .section {
     border: 0.75pt solid #ccbbcc;
     border-radius: 4pt;
@@ -235,7 +218,7 @@ export function buildAdmissionFormHtml(
     display: flex;
     flex-direction: column;
   }
-  /* sections that flex-grow to fill remaining space */
+  /* Fill remaining space */
   .section.grow { flex: 1; }
   .section-title {
     font-size: 7pt;
@@ -247,10 +230,10 @@ export function buildAdmissionFormHtml(
     padding-bottom: 3pt;
     margin-bottom: 6pt;
   }
-  /* vertical spacer between sections */
+  /* Section spacer */
   .gap { flex-shrink: 0; height: 5pt; }
 
-  /* ── GRID ── */
+  /* Grid */
   .grid { display: grid; gap: 5pt 10pt; }
   .g2 { grid-template-columns: 1fr 1fr; }
   .g3 { grid-template-columns: 1fr 1fr 1fr; }
@@ -281,7 +264,7 @@ export function buildAdmissionFormHtml(
   .field-value.italic { font-style: italic; font-family: Georgia, serif; font-size: 11pt; }
   .field-value.mono { font-family: "Courier New", monospace; }
 
-  /* ── DECLARATION ── */
+  /* Declaration */
   .declaration {
     border: 0.75pt solid #c9a8c9;
     border-radius: 4pt;
@@ -308,7 +291,7 @@ export function buildAdmissionFormHtml(
     gap: 8pt;
   }
 
-  /* ── OFFICIAL USE ── */
+  /* Official use */
   .official {
     border: 1.5pt dashed #8f0d6b;
     border-radius: 4pt;
@@ -365,7 +348,7 @@ export function buildAdmissionFormHtml(
     line-height: 1.5;
   }
 
-  /* ── FOOTER ── */
+  /* Footer */
   .footer {
     text-align: center;
     font-size: 6.5pt;
@@ -591,5 +574,3 @@ export function buildAdmissionFormHtml(
 </body>
 </html>`;
 }
-
-// ─── Component ────────────────────────────────────────────────────────────────

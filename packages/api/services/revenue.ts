@@ -13,7 +13,7 @@ export type RevenueSource =
 
 export type RecordRevenueInput = {
   source: RevenueSource;
-  /** The table that produced this revenue, e.g. "payment" or "store_order". */
+  // The table that produced this revenue, e.
   sourceType: string;
   sourceId?: number | null;
   paymentId?: number | null;
@@ -25,12 +25,7 @@ export type RecordRevenueInput = {
   recordedByUserId?: number | null;
 };
 
-/**
- * Appends one line to the revenue ledger (§28).
- *
- * Income is never a typed-in total: every figure the dashboard reports is a sum
- * over these rows, and each row points back at the transaction that earned it.
- */
+// Appends one line to the revenue ledger.
 export async function recordRevenue(
   db: DbExecutor,
   input: RecordRevenueInput,
@@ -56,10 +51,7 @@ export async function recordRevenue(
   return row?.id;
 }
 
-/**
- * Books a refund as a negative counter-entry rather than editing the original
- * line (§29). History stays intact and the two rows net to the amount kept.
- */
+// Books a refund as a negative counter-entry rather than editing the original line.
 export async function reverseRevenue(
   db: DbExecutor,
   input: {

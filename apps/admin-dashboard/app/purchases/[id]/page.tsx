@@ -45,7 +45,7 @@ function formatDate(value: Date | string | null | undefined) {
   return value ? new Date(value).toLocaleDateString("en-GB") : "—";
 }
 
-/** One purchase order: what was ordered, what has arrived, and what is still to pay. */
+// One purchase order.
 function PurchaseOrderDetailContent({ purchaseOrderId }: { purchaseOrderId: number }) {
   const { can } = usePermissions();
   const [receiveOpen, setReceiveOpen] = useState(false);

@@ -14,14 +14,7 @@ import {
 import { defineTool } from "../types";
 import { matchesWords } from "./shared";
 
-/**
- * What the website assistant may look at.
- *
- * Everything here is already published on a public page, so a visitor learns
- * nothing from the chat box they could not learn by browsing. Student records,
- * money, stock levels and staff are absent by construction rather than by a
- * permission check, because on this surface there is nobody to check.
- */
+// What the website assistant may look at.
 export const publicTools = [
   defineTool({
     name: "browse_courses",

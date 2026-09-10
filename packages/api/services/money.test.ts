@@ -31,8 +31,7 @@ describe("currency arithmetic", () => {
   });
 
   it("parses decimal strings exactly, without going through a float", () => {
-    // Number("0.07") * 100 is 7.000000000000001, so the string path parses
-    // digits instead of multiplying.
+    // Number("0.
     expect(toMinor("0.07")).toBe(7);
     expect(toMinor("1.005")).toBe(101);
     expect(toMinor("10.006")).toBe(1001);

@@ -1,11 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { isUniqueViolation } from "./dbErrors";
 
-/**
- * The shape drizzle actually throws: its own Error, with the driver's error -
- * the one carrying `code` and `constraint` - on `cause`. Checking only the
- * outer object matches nothing, which is the bug this guards.
- */
+// The shape drizzle actually throws.
 function wrapped(code: string, constraint?: string) {
   return Object.assign(new Error("Failed query: insert into ..."), {
     cause: Object.assign(new Error("duplicate key value violates unique constraint"), {
@@ -29,8 +25,7 @@ describe("isUniqueViolation", () => {
   });
 
   it("rejects a unique violation from a different constraint", () => {
-    // The same statement can break some other uniqueness, and "already
-    // enrolled" would then be the wrong thing to say.
+    // The same statement can break some other uniqueness.
     expect(isUniqueViolation(wrapped("23505", "some_other_unique"), "enrollment_live_course_unique")).toBe(false);
   });
 

@@ -208,8 +208,7 @@ export const studentTools = [
 
       const { id: _id, personId: _personId, ...profile } = student;
 
-      // A fee balance is money, and is shown only to a caller allowed to see
-      // money - the same rule the finance screens follow.
+      // A fee balance is money.
       const account = ctx.access?.can("fees.read")
         ? await studentAccountSummary(ctx.db, student.id)
         : null;

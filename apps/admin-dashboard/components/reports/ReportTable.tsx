@@ -26,15 +26,7 @@ export type ReportColumn<T> = ExportColumn<T> & {
   align?: "left" | "right";
 };
 
-/**
- * A summary report: every row at once, with the same CSV and PDF export the
- * paginated tables offer.
- *
- * Deliberately not DataTable. These reports are aggregates — a dozen rows of
- * arithmetic across the whole database — so paging, per-column search and
- * server sorting would be machinery with nothing to do. What they do share is
- * the export, which comes from the same module either way.
- */
+// A summary report.
 export function ReportTable<T>({
   title,
   description,
@@ -56,9 +48,9 @@ export function ReportTable<T>({
   isLoading?: boolean;
   error?: { message: string } | null;
   exportFileName: string;
-  /** Printed above the table in the exported file, e.g. the date range used. */
+  // Printed above the table in the exported file, e.
   meta?: ExportMeta[];
-  /** Totals row rendered under the table. */
+  // Totals row rendered under the table.
   footer?: ReactNode;
   emptyMessage?: string;
 }) {

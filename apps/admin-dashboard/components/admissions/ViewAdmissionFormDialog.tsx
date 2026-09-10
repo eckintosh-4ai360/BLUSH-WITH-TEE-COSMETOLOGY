@@ -63,7 +63,7 @@ export type AdmissionApplicationData = {
     createdAt: Date | string;
   };
   courseTitle: string;
-  /** Fees as quoted to this applicant, not necessarily today's price. */
+  // Fees as quoted to this applicant, not necessarily today's price.
   courseTuition?: number | string | null;
   courseProductFee?: number | string | null;
 };
@@ -73,7 +73,7 @@ function d(val: string | null | undefined, fallback = "—") {
   return val && val.trim() ? val : fallback;
 }
 
-/** Amounts read as money on screen and on the printed sheet alike. */
+// Amounts read as money on screen and on the printed sheet alike.
 function cedis(value: number | string | null | undefined): string | null {
   if (value === null || value === undefined || value === "") return null;
   const amount = typeof value === "number" ? value : Number(value);
@@ -168,7 +168,7 @@ export function ViewAdmissionFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[93vh] overflow-y-auto sm:max-w-4xl p-0 border-[#8f0d6b]/20">
 
-        {/* Top Bar */}
+        {/* Top Bar. */}
         <div className="flex items-center justify-between px-6 py-3 bg-[#fdf2fa] border-b border-[#8f0d6b]/20 rounded-t-lg dark:bg-[#1b0214] dark:border-white/10">
           <DialogTitle className="flex items-center gap-2 text-xs font-semibold text-[#8f0d6b] dark:text-[#ffb8ed]">
             <FileCheck className="h-4 w-4 text-[#fe00b6]" />
@@ -189,10 +189,10 @@ export function ViewAdmissionFormDialog({
           {submitted}.
         </DialogDescription>
 
-        {/* Dossier Preview — on-screen only */}
+        {/* Dossier Preview —. */}
         <div className="admission-sheet p-5 sm:p-6 space-y-3 text-[10.5px] leading-snug">
 
-          {/* Header */}
+          {/* Header. */}
           <div className="rounded-xl border border-[#8f0d6b]/25 bg-gradient-to-b from-[#fdf2fa] to-white p-3.5 print:border print:p-2.5">
             <div className="flex flex-col sm:flex-row items-center gap-4">
               <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full border-2 border-[#8f0d6b]/30 bg-white p-1 shadow-sm">
@@ -228,7 +228,7 @@ export function ViewAdmissionFormDialog({
             </div>
           </div>
 
-          {/* Section 1 */}
+          {/* Section 1. */}
           <div className="rounded-lg border border-slate-300 p-3 bg-slate-50/50">
             <div className="text-[9.5px] font-bold uppercase tracking-wider text-[#8f0d6b] border-b border-slate-200 pb-1 mb-2">
               1. Applicant Personal Details
@@ -281,7 +281,7 @@ export function ViewAdmissionFormDialog({
             </div>
           </div>
 
-          {/* Section 2 */}
+          {/* Section 2. */}
           <div className="rounded-lg border border-slate-300 p-3 bg-slate-50/50">
             <div className="text-[9.5px] font-bold uppercase tracking-wider text-[#8f0d6b] border-b border-slate-200 pb-1 mb-2">
               2. Emergency Contact &amp; Social Media Handles
@@ -311,7 +311,7 @@ export function ViewAdmissionFormDialog({
             </div>
           </div>
 
-          {/* Section 3 */}
+          {/* Section 3. */}
           <div className="rounded-lg border border-slate-300 p-3 bg-slate-50/50">
             <div className="text-[9.5px] font-bold uppercase tracking-wider text-[#8f0d6b] border-b border-slate-200 pb-1 mb-2">
               3. Academic Programme &amp; Payment Terms
@@ -346,7 +346,7 @@ export function ViewAdmissionFormDialog({
             </div>
           </div>
 
-          {/* Section 4 */}
+          {/* Section 4. */}
           <div className="rounded-lg border border-slate-300 p-3 bg-slate-50/50">
             <div className="text-[9.5px] font-bold uppercase tracking-wider text-[#8f0d6b] border-b border-slate-200 pb-1 mb-2">
               4. References / Parent / Guardian
@@ -367,7 +367,7 @@ export function ViewAdmissionFormDialog({
             </div>
           </div>
 
-          {/* Section 5 */}
+          {/* Section 5. */}
           <div className="rounded-lg border border-[#8f0d6b]/30 bg-[#faeaf6]/20 p-3">
             <div className="flex items-center justify-between text-[9.5px] font-bold uppercase tracking-wider text-[#8f0d6b] border-b border-[#8f0d6b]/15 pb-1 mb-2">
               5. Student Signature &amp; Declaration
@@ -390,7 +390,7 @@ export function ViewAdmissionFormDialog({
             </div>
           </div>
 
-          {/* Section 6 */}
+          {/* Section 6. */}
           <div className="rounded-lg border-2 border-dashed border-[#8f0d6b]/50 bg-gradient-to-r from-white via-[#fdf2fa]/30 to-white p-3">
             <div className="flex items-center justify-between text-[9.5px] font-bold uppercase tracking-wider text-[#8f0d6b] border-b border-[#8f0d6b]/20 pb-1 mb-2">
               <span className="flex items-center gap-1.5">
@@ -453,7 +453,7 @@ export function ViewAdmissionFormDialog({
           </div>
         </div>
 
-        {/* Footer Actions */}
+        {/* Footer Actions. */}
         <DialogFooter className="border-t p-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 bg-muted/20">
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>

@@ -33,14 +33,7 @@ export type PayableOrder = {
   amountPaid: number;
 };
 
-/**
- * Records money paid to a supplier.
- *
- * A payment can settle one purchase order or sit against the account as a
- * whole. Either way it reduces the outstanding balance in the same
- * transaction, so what the supplier is owed is never a figure somebody has to
- * remember to update.
- */
+// Records money paid to a supplier.
 export function PaySupplierDialog({
   open,
   onOpenChange,
@@ -90,8 +83,7 @@ export function PaySupplierDialog({
     return null;
   }, [amount, parsedAmount]);
 
-  // Overpaying is allowed — a deposit against future orders is a real thing —
-  // but it is worth saying out loud before it is recorded.
+  // Overpaying is allowed — a deposit against future orders is a real thing — but it is worth.
   const overpayment =
     parsedAmount > outstandingBalance && outstandingBalance >= 0
       ? `That is ${formatMoney(parsedAmount - outstandingBalance)} more than the ${formatMoney(outstandingBalance)} owed. The difference becomes a credit.`

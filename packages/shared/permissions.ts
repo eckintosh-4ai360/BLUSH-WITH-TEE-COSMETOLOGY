@@ -1,10 +1,4 @@
-/**
- * The authorisation vocabulary for the whole platform.
- *
- * These keys are the single source of truth shared by the API (which enforces
- * them on every procedure) and the dashboards (which use them to decide what to
- * render). Hiding a button is a courtesy; the backend check is the control.
- */
+// Core RBAC permission keys and role definitions for authorization.
 
 export const PERMISSIONS = {
   // Admissions
@@ -82,14 +76,7 @@ export type PermissionKey = keyof typeof PERMISSIONS;
 
 export const PERMISSION_KEYS = Object.keys(PERMISSIONS) as PermissionKey[];
 
-/**
- * The roles that can be assigned.
- *
- * `student` is absent on purpose. It is still a value in the database enum,
- * because dropping one from a Postgres type means recreating it, but it is no
- * longer a role: the front desk is `secretary`, and student portal access
- * comes from `users.role` rather than from here.
- */
+// Assignable role keys in the platform.
 export type RoleKey =
   | "super_admin"
   | "administrator"
@@ -109,11 +96,7 @@ const READ_ONLY_ACADEMIC: PermissionKey[] = [
   "results.write",
 ];
 
-/**
- * Role definitions straight from the brief (§33). Super admin is handled as a
- * wildcard rather than a list so a newly added permission is never silently
- * withheld from the owner.
- */
+// Role configuration mapping role keys to default permissions.
 export const ROLE_DEFINITIONS: Record<
   RoleKey,
   { name: string; description: string; permissions: PermissionKey[] | "*" }
@@ -217,20 +200,7 @@ export const ROLE_DEFINITIONS: Record<
       "cms.read",
     ],
   },
-  /**
-   * The front desk.
-   *
-   * A secretary is the person the school actually runs through: they take the
-   * money, register the walk-ins, mark the register, sell from the shop and
-   * count the till at the end of the day. The set below is drawn to cover that
-   * day rather than to fit a department.
-   *
-   * What is deliberately withheld is as much the point. They record expenses
-   * but cannot approve them; they close the till but cannot reopen a closed
-   * day; they file applications but do not decide them; they read stock but do
-   * not adjust it. Each of those is a second pair of eyes on the first, and
-   * the desk should not be both.
-   */
+  // Front desk role covering day-to-day operations, payments, and till closing.
   secretary: {
     name: "Secretary",
     description:
@@ -243,27 +213,24 @@ export const ROLE_DEFINITIONS: Record<
       "students.write",
       "academics.read",
 
-      // The register
+      // Attendance register
       "attendance.read",
       "attendance.write",
 
-      // Taking money. `fees.read` is not optional here - a payment cannot be
-      // applied to a balance nobody is allowed to see.
+      // Payment collection
       "fees.read",
       "payments.read",
       "payments.write",
 
-      // Cash paid out of the till. Without this the drawer cannot be
-      // reconciled: cash expenses are subtracted from what should be in it,
-      // so a secretary who cannot record them will be short every time.
+      // Petty cash expenses
       "expenses.read",
       "expenses.write",
 
-      // End of day
+      // Daily till closing
       "closing.read",
       "closing.write",
 
-      // The shop
+      // Shop sales
       "orders.read",
       "orders.write",
       "products.read",
@@ -275,9 +242,7 @@ export const ROLE_DEFINITIONS: Record<
       "appointments.read",
       "appointments.write",
 
-      // The day's services, as they are carried out and paid for. Recording
-      // the takings is the front desk's job; `admissions.review` and
-      // `admissions.delete` deliberately are not.
+      // Daily services tracking
       "services.read",
       "services.write",
 
@@ -293,20 +258,14 @@ export const ROLE_DEFINITIONS: Record<
 
 export const ROLE_KEYS = Object.keys(ROLE_DEFINITIONS) as RoleKey[];
 
-/**
- * Expands a role to its concrete permission set, resolving the wildcard.
- *
- * An unknown key grants nothing rather than throwing. Roles are retired from
- * time to time and a row can outlive its definition; a stale grant should
- * quietly carry no privileges, not break every request the holder makes.
- */
+// Resolves concrete list of permissions granted by a specific role.
 export function permissionsForRole(role: RoleKey): PermissionKey[] {
   const definition = ROLE_DEFINITIONS[role];
   if (!definition) return [];
   return definition.permissions === "*" ? [...PERMISSION_KEYS] : definition.permissions;
 }
 
-/** Union of the permissions granted by every role a user holds. */
+// Combines all unique permissions granted across multiple roles.
 export function permissionsForRoles(roles: RoleKey[]): Set<PermissionKey> {
   const granted = new Set<PermissionKey>();
   for (const role of roles) {

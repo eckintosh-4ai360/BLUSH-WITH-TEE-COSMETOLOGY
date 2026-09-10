@@ -23,7 +23,7 @@ import {
 } from "@blush/ui/components/ui/select";
 import { trpc } from "@/lib/trpc";
 
-/** Unambiguous characters only, so a password read aloud is transcribed right. */
+// Unambiguous characters only, so a password read aloud is transcribed right.
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
 
 function suggestPassword(length = 14): string {
@@ -32,12 +32,7 @@ function suggestPassword(length = 14): string {
   return Array.from(values, value => ALPHABET[value % ALPHABET.length]).join("");
 }
 
-/**
- * Creates a sign-in account and grants it a role in one step.
- *
- * An account with no role can sign in and see nothing, which reads as a broken
- * system, so the role is part of the form rather than a second task.
- */
+// Creates a sign-in account and grants it a role in one step.
 export function CreateUserDialog({
   open,
   onOpenChange,
@@ -75,10 +70,7 @@ export function CreateUserDialog({
     onError: mutationError => setError(mutationError.message),
   });
 
-  // The password is checked for nothing but being there. Whoever is filling
-  // this in is handing someone a temporary password in person and knows what
-  // they want it to be; the name and the email still matter, because the
-  // account is addressed by them.
+  // The password is checked for nothing but being there.
   const validation = useMemo(() => {
     if (name.trim().length < 2) return "Enter the person's name.";
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) return "Enter a valid email address.";
@@ -227,7 +219,7 @@ export function CreateUserDialog({
   );
 }
 
-/** Sets a new password on an existing account. */
+// Sets a new password on an existing account.
 export function ResetPasswordDialog({
   account,
   onOpenChange,

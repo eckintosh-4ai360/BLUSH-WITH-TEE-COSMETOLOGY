@@ -15,7 +15,7 @@ const METHODS = [
 
 type Method = (typeof METHODS)[number][0];
 
-/** The category option that opens the "name your own" field instead of picking. */
+// The category option that opens the "name your own" field instead of picking.
 const NEW_CATEGORY = "__new__";
 
 const cedis = (value: unknown) => `GHS ${Number(value ?? 0).toFixed(2)}`;
@@ -26,9 +26,7 @@ export default function AdminFinancePage() {
   const expenses = trpc.admin.expenses.useQuery();
   const categories = trpc.admin.expenseCategories.useQuery();
 
-  /* ------------------------------------------------------------------ */
-  /* Student payment                                                     */
-  /* ------------------------------------------------------------------ */
+  // Student payment.
 
   const [studentQuery, setStudentQuery] = useState("");
   const [studentId, setStudentId] = useState<number | null>(null);
@@ -38,8 +36,7 @@ export default function AdminFinancePage() {
   const [reference, setReference] = useState("");
   const [paymentError, setPaymentError] = useState<string | null>(null);
 
-  // Two characters is enough to be worth a round trip, and short enough that a
-  // name starts narrowing the list well before it has been typed out.
+  // Two characters is enough to be worth a round trip.
   const searchTerm = studentQuery.trim();
   const students = trpc.admin.searchStudents.useQuery(
     { term: searchTerm },
@@ -93,9 +90,7 @@ export default function AdminFinancePage() {
     });
   }
 
-  /* ------------------------------------------------------------------ */
-  /* Expense                                                             */
-  /* ------------------------------------------------------------------ */
+  // Expense.
 
   const [category, setCategory] = useState("");
   const [newCategory, setNewCategory] = useState("");
@@ -104,8 +99,7 @@ export default function AdminFinancePage() {
   const addCategory = trpc.admin.addExpenseCategory.useMutation({
     onSuccess: async created => {
       await utils.admin.expenseCategories.invalidate();
-      // Select what was just added, so the person carries straight on with the
-      // expense they were part-way through recording.
+      // Select what was just added.
       setCategory(created.key);
       setNewCategory("");
     },
@@ -120,8 +114,7 @@ export default function AdminFinancePage() {
     onError: error => setExpenseError(error.message),
   });
 
-  // The saved list is the whole truth; the extra entry is only a doorway to
-  // creating one, so it never gets mistaken for a category itself.
+  // The saved list is the whole truth.
   const categoryOptions = categories.data ?? [];
   const namingCategory = category === NEW_CATEGORY;
 
@@ -291,8 +284,7 @@ export default function AdminFinancePage() {
                   onChange={event => {
                     setFeeChargeId(event.target.value);
                     const charge = openCharges.find(row => String(row.id) === event.target.value);
-                    // Picking a fee is usually a statement about the amount as
-                    // well, so offer its balance rather than making it be typed.
+                    // Picking a fee is usually a statement about the amount as well.
                     if (charge) setAmount(charge.balance.toFixed(2));
                   }}
                   className="soft-input"

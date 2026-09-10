@@ -22,11 +22,7 @@ import {
 import { people, users } from "./identity";
 import { inventoryItems } from "./inventory";
 
-/**
- * The commerce facet of a person. A shopper who later applies to the school
- * keeps one `people` row and gains a student profile beside this one, so the
- * two records are the same human rather than duplicates.
- */
+// Customer profile linked to canonical person record.
 export const customers = pgTable(
   "customers",
   {
@@ -37,7 +33,7 @@ export const customers = pgTable(
     userId: integer("userId").references(() => users.id, { onDelete: "set null" }),
     status: customerStatus("status").default("active").notNull(),
     notes: text("notes"),
-    /** Denormalised rollups, recalculated when an order is paid. */
+    // Denormalized order rollups updated upon payment.
     totalOrders: integer("totalOrders").default(0).notNull(),
     totalSpent: numeric("totalSpent", { precision: 12, scale: 2 }).default("0.00").notNull(),
     lastOrderAt: timestamp("lastOrderAt"),
@@ -139,7 +135,7 @@ export const storeOrders = pgTable(
     orderNumber: varchar("orderNumber", { length: 40 }).notNull().unique(),
     customerId: integer("customerId").references(() => customers.id, { onDelete: "set null" }),
     userId: integer("userId").references(() => users.id, { onDelete: "set null" }),
-    /** Contact snapshot as given at checkout. */
+    // Snapshot of customer details provided at checkout.
     customerName: varchar("customerName", { length: 160 }).notNull(),
     customerEmail: varchar("customerEmail", { length: 320 }).notNull(),
     customerPhone: varchar("customerPhone", { length: 40 }).notNull(),
@@ -151,7 +147,7 @@ export const storeOrders = pgTable(
     couponId: integer("couponId").references(() => coupons.id, { onDelete: "set null" }),
     paymentStatus: orderPaymentStatus("paymentStatus").default("pending").notNull(),
     fulfillmentStatus: orderFulfillmentStatus("fulfillmentStatus").default("new").notNull(),
-    /** Set when stock has been deducted, so it can never be deducted twice. */
+    // Timestamp marking inventory stock deduction.
     stockDeductedAt: timestamp("stockDeductedAt"),
     notes: text("notes"),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
@@ -208,7 +204,7 @@ export const orderAddresses = pgTable(
   table => [index("order_addresses_order_idx").on(table.orderId)],
 );
 
-/** Append-only order timeline shown on the admin order page. */
+// Audit log of order status transitions.
 export const orderStatusEvents = pgTable(
   "orderStatusEvents",
   {

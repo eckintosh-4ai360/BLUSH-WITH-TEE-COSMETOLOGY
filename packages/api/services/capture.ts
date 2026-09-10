@@ -28,18 +28,7 @@ export type CaptureResult = {
   amount: number;
 };
 
-/**
- * Turns a verified gateway charge into money in the books.
- *
- * This is the only path that may mark a payment intent succeeded, and it is
- * the single place both the return-from-gateway call and the webhook go
- * through, so the two can never disagree.
- *
- * Idempotency comes from locking the intent row and re-reading its status
- * inside the transaction: a duplicate webhook, a double click, and a retry all
- * find the intent already succeeded and return the original payment rather
- * than booking a second one (§48).
- */
+// Turns a verified gateway charge into money in the books.
 export async function captureVerifiedPayment(
   db: Database,
   input: {
@@ -78,8 +67,7 @@ export async function captureVerifiedPayment(
     currency: intent.currency,
   });
 
-  // An online order's stock comes off when the money lands, so this is where
-  // an item can reach its reorder level. Acted on after the commit, below.
+  // An online order's stock comes off when the money lands.
   let stockWentLow = false;
 
   const captured = await db.transaction(async tx => {
@@ -220,8 +208,7 @@ export async function captureVerifiedPayment(
   return captured;
 }
 
-/** Order-side effects of a captured payment: revenue, stock, status. */
-/** Returns whether the deduction took anything to its reorder level. */
+// Order-side effects of a captured payment.
 async function captureStoreOrder(
   tx: Parameters<Parameters<Database["transaction"]>[0]>[0],
   input: { orderId: number; amountMinor: number; paymentId: number; userId: number | null },
@@ -297,7 +284,7 @@ async function existingCapture(db: Database, intentId: number): Promise<CaptureR
   };
 }
 
-/** Outstanding balance for a student, used to bound what may be paid. */
+// Outstanding balance for a student, used to bound what may be paid.
 export async function outstandingBalanceMinor(db: Database, studentId: number): Promise<number> {
   const rows = await db
     .select({ amountDue: feeCharges.amountDue, amountPaid: feeCharges.amountPaid })

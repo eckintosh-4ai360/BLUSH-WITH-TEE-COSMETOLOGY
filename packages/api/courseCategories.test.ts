@@ -5,12 +5,7 @@ import {
   sortCourseCategories,
 } from "@blush/shared/const";
 
-/**
- * The prospectus reads General first, then Individual Courses. Both apps build
- * their filter from the categories the rows happen to carry, and the three full
- * programmes were added to the catalogue after the ten single-skill ones - so
- * row order alone puts them in the wrong place.
- */
+// The prospectus reads General first, then Individual Courses.
 describe("sortCourseCategories", () => {
   it("puts the full programmes ahead of the individual courses", () => {
     expect(sortCourseCategories(["Individual Courses", "General"])).toEqual([

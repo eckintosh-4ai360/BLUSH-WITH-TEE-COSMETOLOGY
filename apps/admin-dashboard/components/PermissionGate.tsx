@@ -6,13 +6,7 @@ import type { PermissionKey } from "@blush/shared/permissions";
 import { Skeleton } from "@blush/ui/components/ui/skeleton";
 import { usePermissions } from "@/hooks/usePermissions";
 
-/**
- * Renders a page only when the caller holds one of the listed permissions.
- *
- * This is presentation, not protection. Every procedure the page calls checks
- * the same permission server-side, so bypassing this component gets an empty
- * page and a string of FORBIDDEN responses rather than data.
- */
+// Renders a page only when the caller holds one of the listed permissions.
 export function PermissionGate({
   anyOf,
   children,

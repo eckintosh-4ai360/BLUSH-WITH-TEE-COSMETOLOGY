@@ -14,30 +14,11 @@ import { listInputSchema, likePattern, paginate, paginationBounds } from "../ser
 import { recordRevenue, reverseRevenue } from "../services/revenue";
 import { permissionProcedure, router } from "../trpc";
 
-/**
- * The daily services log: what was done, for whom, by whom, and what was taken.
- *
- * The front desk's record of the salon side of the business. `appointments`
- * already existed and is a different thing entirely - a booking made ahead of
- * time, with no amount and no payment method on it, requiring an email address
- * a walk-in does not have. Neither table can stand in for the other, so this
- * one records the money and that one records the diary.
- *
- * Every line posts to the revenue ledger, because income here is not a typed
- * total on a screen: it is a sum over ledger rows, each pointing back at the
- * thing that earned it. An amended or removed line reverses its own posting
- * rather than editing history.
- */
+// The daily services log.
 
 const PAYMENT_METHODS = ["cash", "mobile_money", "bank", "card", "online"] as const;
 
-/**
- * A calendar day, taken as `YYYY-MM-DD` text.
- *
- * The same reasoning as the attendance register: a browser sending midnight
- * local time as an ISO instant can land on the previous day once Postgres
- * casts it, which would file Monday's takings under Sunday.
- */
+// A calendar day, taken as YYYY-MM-DD text.
 const serviceDateInput = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Use a date written as YYYY-MM-DD.")
@@ -54,7 +35,7 @@ const serviceDateInput = z
 const saveInput = z.object({
   id: z.number().int().positive().optional(),
   serviceDate: serviceDateInput,
-  /** Links the catalogue row when one was picked; the name is kept regardless. */
+  // Links the catalogue row when one was picked; the name is kept regardless.
   serviceId: z.number().int().positive().nullable().optional(),
   serviceName: z.string().trim().min(2).max(160),
   clientName: z.string().trim().min(2).max(160),
@@ -66,7 +47,7 @@ const saveInput = z.object({
 });
 
 export const servicesRouter = router({
-  /** The service catalogue, for the picker. Free text is still accepted. */
+  // The service catalogue, for the picker.
   catalogue: permissionProcedure("services.read").query(async () => {
     const db = await dbOrThrow();
     return db
@@ -81,7 +62,7 @@ export const servicesRouter = router({
       .orderBy(asc(clinicServices.name));
   }),
 
-  /** Staff who can be named as the worker in charge. */
+  // Staff who can be named as the worker in charge.
   workers: permissionProcedure("services.read").query(async () => {
     const db = await dbOrThrow();
     return db
@@ -97,12 +78,7 @@ export const servicesRouter = router({
       .orderBy(asc(users.name));
   }),
 
-  /**
-   * The log itself, newest first, with the totals for whatever is being asked
-   * about. The totals come back with the page because "what did we take today"
-   * is the question this screen exists to answer, and totalling the rows on
-   * screen would only ever total the page.
-   */
+  // The log itself, newest first, with the totals for whatever is being asked about.
   list: permissionProcedure("services.read")
     .input(
       listInputSchema.extend({
@@ -168,13 +144,7 @@ export const servicesRouter = router({
       };
     }),
 
-  /**
-   * Records a service, or corrects one already recorded.
-   *
-   * The revenue posting is kept in step: a correction reverses the line it
-   * replaces and books a new one, so the ledger reads as what happened rather
-   * than as what it was last edited to.
-   */
+  // Records a service, or corrects one already recorded.
   save: permissionProcedure("services.write")
     .input(saveInput)
     .mutation(async ({ input, ctx }) => {
@@ -210,8 +180,7 @@ export const servicesRouter = router({
             });
           }
 
-          // Only when the figure moved. Correcting a spelling should not put
-          // two counter-entries in the ledger for the same money.
+          // Only when the figure moved.
           let revenueTransactionId = before.revenueTransactionId;
           if (toMinor(before.amount) !== amountMinor) {
             if (before.revenueTransactionId) {
@@ -299,13 +268,7 @@ export const servicesRouter = router({
       });
     }),
 
-  /**
-   * Takes a service off the log.
-   *
-   * Soft, and its revenue reversed rather than deleted: this is money the
-   * business reported having taken, and a day that has already been closed and
-   * banked has to keep saying what it said.
-   */
+  // Takes a service off the log.
   remove: permissionProcedure("services.write")
     .input(z.object({ id: z.number().int().positive() }))
     .mutation(async ({ input, ctx }) => {

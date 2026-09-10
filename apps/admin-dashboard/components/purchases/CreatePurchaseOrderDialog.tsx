@@ -29,7 +29,7 @@ function today() {
 }
 
 type Line = {
-  /** Stable across re-renders so React keys survive a row being removed. */
+  // Stable across re-renders so React keys survive a row being removed.
   key: number;
   inventoryItemId: string;
   quantityOrdered: string;
@@ -45,14 +45,7 @@ const emptyLine = (): Line => ({
   unitCost: "",
 });
 
-/**
- * Raises a purchase order.
- *
- * Nothing here touches stock: an order is a statement of intent, and the
- * balance only moves when the goods are received (§31). The unit cost defaults
- * to what the item last cost, because that is usually right and always
- * checkable.
- */
+// Raises a purchase order.
 export function CreatePurchaseOrderDialog({
   open,
   onOpenChange,

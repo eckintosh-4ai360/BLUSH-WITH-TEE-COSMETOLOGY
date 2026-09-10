@@ -12,7 +12,7 @@ import {
   validateDocumentUpload,
 } from "./platform.utils";
 
-/** Minimal payloads that carry a genuine file signature. */
+// Minimal payloads that carry a genuine file signature.
 const pdf = () => Buffer.concat([Buffer.from("%PDF-1.7\n"), Buffer.from("body")]);
 const png = () =>
   Buffer.concat([
@@ -91,8 +91,7 @@ describe("upload validation", () => {
   });
 
   it("rejects content that does not match the declared type", () => {
-    // The core of §58: a caller cannot smuggle a payload past the check by
-    // simply claiming it is a PDF.
+    // The core of: a caller cannot smuggle a payload past the check by simply claiming it is a PDF.
     const executable = Buffer.from([0x4d, 0x5a, 0x90, 0x00, 0x03]);
     expect(() =>
       validateDocumentUpload("application/pdf", executable.toString("base64")),
@@ -151,8 +150,7 @@ describe("references and slugs", () => {
 
 describe("upload size ceiling", () => {
   it("refuses an oversized base64 field before decoding it", () => {
-    // One character over the ceiling: the point is that this is rejected on
-    // length, not after allocating a buffer for it.
+    // One character over the ceiling.
     const oversized = "A".repeat(MAX_UPLOAD_BASE64_LENGTH + 1);
     expect(() => validateDocumentUpload("image/png", oversized)).toThrow(
       /between 1 byte and 8 MB/,

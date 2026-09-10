@@ -30,7 +30,7 @@ export type SaveableSupplier = {
   isActive: boolean;
 };
 
-/** Creates or edits a supplier. Balances owed are never edited here — they move only through receiving stock and paying. */
+// Creates or edits a supplier.
 export function SaveSupplierDialog({
   open,
   onOpenChange,
@@ -39,7 +39,7 @@ export function SaveSupplierDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Receives the row's id so a caller that opened this to fill a picker can select it. */
+  // Receives the row's id so a caller that opened this to fill a picker can select it.
   onSaved: (saved: { id: number | undefined }) => void;
   editing?: SaveableSupplier | null;
 }) {

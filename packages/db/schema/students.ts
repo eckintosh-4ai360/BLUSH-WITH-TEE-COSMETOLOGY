@@ -73,20 +73,7 @@ export const enrollments = pgTable(
     status: enrollmentStatus("status").default("active").notNull(),
   },
   table => [
-    /**
-     * One live enrolment per student per course.
-     *
-     * Partial on purpose. The rule is about enrolments that are *running*, and
-     * withdrawing or completing one has to leave the student free to sit the
-     * course again - which a plain unique constraint over the same columns
-     * would forbid.
-     *
-     * It replaces a `(studentId, courseId, intakeId)` constraint that claimed
-     * this and never did it: `intakeId` is null for every enrolment made from
-     * the academics screen, and Postgres treats nulls in a unique constraint
-     * as distinct, so the constraint matched nothing and a student could be
-     * placed on the same programme any number of times.
-     */
+    // Unique constraint allowing only one active or paused enrolment per course.
     uniqueIndex("enrollment_live_course_unique")
       .on(table.studentId, table.courseId)
       .where(sql`status in ('active', 'paused')`),
@@ -116,7 +103,7 @@ export const attendanceRecords = pgTable(
     createdAt: timestamp("createdAt").defaultNow().notNull(),
   },
   table => [
-    // One mark per student per class day - re-marking updates in place.
+    // One mark per student per class day with in-place updates.
     unique("attendance_enrollment_date_unique").on(table.enrollmentId, table.classDate),
     index("attendance_date_idx").on(table.classDate),
     index("attendance_status_idx").on(table.status),
@@ -154,7 +141,7 @@ export const certificates = pgTable(
   {
     id: serial("id").primaryKey(),
     certificateNumber: varchar("certificateNumber", { length: 40 }).notNull().unique(),
-    /** Unguessable token behind the public verification URL and QR code. */
+    // Verification token used for public verification URL and QR code.
     verificationToken: varchar("verificationToken", { length: 64 }).notNull().unique(),
     studentId: integer("studentId")
       .notNull()
@@ -179,18 +166,7 @@ export const certificates = pgTable(
   ],
 );
 
-/**
- * Scanned copies of the award as it was actually issued.
- *
- * The printable certificate is generated from the row above, but what the
- * school hands over is paper: signed, stamped, and often signed back by the
- * student on collection. Keeping the scan against the record means the file
- * drawer is reachable from the certificate rather than from a shelf, and a
- * dispute years later can be answered with the document itself.
- *
- * Several scans per certificate are allowed - front and back, the signed copy
- * and the collection slip - so this is a child table rather than a column.
- */
+// Scanned copies of physical certificate documents.
 export const certificateScans = pgTable(
   "certificateScans",
   {
@@ -198,12 +174,12 @@ export const certificateScans = pgTable(
     certificateId: integer("certificateId")
       .notNull()
       .references(() => certificates.id, { onDelete: "cascade" }),
-    /** Private storage key. Never a public URL - scans are proxied. */
+    // Proxied storage key for certificate scan document.
     storageKey: varchar("storageKey", { length: 512 }).notNull(),
     fileName: varchar("fileName", { length: 255 }).notNull(),
     mimeType: varchar("mimeType", { length: 120 }).notNull(),
     sizeBytes: integer("sizeBytes").notNull(),
-    /** What this particular copy is: "signed original", "collection slip". */
+    // Document type description such as signed original or collection slip.
     note: varchar("note", { length: 255 }),
     uploadedByUserId: integer("uploadedByUserId").references(() => users.id, {
       onDelete: "set null",
@@ -213,7 +189,7 @@ export const certificateScans = pgTable(
   table => [index("certificate_scans_certificate_idx").on(table.certificateId)],
 );
 
-/** Audit trail of every public verification lookup. */
+// Public certificate verification attempt audit log.
 export const certificateVerifications = pgTable(
   "certificateVerifications",
   {

@@ -18,19 +18,7 @@ import { toast } from "@blush/ui/components/ui/sonner";
 import { usePermissions } from "@/hooks/usePermissions";
 import { trpc } from "@/lib/trpc";
 
-/**
- * The mark sheet for one assessment.
- *
- * Everyone on the programme is listed whether or not they have been marked,
- * because the sheet's job is to show the gap as much as the marks. Positions
- * are shown next to the marks rather than worked out afterwards: the person
- * typing wants to see the room reorder as they go, and the ordering is the
- * thing they will be asked about.
- *
- * Positions come back from the server on every save rather than being computed
- * here. A sheet that ranked its own rows would be a second implementation of
- * the rule, free to drift from the one the reports and the portal use.
- */
+// The mark sheet for one assessment.
 
 export type ScorableAssessment = {
   id: number;
@@ -39,7 +27,7 @@ export type ScorableAssessment = {
   courseTitle: string;
 };
 
-/** Blank means unmarked, which is different from a zero. */
+// Blank means unmarked, which is different from a zero.
 type Draft = { score: string; comment: string };
 
 const PODIUM: Record<number, string> = {
@@ -53,7 +41,7 @@ export function ScoreAssessmentDialog({
   onOpenChange,
   onSaved,
 }: {
-  /** The assessment being marked, or null when the sheet is closed. */
+  // The assessment being marked, or null when the sheet is closed.
   assessment: ScorableAssessment | null;
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;
@@ -71,15 +59,13 @@ export function ScoreAssessmentDialog({
     { assessmentId: assessment?.id ?? 0 },
     {
       enabled: open,
-      // Re-read on open: marks may have been entered on another machine, and
-      // saving a stale sheet would quietly undo them.
+      // Re-read on open.
       staleTime: 0,
       refetchOnMount: "always",
     },
   );
 
-  // Seeded when the sheet arrives, so reopening on a different assessment
-  // never shows the previous one's marks for a frame.
+  // Seeded when the sheet arrives.
   useEffect(() => {
     if (!sheet.data) return;
     const seeded: Record<number, Draft> = {};
@@ -123,11 +109,7 @@ export function ScoreAssessmentDialog({
     setDirty(true);
   };
 
-  /**
-   * Checked here as well as on the server, because the person typing wants to
-   * know about a slipped digit on the row it is on, not after a round trip
-   * that refuses the whole sheet.
-   */
+  // Checked here as well as on the server.
   const validation = useMemo(() => {
     for (const student of students) {
       const raw = drafts[student.studentId]?.score?.trim() ?? "";
@@ -360,7 +342,7 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-/** Shown on the catalogue card, so the winner is visible without opening it. */
+// Shown on the catalogue card, so the winner is visible without opening it.
 export function TopScorer({ name }: { name: string }) {
   return (
     <span className="inline-flex items-center gap-1 text-xs text-amber-700 dark:text-amber-300">

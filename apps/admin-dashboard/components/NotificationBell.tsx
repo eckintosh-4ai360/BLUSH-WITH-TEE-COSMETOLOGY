@@ -36,10 +36,7 @@ function timeAgo(date: Date | string): string {
   return RELATIVE.format(Math.round(amount), "year");
 }
 
-/**
- * The notification centre behind the dashboard bell (§63). Clicking an item
- * marks it read and navigates to the record it is about.
- */
+// The notification centre behind the dashboard bell.
 export function NotificationBell() {
   const router = useRouter();
   const utils = trpc.useUtils();

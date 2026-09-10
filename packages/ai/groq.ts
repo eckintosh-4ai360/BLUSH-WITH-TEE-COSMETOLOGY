@@ -3,21 +3,14 @@ import type { ChatRequest, ChatResult, ToolCall } from "./types";
 
 const ENDPOINT = "https://api.groq.com/openai/v1/chat/completions";
 
-/** Groq is fast; a request that has not answered by now is not going to. */
+// Default request timeout for Groq API calls.
 const REQUEST_TIMEOUT_MS = 60_000;
 
-/** Retried on 429 and 5xx only, with a widening gap between attempts. */
+// Maximum retry attempts and backoff delays for 429 and 5xx errors.
 const MAX_ATTEMPTS = 3;
 const BACKOFF_MS = [400, 1200];
 
-/**
- * The longest we will sit waiting out a rate limit.
- *
- * Groq meters tokens per minute, so a busy moment asks us to come back in
- * twenty or thirty seconds. Waiting that out beats failing in front of the
- * person who asked - but only up to a point, past which they would rather be
- * told than left watching a spinner.
- */
+// Maximum allowed wait time when handling rate limits before failing.
 const MAX_RATE_LIMIT_WAIT_MS = 30_000;
 
 export class AiError extends Error {
@@ -25,7 +18,7 @@ export class AiError extends Error {
     message: string,
     readonly status?: number,
     readonly retryable = false,
-    /** How long the provider asked us to wait, when it said. */
+    // Delay duration recommended by provider headers.
     readonly retryAfterMs?: number,
   ) {
     super(message);
@@ -33,12 +26,7 @@ export class AiError extends Error {
   }
 }
 
-/**
- * Whether the assistant can run at all.
- *
- * Checked before anything is rendered, so a deployment without a key shows an
- * honest "not configured" panel instead of a chat box that fails on send.
- */
+// Checks if the Groq API key is present in the environment.
 export function isAiConfigured(): boolean {
   return Boolean(ENV.groqApiKey);
 }
@@ -47,13 +35,7 @@ export function activeModel(): string {
   return ENV.groqModel;
 }
 
-/**
- * One turn of the conversation.
- *
- * The caller owns the loop: this sends the messages it is given and reports
- * what came back, including any tools the model wants run. Deciding whether
- * those tools may run belongs with the code that knows who is asking.
- */
+// Executes a single turn of chat completion against Groq API.
 export async function chatCompletion(request: ChatRequest): Promise<ChatResult> {
   if (!ENV.groqApiKey) {
     throw new AiError("The assistant is not configured. Set GROQ_API_KEY to enable it.");
@@ -64,9 +46,7 @@ export async function chatCompletion(request: ChatRequest): Promise<ChatResult> 
     messages: request.messages,
     temperature: request.temperature ?? 0.2,
     max_completion_tokens: request.maxTokens ?? 1600,
-    // The models used here think before answering. Their scratchpad is of no
-    // use to the reader and would be shown verbatim, so it is dropped at the
-    // source rather than stripped out of the text afterwards.
+    // Hide reasoning scratchpad to prevent exposing thought tokens.
     reasoning_format: "hidden",
     reasoning_effort: request.reasoningEffort ?? "low",
   };
@@ -86,9 +66,7 @@ export async function chatCompletion(request: ChatRequest): Promise<ChatResult> 
         error instanceof AiError ? error : new AiError((error as Error).message, undefined, true);
       if (!failure.retryable || attempt === MAX_ATTEMPTS - 1) throw failure;
 
-      // A rate limit comes with the moment the budget refills. Honour it: a
-      // fixed backoff of a second against a window that resets in twenty-five
-      // burns the remaining attempts for nothing and fails anyway.
+      // Honor rate limit reset window provided by the API.
       const wait = failure.retryAfterMs ?? BACKOFF_MS[attempt] ?? 1200;
       if (wait > MAX_RATE_LIMIT_WAIT_MS) {
         throw new AiError(
@@ -108,8 +86,7 @@ export async function chatCompletion(request: ChatRequest): Promise<ChatResult> 
 }
 
 async function send(body: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> {
-  // Both the caller's cancellation and our own deadline have to be able to
-  // abort the fetch, so they are combined into the one signal it accepts.
+  // Combine caller cancellation and timeout deadline into one abort signal.
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   const onAbort = () => controller.abort();
@@ -140,7 +117,7 @@ async function send(body: Record<string, unknown>, signal?: AbortSignal): Promis
   } catch (error) {
     if (error instanceof AiError) throw error;
     if ((error as Error).name === "AbortError") {
-      // A caller who cancelled does not want a retry; a timeout does.
+      // Return clear message depending on whether request was cancelled or timed out.
       if (signal?.aborted) throw new AiError("The request was cancelled.");
       throw new AiError("The assistant took too long to reply.", 408, true);
     }
@@ -151,13 +128,7 @@ async function send(body: Record<string, unknown>, signal?: AbortSignal): Promis
   }
 }
 
-/**
- * When the provider will accept the next request.
- *
- * `retry-after` is the standard header but Groq does not always send it; the
- * per-budget reset headers carry the same fact in Go duration notation
- * (`25.672s`, `1m30s`), and the token budget is the one that actually bites.
- */
+// Computes retry delay from retry-after or rate-limit reset headers.
 export function retryAfterFrom(headers: Headers): number | undefined {
   const retryAfter = headers.get("retry-after");
   if (retryAfter) {
@@ -172,11 +143,11 @@ export function retryAfterFrom(headers: Headers): number | undefined {
     .map(parseDuration)
     .filter((value): value is number => value !== undefined);
 
-  // The soonest budget to refill is the one that unblocks the next call.
+  // Return the shortest reset duration among rate-limit headers.
   return resets.length ? Math.min(...resets) : undefined;
 }
 
-/** Parses `1m30.5s`, `25.672s` or `500ms` into milliseconds. */
+// Parses duration strings like 1m30s or 500ms into milliseconds.
 export function parseDuration(value: string | null): number | undefined {
   if (!value) return undefined;
 
@@ -194,7 +165,7 @@ export function parseDuration(value: string | null): number | undefined {
   return matched ? Math.ceil(total) : undefined;
 }
 
-/** Turns a provider status into something a member of staff can act on. */
+// Translates HTTP status and response payload into user-facing errors.
 function describeFailure(status: number, detail: string): string {
   const provider = extractMessage(detail);
 
@@ -244,14 +215,7 @@ function parseResponse(payload: unknown): ChatResult {
   };
 }
 
-/**
- * Reads the arguments of a tool call.
- *
- * Deliberately forgiving. A model asked for a tool that takes nothing can
- * answer with `{"":{}}` or an empty string rather than `{}`, and refusing to
- * run a no-argument tool over its punctuation would be a poor trade - the
- * procedure behind it validates the arguments properly in any case.
- */
+// Parses tool call arguments defensively to handle variations in formatting.
 export function parseToolArguments(raw: string): Record<string, unknown> {
   if (!raw?.trim()) return {};
 
@@ -262,7 +226,7 @@ export function parseToolArguments(raw: string): Record<string, unknown> {
     const record = parsed as Record<string, unknown>;
     const keys = Object.keys(record);
 
-    // `{"": {...}}` - the arguments are nested under an empty key.
+    // Handle nested empty key wrapping emitted by some models.
     if (keys.length === 1 && keys[0] === "") {
       const inner = record[""];
       return inner && typeof inner === "object" && !Array.isArray(inner)

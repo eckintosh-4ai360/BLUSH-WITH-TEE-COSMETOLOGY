@@ -1,20 +1,6 @@
 import type { LowStockRow } from "./lowStock";
 
-/**
- * The low-stock report, as a PDF, built on the server.
- *
- * The dashboard already exports tables to PDF from the browser (see
- * `lib/exportTable.ts`), and this deliberately looks like those: same title
- * block, same table styling, same page numbering. An alert a shopkeeper opens
- * on their phone at six in the morning should not look like a different
- * system's document from the one they export at their desk.
- *
- * jsPDF is imported on demand. This runs a few times a week at most, and a
- * serverless function should not carry a PDF engine into every request that
- * merely records a sale.
- */
-
-/** Currency, written the way the rest of the dashboard writes it. */
+// The low-stock report, as a PDF, built on the server.
 function cedis(amount: number): string {
   return `GHS ${amount.toFixed(2)}`;
 }
@@ -22,7 +8,7 @@ function cedis(amount: number): string {
 export type LowStockPdfMeta = {
   schoolName: string;
   generatedAt: Date;
-  /** Who pressed the button, when a person did. */
+  // Who pressed the button, when a person did.
   requestedBy?: string | null;
 };
 
@@ -30,9 +16,7 @@ export async function buildLowStockPdf(
   rows: LowStockRow[],
   meta: LowStockPdfMeta,
 ): Promise<Buffer> {
-  // The named export, not the default: under a plain Node ESM loader `default`
-  // is the CommonJS namespace object rather than the constructor, and this
-  // module is run by the test suite as well as by the bundler.
+  // The named export, not the default: under a plain Node ESM loader default is the CommonJS.
   const [{ jsPDF }, autoTableModule] = await Promise.all([
     import("jspdf"),
     import("jspdf-autotable"),
@@ -93,9 +77,7 @@ export async function buildLowStockPdf(
       6: { halign: "right" },
       7: { halign: "right" },
     },
-    // An item that is completely gone is not the same problem as one that is
-    // merely getting low, and the person reading this is deciding what to buy
-    // first.
+    // An item that is completely gone is not the same problem as one that is merely getting low.
     didParseCell: data => {
       if (data.section === "body" && data.column.index === 4 && data.cell.raw === "0") {
         data.cell.styles.textColor = [176, 42, 55];

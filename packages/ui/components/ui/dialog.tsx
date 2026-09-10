@@ -104,17 +104,16 @@ function DialogContent({
 
   const handleEscapeKeyDown = React.useCallback(
     (e: KeyboardEvent) => {
-      // Check both the native isComposing property and our context state
-      // This handles Safari's timing issues with composition events
+      // Check native and context composition state for IME handling.
       const isCurrentlyComposing = (e as any).isComposing || isComposing();
 
-      // If IME is composing, prevent dialog from closing
+      // Prevent dialog closure while IME composition is active.
       if (isCurrentlyComposing) {
         e.preventDefault();
         return;
       }
 
-      // Call user's onEscapeKeyDown if provided
+      // Forward escape keydown event to user handler.
       onEscapeKeyDown?.(e);
     },
     [isComposing, onEscapeKeyDown]

@@ -53,8 +53,7 @@ describe("message templates", () => {
   });
 
   it("drops a placeholder the event does not carry rather than showing braces", () => {
-    // Every event shares the template set, so most carry only some of the
-    // facts. A student must never receive a message containing "{{balance}}".
+    // Every event shares the template set, so most carry only some of the facts.
     expect(render("Paid. {{balance}}", facts)).toBe("Paid.");
     expect(render("Hi {{name}}.{{missing}}", facts)).toBe("Hi Ama.");
   });
@@ -79,9 +78,7 @@ describe("message templates", () => {
 
 describe("secret handling", () => {
   it("keeps the stored secret when the form sends the mask back untouched", () => {
-    // The settings page never holds the real value, so an untouched password
-    // field returns exactly the mask it was rendered with. Writing that
-    // through would replace a working credential with asterisks.
+    // The settings page never holds the real value.
     expect(keepSecret(SECRET_MASK, "real-api-key")).toBe("real-api-key");
     expect(keepSecret(undefined, "real-api-key")).toBe("real-api-key");
   });

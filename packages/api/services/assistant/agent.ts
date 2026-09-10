@@ -6,16 +6,10 @@ import { availableTools, runTool, toolSchemas, type Audience } from "./registry"
 import { systemPrompt } from "./prompt";
 import type { ToolContext } from "./types";
 
-/**
- * How many times the model may call tools before it has to answer.
- *
- * Three is enough for the real pattern - a broad look, a narrower follow-up,
- * and one correction - while keeping a confused model from looping at the
- * school's expense.
- */
+// How many times the model may call tools before it has to answer.
 const MAX_TOOL_ROUNDS = 3;
 
-/** Turns kept from the conversation, newest last. Older ones are dropped. */
+// Turns kept from the conversation, newest last.
 const MAX_HISTORY_TURNS = 12;
 
 export type AssistantTurn = {
@@ -36,20 +30,13 @@ export type AskInput = {
 
 export type AskResult = {
   answer: string;
-  /** Which tools ran, in order, so the panel can show its working. */
+  // Which tools ran, in order, so the panel can show its working.
   consulted: string[];
   model: string;
   tokensUsed: number;
 };
 
-/**
- * One question, answered.
- *
- * The loop is the whole design: the model is given the question and a
- * catalogue of things it may look up, and keeps asking until it has enough to
- * answer. Permission lives in the catalogue rather than the prompt, so the
- * answer is bounded by what the person asking could have looked up themselves.
- */
+// One question, answered.
 export async function ask(input: AskInput): Promise<AskResult> {
   const now = input.now ?? new Date();
   const ctx: ToolContext = { db: input.db, access: input.access, now };
@@ -78,16 +65,14 @@ export async function ask(input: AskInput): Promise<AskResult> {
   let model = "";
 
   for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
-    // On the last round the tools are withheld, which forces a written answer
-    // rather than a fourth round of lookups the loop would have to discard.
+    // On the last round the tools are withheld.
     const exhausted = round === MAX_TOOL_ROUNDS;
 
     const result = await chatCompletion({
       messages,
       tools: exhausted || !schemas.length ? undefined : schemas,
       signal: input.signal,
-      // Deliberately low: this reports figures, and invention is the failure
-      // mode that matters.
+      // Deliberately low.
       temperature: 0.2,
     });
 

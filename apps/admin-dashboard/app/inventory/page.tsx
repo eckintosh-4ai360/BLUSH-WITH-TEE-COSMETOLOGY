@@ -82,9 +82,7 @@ function InventoryContent() {
   const [importOpen, setImportOpen] = useState(false);
   const importProducts = trpc.imports.products.useMutation();
 
-  // The alert goes out on its own whenever a sale takes an item to its reorder
-  // level. This is for the other case: somebody looking at the screen who
-  // wants the report in their inbox now.
+  // The alert goes out on its own whenever a sale takes an item to its reorder level.
   const lowStock = trpc.inventory.lowStock.useQuery();
   const notifyLowStock = trpc.inventory.notifyLowStock.useMutation({
     onSuccess: result => {
@@ -112,8 +110,7 @@ function InventoryContent() {
 
   const utils = trpc.useUtils();
 
-  // Shared by the table and by export, so a download covers exactly what the
-  // filters describe rather than the page on screen.
+  // Shared by the table and by export.
   const filters = { sortDir: "asc" as const, search: search || undefined, stockFilter };
 
   const query = trpc.inventory.items.useQuery({ ...filters, page, pageSize: 25 });
@@ -367,8 +364,7 @@ function InventoryContent() {
             <AlertDialogAction
               disabled={removeItem.isPending}
               onClick={event => {
-                // Confirming holds the dialog open until the server answers, so
-                // a refusal is read where it was asked for.
+                // Confirming holds the dialog open until the server answers.
                 event.preventDefault();
                 if (removingItem) removeItem.mutate({ id: removingItem.id });
               }}
@@ -386,8 +382,7 @@ function InventoryContent() {
           toast.success("Stock movement recorded.");
           setMovingItem(null);
           query.refetch();
-          // The movement may have taken the item under its reorder level, and
-          // the alert button counts what is low.
+          // The movement may have taken the item under its reorder level.
           lowStock.refetch();
         }}
       />

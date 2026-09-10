@@ -21,7 +21,7 @@ import { studentsRouter } from "./routers/students";
 import { systemRouter } from "./routers/system";
 import { router } from "./trpc";
 
-/** Mounted by the admin-dashboard app only - admin/staff-only procedures. */
+// Mounted by the admin-dashboard app only - admin/staff-only procedures.
 export const adminAppRouter = router({
   system: systemRouter,
   auth: authRouter,

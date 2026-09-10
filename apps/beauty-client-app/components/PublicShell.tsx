@@ -40,10 +40,7 @@ export default function PublicShell({ children }: { children: React.ReactNode })
               />
             </div>
             <div className="flex flex-col">
-              {/* The name is a name: wrapping it to "Blush With / Tee" reads as
-                  two things. It shrinks a step instead, and the strapline is
-                  dropped in the band where the full nav is competing for the
-                  same row. */}
+              {/* Brand logo and academy title. */}
               <span className="block whitespace-nowrap font-serif text-base font-bold tracking-tight text-[#8f0d6b] sm:text-lg">
                 Blush With Tee
               </span>
@@ -53,10 +50,7 @@ export default function PublicShell({ children }: { children: React.ReactNode })
             </div>
           </Link>
 
-          {/* gap and tracking both open up at xl. At 1024-1279 - iPad landscape -
-              the seven links, the brand and the call to action have to share
-              960px, and the roomy desktop spacing is what pushed "Student
-              Clinic" onto a second line. */}
+          {/* Primary navigation bar. */}
           <nav
             className="hidden items-center gap-4 lg:flex xl:gap-6"
             aria-label="Primary navigation"
@@ -78,10 +72,7 @@ export default function PublicShell({ children }: { children: React.ReactNode })
           </nav>
 
           <div className="hidden items-center gap-3 sm:flex">
-            {/* Between lg and xl the primary nav is already on this row and
-                there is no width left for a second button. "Apply Now" is the
-                one that earns the space; the portal link is a tap away in the
-                menu and in the footer. */}
+            {/* Action buttons and quick booking links. */}
             {user ? (
               <Link href="/portal" className="lg:hidden xl:block">
                 <Button

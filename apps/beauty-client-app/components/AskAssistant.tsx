@@ -17,14 +17,7 @@ const SUGGESTIONS = [
   "Can I book a hair appointment?",
 ];
 
-/**
- * The chat bubble on the public site.
- *
- * It answers from the same database the school runs on, so a fee quoted here
- * is the fee in the system rather than a number typed into a page once and
- * left to go stale. It only ever reads published information - there is no
- * session behind it, and nothing private within its reach.
- */
+// Public assistant chat bubble answering from live school data.
 export function AskAssistant() {
   const [open, setOpen] = useState(false);
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -72,8 +65,7 @@ export function AskAssistant() {
     chat.mutate({ question: trimmed, history });
   };
 
-  // Nothing is rendered at all when no key is configured, rather than a button
-  // that opens onto an apology.
+  // Hide assistant when AI service is unconfigured.
   if (available.data?.enabled === false) return null;
 
   return (
@@ -180,11 +172,7 @@ export function AskAssistant() {
   );
 }
 
-/**
- * Replies are plain text with the occasional site link. Rather than pull in a
- * markdown renderer for a bubble this size, links are picked out and the rest
- * is shown as written.
- */
+// Formats text responses and parses internal site links.
 function Bubble({ role, children }: { role: "user" | "assistant"; children: string }) {
   if (role === "user") {
     return (
@@ -201,7 +189,7 @@ function Bubble({ role, children }: { role: "user" | "assistant"; children: stri
   );
 }
 
-/** Turns `/programs` and `/store/kit` in the reply into real links. */
+// Converts relative path references into router links.
 function withLinks(text: string) {
   return text.split(/(\/(?:programs|store|appointments|apply|contact|gallery|about)(?:\/[\w-]+)?)/g)
     .map((part, index) =>

@@ -45,7 +45,7 @@ function formatDate(value: Date | string | null | undefined) {
   return value ? new Date(value).toLocaleDateString("en-GB") : "—";
 }
 
-/** One supplier: contact details, what is owed, and the purchase history behind it. */
+// One supplier.
 function SupplierDetailContent({ supplierId }: { supplierId: number }) {
   const { can } = usePermissions();
   const [editOpen, setEditOpen] = useState(false);

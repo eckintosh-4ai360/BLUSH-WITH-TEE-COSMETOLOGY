@@ -5,7 +5,7 @@ import { requestFingerprint } from "./services/audit";
 export type TrpcContext = {
   req: Request;
   user: AuthenticatedUser | null;
-  /** Caller address and agent, recorded on every audited action (§44). */
+  // Caller address and agent, recorded on every audited action.
   ipAddress: string | null;
   userAgent: string | null;
 };

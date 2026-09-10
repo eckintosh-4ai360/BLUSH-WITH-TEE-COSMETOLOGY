@@ -26,11 +26,7 @@ import {
 } from "@blush/ui/components/ui/dropdown-menu";
 import { usePermissions } from "@/hooks/usePermissions";
 
-/**
- * Dashboard shortcuts (§62). Each entry declares the permission it needs, so
- * the menu only offers work the signed-in role can actually complete - the
- * API enforces the same permission again when the action runs.
- */
+// Dashboard shortcuts.
 const ACTIONS: Array<{
   label: string;
   href: string;

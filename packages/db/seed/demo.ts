@@ -1,29 +1,7 @@
-/**
- * Demo data for development (§73, §74).
- *
- * The point is a dashboard that reads like a real school on first open: a year
- * of revenue and spend, a mixed student roster, orders at every stage, stock
- * that has actually moved. Every figure is written as a real transaction with
- * a matching ledger line, so the numbers on screen are computed exactly the
- * way they will be in production.
- *
- * Two properties this script must keep:
- *
- *   Resumable - every entity is keyed (student number, order number, SKU) and
- *   skipped if already present, so a re-run tops up rather than duplicating.
- *
- *   Batched - rows are accumulated in memory and inserted in chunks. Seeding a
- *   remote database one row at a time is thousands of round trips and does not
- *   finish.
- *
- * Never runs in production: `seedDemoData` refuses when NODE_ENV says so, and
- * the accounts below are development-only fixtures with no real credentials.
- */
+// Realistic demo seed data for development and testing.
 
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
-// Imported by path rather than as `@blush/auth`: this package sits below auth,
-// and declaring the dependency would put a cycle in the workspace task graph.
-// `password.ts` pulls in nothing but node:crypto, so the module graph stays acyclic.
+// Import relative auth helper directly to avoid circular package dependencies.
 import { hashPassword } from "../../auth/password";
 import type { getDb } from "../index";
 import {
@@ -64,11 +42,9 @@ import {
 
 type Database = NonNullable<Awaited<ReturnType<typeof getDb>>>;
 
-/* -------------------------------------------------------------------------- */
-/* Helpers                                                                    */
-/* -------------------------------------------------------------------------- */
+// Helpers
 
-/** Seeded PRNG, so a reseed produces the same demo school every time. */
+// Seeded PRNG for reproducible test data generation.
 function makeRandom(seed: number) {
   let state = seed;
   return () => {
@@ -111,7 +87,7 @@ const slugOf = (value: string) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
 
-/** Inserts in chunks so a large batch stays inside driver parameter limits. */
+// Inserts records in batches to respect database parameter limits.
 async function insertChunked<T>(
   run: (rows: T[]) => Promise<unknown>,
   rows: T[],
@@ -189,16 +165,9 @@ const MODULE_TITLES = [
   "Business of beauty",
 ];
 
-/* -------------------------------------------------------------------------- */
-/* Seeding                                                                    */
-/* -------------------------------------------------------------------------- */
+// Seeding
 
-/**
- * The password every seeded demo student signs in with.
- *
- * Safe to keep in the repository: `seedDemoData` refuses to run when NODE_ENV
- * says production, so these accounts only ever exist in a development database.
- */
+// Default password for seeded demo student accounts.
 export const DEMO_STUDENT_PASSWORD = "blush@student2026";
 
 export type DemoSeedResult = Record<string, number>;
@@ -221,7 +190,7 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
     })
     .where(sql`${courses.slug} is null`);
 
-  /* --- Course modules --------------------------------------------------- */
+  // Course modules
 
   counts.courseModules = await insertChunked(
     rows => db.insert(courseModules).values(rows).onConflictDoNothing(),
@@ -237,7 +206,7 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
     )
   );
 
-  /* --- Intakes ---------------------------------------------------------- */
+  // Intakes
 
   let intakeRows = await db
     .select({ id: intakes.id, courseId: intakes.courseId })
@@ -261,7 +230,7 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
   }
   counts.intakes = intakeRows.length;
 
-  /* --- Staff ------------------------------------------------------------ */
+  // Staff
 
   const staffSeed = [
     {
@@ -377,7 +346,7 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
   const accountantUserId = staffUserIds[2] ?? staffUserIds[0] ?? null;
   const storekeeperUserId = staffUserIds[3] ?? staffUserIds[0] ?? null;
 
-  /* --- Classes and their dated sessions --------------------------------- */
+  // Classes and class sessions
 
   let classRows = await db
     .select({ id: classes.id, courseId: classes.courseId })
@@ -441,7 +410,7 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
     sessionsByClass.set(session.classId, list);
   }
 
-  /* --- Assessments ------------------------------------------------------ */
+  // Assessments
 
   let assessmentRows = await db
     .select({ id: assessments.id, courseId: assessments.courseId })
@@ -469,7 +438,7 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
   }
   counts.assessments = assessmentRows.length;
 
-  /* --- Fee structures --------------------------------------------------- */
+  // Fee structures
 
   const existingStructures = await db.select().from(feeStructures);
   if (!existingStructures.length) {
@@ -521,7 +490,7 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
     structuresByCourse.set(structure.courseId, list);
   }
 
-  /* --- Applications and students ---------------------------------------- */
+  // Applications and students
 
   const STUDENT_COUNT = 42;
   const STATUSES = [
@@ -633,11 +602,9 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
     );
   const personIdByEmail = new Map(personRows.map(row => [row.email, row.id]));
 
-  /* --- Sign-in accounts -------------------------------------------------- */
+  // Sign-in accounts
 
-  // Demo students need real password accounts, otherwise `studentProfiles.userId`
-  // stays null and the student portal - which looks a student up by that column
-  // - only ever renders its "record is being prepared" empty state.
+  // Create user accounts for demo students to enable portal access.
   const openIdFor = (index: number) => `demo-student-${index}`;
 
   const existingStudentUsers = await db
@@ -660,16 +627,14 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
   if (missingAccounts.length) {
     const accountRows: Array<Record<string, unknown>> = [];
 
-    // Hashed one at a time rather than with Promise.all: scrypt is deliberately
-    // memory-hard, so running every account at once asks for about a gigabyte.
+    // Hash passwords sequentially to manage memory usage.
     for (const student of missingAccounts) {
       accountRows.push({
         openId: openIdFor(student.index),
         personId: personIdByEmail.get(student.email),
         name: student.name,
         email: student.email,
-        // Someone still waiting on a decision is an applicant, not a student.
-        // Their account is what the portal's empty state is genuinely for.
+        // Set applicant role for pending application accounts.
         role: student.isPending ? ("user" as const) : ("student" as const),
         loginMethod: "password",
         passwordHash: await hashPassword(DEMO_STUDENT_PASSWORD),
@@ -688,8 +653,7 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
       accountRows
     );
 
-    // Read the ids back rather than trusting `returning`, which skips the rows
-    // an existing openId conflicted away on a re-run.
+    // Query inserted user IDs to handle re-run conflicts.
     const refreshed = await db
       .select({ id: users.id, openId: users.openId })
       .from(users)
@@ -794,12 +758,9 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
   );
   counts.students = studentRows.length;
 
-  /* --- Records left without an account ----------------------------------- */
+  // Records left without an account
 
-  // A re-run skips any student whose number is already present, so demo rows
-  // written before accounts were part of this script would stay unreachable
-  // forever. Claiming them here is what makes "top up rather than duplicate"
-  // actually true for the portal.
+  // Link existing student profiles without accounts on re-runs.
   const unclaimed = await db
     .select({
       id: studentProfiles.id,
@@ -871,7 +832,7 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
 
   counts.studentsClaimed = claimed;
 
-  /* --- Enrolments ------------------------------------------------------- */
+  // Enrolments
 
   const enrolmentPayload = admitted
     .map(student => {
@@ -924,14 +885,13 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
   );
   counts.enrollments = enrolmentRows.length;
 
-  /* --- Fee charges, payments and the revenue ledger --------------------- */
+  // Fee charges, payments, and revenue ledger
 
   const chargePayload: Array<Record<string, unknown>> = [];
   const paymentPayload: Array<Record<string, unknown>> = [];
   const revenuePayload: Array<Record<string, unknown>> = [];
 
-  // Allocation is computed in memory so charges are inserted already settled -
-  // no read-modify-write round trip per charge.
+  // Pre-compute allocations in memory before inserting settled charges.
   const allocationPlan: Array<{
     paymentReference: string;
     chargeKey: string;
@@ -1067,8 +1027,7 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
   }
   counts.studentPayments = paymentPayload.length;
 
-  // Charges were written with their planning key in the description, so the
-  // ids can be matched back in one query rather than one per row.
+  // Match fee charges by planning key in description.
   const chargeIdByKey = new Map<string, number>();
   const taggedCharges = await db
     .select({ id: feeCharges.id, description: feeCharges.description })
@@ -1134,7 +1093,7 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
     })
     .where(sql`${feeCharges.description} like '%[STU-DEMO-%'`);
 
-  /* --- Attendance and results ------------------------------------------- */
+  // Attendance and results
 
   const attendancePayload: Array<Record<string, unknown>> = [];
   const resultPayload: Array<Record<string, unknown>> = [];
@@ -1215,7 +1174,7 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
     300
   );
 
-  /* --- Catalogue, suppliers, purchasing --------------------------------- */
+  // Catalogue, suppliers, and purchasing
 
   const categorySeed = [
     { name: "Hair care", slug: "hair-care" },
@@ -1415,8 +1374,7 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
   const productBySku = new Map(productRows.map(row => [row.sku, row]));
   counts.products = productRows.length;
 
-  // Running stock balance, tracked in memory so every movement can carry the
-  // balance it left behind - the same invariant the API maintains.
+  // Maintain running inventory balance for each movement.
   const balances = new Map<number, number>(
     productRows.map(row => [row.id, row.qty])
   );
@@ -1443,7 +1401,7 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
     }
   }
 
-  /* --- A received purchase order ---------------------------------------- */
+  // Received purchase order
 
   const [existingPo] = await db
     .select({ id: purchaseOrders.id })
@@ -1513,7 +1471,7 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
     }
   }
 
-  /* --- Customers and store orders --------------------------------------- */
+  // Customers and store orders
 
   const sellable = productRows.filter(row => Number(row.price) > 0);
 
@@ -1551,11 +1509,7 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
 
   const customerPeople: Array<Record<string, unknown>> = [];
 
-  /**
-   * Stock still available to sell while planning orders. Demo orders must not
-   * sell more units than exist, or the ledger and the shelf disagree - the
-   * exact inconsistency the real checkout path is written to prevent.
-   */
+  // Stock available for order planning.
   const sellableRemaining = new Map<number, number>(
     sellable.map(row => [row.id, balances.get(row.id) ?? row.qty])
   );
@@ -1756,7 +1710,7 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
         .filter((row): row is NonNullable<typeof row> => row !== null)
     );
 
-    /* --- Sale payments, revenue and stock movements --------------------- */
+    // Sale payments, revenue, and stock movements
 
     const salePayments: Array<Record<string, unknown>> = [];
     const saleRevenue: Array<{
@@ -1793,8 +1747,7 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
       });
 
       for (const line of plan.lines) {
-        // Not clamped on purpose: order planning already reserved the units, so
-        // a negative here would mean a real bug rather than something to hide.
+        // Decrement stock according to reserved order units.
         const next = (balances.get(line.productId) ?? 0) - line.quantity;
         balances.set(line.productId, next);
         movementPayload.push({
@@ -1849,7 +1802,7 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
     }
   }
 
-  /* --- Write the stock ledger and settle final balances ----------------- */
+  // Stock ledger and balance settlements
 
   if (movementPayload.length) {
     counts.inventoryMovements = await insertChunked(
@@ -1866,16 +1819,14 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
     }
   }
 
-  /* --- Expenses --------------------------------------------------------- */
+  // Expenses
 
   const [{ total: existingExpenses }] = await db
     .select({ total: sql<number>`count(*)::int` })
     .from(expenses);
 
   if (!existingExpenses) {
-    // Sized against seeded revenue (roughly GHS 8-9k a month, growing) so the
-    // demo reads as a real, modestly profitable school rather than one that is
-    // losing money every month.
+    // Seed realistic operational expenses scaled to revenue.
     const expenseSeed = [
       {
         title: "Studio rent",
@@ -1990,7 +1941,7 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
     );
   }
 
-  /* --- Website content -------------------------------------------------- */
+  // Website content
 
   const [{ total: existingTestimonials }] = await db
     .select({ total: sql<number>`count(*)::int` })

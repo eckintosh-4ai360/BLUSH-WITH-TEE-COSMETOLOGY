@@ -3,27 +3,12 @@ import { clinicServices, courseModules, courses, systemSettings } from "@blush/d
 import { dbOrThrow } from "../dbOrThrow";
 import { publicProcedure, router } from "../trpc";
 
-/**
- * Public read-only content.
- *
- * These used to call `initializeFoundationData`, which inserted a set of sample
- * courses and services whenever the tables were empty. That made an empty
- * catalogue impossible to keep: clearing it out was silently undone by the next
- * anonymous page load. Seeding belongs in `pnpm db:seed`, run deliberately.
- */
+// Public read-only content.
 export const contentRouter = router({
-  /**
-   * The prospectus, as both the public site and the admissions desk read it.
-   *
-   * `outline` is the syllabus the school advertises - "Makeup", "Wigmaking and
-   * styling", "Frontal pony" - carried as rows rather than as prose inside
-   * `description`, so the office can edit a single line of it and both apps
-   * show the change.
-   */
+  // The prospectus, as both the public site and the admissions desk read it.
   courses: publicProcedure.query(async () => {
     const db = await dbOrThrow();
-    // Removed as well as closed: a programme taken off the books must not be
-    // advertised even if something later flips `isActive` back on.
+    // Removed as well as closed.
     const rows = await db
       .select()
       .from(courses)
@@ -60,7 +45,7 @@ export const contentRouter = router({
     const db = await dbOrThrow();
     return db.select().from(clinicServices).where(eq(clinicServices.isActive, true));
   }),
-  /** Public: returns the school Terms & Conditions stored in system settings. */
+  // Public: returns the school Terms & Conditions stored in system settings.
   terms: publicProcedure.query(async () => {
     const db = await dbOrThrow();
     const [row] = await db

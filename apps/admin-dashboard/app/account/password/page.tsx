@@ -9,12 +9,7 @@ import { Label } from "@blush/ui/components/ui/label";
 import { toast } from "@blush/ui/components/ui/sonner";
 import { trpc } from "@/lib/trpc";
 
-/**
- * Password change, and where a first sign-in on a seeded account lands.
- *
- * Deliberately outside the dashboard shell: somebody still on a default
- * password should be doing this, not browsing.
- */
+// Password change, and where a first sign-in on a seeded account lands.
 export default function ChangePasswordPage() {
   const router = useRouter();
   const utils = trpc.useUtils();

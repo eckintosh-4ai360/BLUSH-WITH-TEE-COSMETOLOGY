@@ -34,9 +34,7 @@ const MOVEMENT_TYPES = [
 ] as const;
 
 export const inventoryRouter = router({
-  /* ---------------------------------------------------------------------- */
-  /* Stock                                                                  */
-  /* ---------------------------------------------------------------------- */
+  // Stock.
 
   items: permissionProcedure("inventory.read")
     .input(
@@ -119,15 +117,7 @@ export const inventoryRouter = router({
       .orderBy(productCategories.sortOrder, productCategories.name);
   }),
 
-  /**
-   * Creates a product category, or brings a retired one back.
-   *
-   * Categories used to arrive only through a spreadsheet import or the seed,
-   * which left the item form with an empty dropdown on a fresh install. A
-   * category is picked by name in that form, so a second row sharing a slug
-   * would be indistinguishable there — hence the slug check rather than a
-   * blind insert.
-   */
+  // Creates a product category, or brings a retired one back.
   createCategory: permissionProcedure("inventory.write")
     .input(
       z.object({
@@ -152,8 +142,7 @@ export const inventoryRouter = router({
         });
       }
 
-      // A retired category is invisible in the dropdown, so the admin cannot
-      // know it is there. Reviving it keeps the items already filed under it.
+      // A retired category is invisible in the dropdown, so the admin cannot know it is there.
       if (existing) {
         await db
           .update(productCategories)
@@ -221,7 +210,7 @@ export const inventoryRouter = router({
         sellingPrice: z.number().min(0),
         isSellable: z.boolean(),
         isActive: z.boolean().default(true),
-        /** Only accepted on create; later changes must go through a movement. */
+        // Only accepted on create; later changes must go through a movement.
         openingQuantity: z.number().int().min(0).optional(),
       }),
     )
@@ -298,18 +287,7 @@ export const inventoryRouter = router({
       });
     }),
 
-  /**
-   * Takes an item off the stock list.
-   *
-   * Soft, because the ledger, past orders and purchase orders all point at the
-   * row and have to keep resolving: what an invoice from last year says was
-   * sold must still name something. `deletedAt` is what every listing filters
-   * on, and the two flags come down with it so no storefront or admissions
-   * path can reach an item that has been removed.
-   *
-   * Two things refuse it, both because deleting through them would lose money
-   * quietly rather than loudly.
-   */
+  // Takes an item off the stock list.
   deleteItem: permissionProcedure("inventory.write")
     .input(z.object({ id: z.number().int().positive() }))
     .mutation(async ({ input, ctx }) => {
@@ -337,9 +315,7 @@ export const inventoryRouter = router({
           throw new TRPCError({ code: "NOT_FOUND", message: "That item is no longer on the list." });
         }
 
-        // Stock on hand is money on a shelf. Deleting the item drops it out of
-        // the valuation without a movement saying where it went, which is
-        // exactly the hole the ledger exists to prevent. Write it off first.
+        // Stock on hand is money on a shelf.
         if (existing.quantityOnHand !== 0) {
           throw new TRPCError({
             code: "PRECONDITION_FAILED",
@@ -347,9 +323,7 @@ export const inventoryRouter = router({
           });
         }
 
-        // An order already placed with a supplier will be received against
-        // this item later, and receiving puts stock back on a row nothing can
-        // show you.
+        // An order already placed with a supplier will be received against this item later.
         const [onOrder] = await tx
           .select({ total: count() })
           .from(purchaseOrderItems)
@@ -371,9 +345,7 @@ export const inventoryRouter = router({
 
         await tx
           .update(inventoryItems)
-          // Removed as well as withdrawn: `deletedAt` hides it from the lists
-          // that filter on it, and the flags are what the selling and
-          // classroom paths check.
+          // Removed as well as withdrawn.
           .set({
             deletedAt: new Date(),
             isActive: false,
@@ -402,12 +374,7 @@ export const inventoryRouter = router({
       });
     }),
 
-  /**
-   * Every stock change goes through here, so quantity on hand and the ledger
-   * are written together and can never disagree (§48). Only an explicit
-   * adjustment may push a balance below zero, and only with the right
-   * permission (§64).
-   */
+  // Every stock change goes through here.
   recordMovement: permissionProcedure("inventory.write")
     .input(
       z.object({
@@ -454,26 +421,13 @@ export const inventoryRouter = router({
         return result;
       });
 
-      // Raised after the commit, never inside it: a warning must not go out
-      // for a movement that then rolls back.
+      // Raised after the commit, never inside it: a warning must not go out for a movement.
       if (outcome.crossedReorderLevel) alertLowStockInBackground(db, ctx.actor);
 
       return outcome;
     }),
 
-  /**
-   * Takes a stock movement back.
-   *
-   * The ledger is append-only, so nothing is erased: this posts the opposite
-   * movement and leaves both rows standing. Deleting the original instead
-   * would strand every `balanceAfter` recorded after it - each one describes a
-   * running total that would no longer add up - and leave `quantityOnHand`
-   * disagreeing with the ledger that is supposed to explain it.
-   *
-   * The reversal points back at what it cancels through `referenceType` and
-   * `referenceId`, which is what lets a row be shown as already reversed and
-   * what stops it being reversed twice.
-   */
+  // Takes a stock movement back.
   reverseMovement: permissionProcedure("inventory.write")
     .input(
       z.object({
@@ -499,8 +453,7 @@ export const inventoryRouter = router({
           throw new TRPCError({ code: "NOT_FOUND", message: "That movement is no longer on file." });
         }
 
-        // Reversing a reversal walks the balance back and forth and reads as
-        // noise in the ledger. Record a fresh movement instead.
+        // Reversing a reversal walks the balance back and forth and reads as noise in the ledger.
         if (original.movement.referenceType === "reversal") {
           throw new TRPCError({
             code: "BAD_REQUEST",
@@ -528,9 +481,7 @@ export const inventoryRouter = router({
 
         const describe = original.movement.movementType.replaceAll("_", " ");
 
-        // Mirrors the original's type rather than filing everything under
-        // `adjustment`, so reversing a sale does not turn up in a report of
-        // hand corrections. `referenceType` is what marks it as a reversal.
+        // Mirrors the original's type rather than filing everything under adjustment.
         const result = await applyStockMovement(tx, {
           inventoryItemId: original.movement.inventoryItemId,
           movementType: original.movement.movementType,
@@ -565,7 +516,6 @@ export const inventoryRouter = router({
       });
 
       // Reversing a receipt takes stock back out, which can take an item low.
-      // Raised after the commit, never inside it.
       if (outcome.crossedReorderLevel) alertLowStockInBackground(db, ctx.actor);
 
       return outcome;
@@ -599,8 +549,7 @@ export const inventoryRouter = router({
             itemName: inventoryItems.name,
             sku: inventoryItems.sku,
             performedBy: users.name,
-            // So a reversed row can be marked as such and its undo withheld,
-            // rather than the second attempt failing at the server.
+            // So a reversed row can be marked as such.
             reversedByMovementId: sql<number | null>`(
               select r."id" from ${inventoryMovements} r
               where r."referenceType" = 'reversal'
@@ -637,9 +586,7 @@ export const inventoryRouter = router({
       );
     }),
 
-  /* ---------------------------------------------------------------------- */
-  /* Suppliers (§30)                                                        */
-  /* ---------------------------------------------------------------------- */
+  // Suppliers.
 
   suppliers: permissionProcedure("suppliers.read")
     .input(listInputSchema)
@@ -756,9 +703,7 @@ export const inventoryRouter = router({
       return { id: created?.id };
     }),
 
-  /* ---------------------------------------------------------------------- */
-  /* Purchase orders (§31)                                                  */
-  /* ---------------------------------------------------------------------- */
+  // Purchase orders.
 
   purchaseOrders: permissionProcedure("purchases.read")
     .input(
@@ -932,10 +877,7 @@ export const inventoryRouter = router({
       });
     }),
 
-  /**
-   * Receiving stock increases inventory and books what is owed to the
-   * supplier, inside one transaction (§31).
-   */
+  // Receiving stock increases inventory.
   receivePurchaseOrder: permissionProcedure("purchases.write")
     .input(
       z.object({
@@ -1094,33 +1036,14 @@ export const inventoryRouter = router({
       });
     }),
 
-  /* ---------------------------------------------------------------------- */
-  /* Low stock                                                              */
-  /* ---------------------------------------------------------------------- */
-
-  /**
-   * What is low right now, for the button that offers to report it.
-   *
-   * Separate from `items` with a `low` filter because the screen wants only
-   * the count and needs it whichever page of the table is being looked at.
-   */
+  // Low stock What is low right now, for the button that offers to report it.
   lowStock: permissionProcedure("inventory.read").query(async () => {
     const db = await dbOrThrow();
     const rows = await lowStockItems(db);
     return { count: rows.length, items: rows.slice(0, 10) };
   }),
 
-  /**
-   * Raises the low-stock alert by hand (§69).
-   *
-   * Forced, unlike the automatic one: somebody has pressed a button and is
-   * waiting to see it happen, so the quiet period that stops a busy morning
-   * sending a dozen texts does not apply. Sends nothing when nothing is low,
-   * and says so.
-   *
-   * Needs `inventory.write` rather than read. Reading which items are low is
-   * one thing; making the school pay for a round of text messages is another.
-   */
+  // Raises the low-stock alert by hand.
   notifyLowStock: permissionProcedure("inventory.write").mutation(async ({ ctx }) => {
     const db = await dbOrThrow();
     return alertLowStock(db, { force: true, actor: ctx.actor });

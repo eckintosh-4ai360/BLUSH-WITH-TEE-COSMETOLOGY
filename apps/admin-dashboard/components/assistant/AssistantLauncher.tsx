@@ -10,13 +10,7 @@ import {
 } from "@blush/ui/components/ui/tooltip";
 import { AssistantPanel } from "./AssistantPanel";
 
-/**
- * Opens the assistant from the dashboard header.
- *
- * The panel itself is mounted here rather than in the layout so the whole
- * feature is one import, and Ctrl+/ reaches it from any screen without hunting
- * for the button.
- */
+// Opens the assistant from the dashboard header.
 export function AssistantLauncher() {
   const [open, setOpen] = useState(false);
 

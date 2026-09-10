@@ -26,38 +26,22 @@ import { trpc } from "@/lib/trpc";
 
 const STATUS = ["active", "suspended", "completed", "graduated", "withdrawn"] as const;
 
-/**
- * Graduating closes a student's programmes and moves them off the register, so
- * it is its own action rather than a value on this dropdown. It is still shown
- * for somebody who has already graduated, because a form must be able to
- * display the status its record actually holds.
- */
+// Graduating closes a student's programmes and moves them off the register.
 const SELECTABLE_STATUS = STATUS.filter(item => item !== "graduated");
 
 const NO_COURSE = "none";
 
-/** Only the identity is needed to open the dialog; the rest is fetched. */
+// Only the identity is needed to open the dialog; the rest is fetched.
 export type EditableStudent = { id: number; fullName: string };
 
-/** `<input type="date">` speaks yyyy-mm-dd and nothing else. */
+// <input type="date"> speaks yyyy-mm-dd and nothing else.
 function toDateInput(value: Date | string | null | undefined) {
   if (!value) return "";
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? "" : date.toISOString().slice(0, 10);
 }
 
-/**
- * Adds a student directly, or corrects one already on the register.
- *
- * Approving an application is still the main way a student arrives; adding is
- * for the ones who never filled the form in - a walk-in enrolled at the desk,
- * or a paper register being typed up.
- *
- * Editing deliberately stops at who the student is. Programmes are not offered
- * here: an enrolment carries attendance, results and fee charges, so moving
- * somebody between programmes is its own decision rather than a field on a
- * contact form.
- */
+// Adds a student directly, or corrects one already on the register.
 export function SaveStudentDialog({
   open,
   onOpenChange,
@@ -66,7 +50,7 @@ export function SaveStudentDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Told what happened so the page can word its own confirmation. */
+  // Told what happened so the page can word its own confirmation.
   onSaved: (result: { studentNumber: string; edited: boolean }) => void;
   editing?: EditableStudent | null;
 }) {
@@ -85,9 +69,7 @@ export function SaveStudentDialog({
   const [emergencyContactPhone, setEmergencyContactPhone] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  // Date of birth, address and next of kin live on the shared person record
-  // rather than on the row the table renders, so an edit has to read them back
-  // before it can show them.
+  // Date of birth, address.
   const existing = trpc.students.get.useQuery(
     { id: editing?.id ?? 0 },
     { enabled: open && isEdit, staleTime: 0 },
@@ -153,8 +135,7 @@ export function SaveStudentDialog({
       return "Enter a valid email address.";
     }
     if (phone.trim().length < 7) return "Enter a phone number.";
-    // Blank is fine when adding - one is generated. It is not fine on an edit,
-    // where blanking it would take away a number already in use on paperwork.
+    // Blank is fine when adding - one is generated.
     if (isEdit && !studentNumber.trim()) return "A student number is required.";
     if (birthDate && !/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) {
       return "Date of birth must be a real date.";

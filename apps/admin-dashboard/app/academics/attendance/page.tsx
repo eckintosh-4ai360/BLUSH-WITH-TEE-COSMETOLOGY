@@ -47,10 +47,10 @@ import { trpc } from "@/lib/trpc";
 const STATUSES = ["present", "late", "absent", "excused"] as const;
 type Status = (typeof STATUSES)[number];
 
-/** Sentinel for the picker: Radix Select has no value for "no filter". */
+// Sentinel for the picker.
 const ALL_COURSES = "all";
 
-/** State colours, matching the tones used elsewhere for status. */
+// State colours, matching the tones used elsewhere for status.
 const STATUS_TONE: Record<Status, string> = {
   present: "bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-500/25",
   late: "bg-amber-500/15 text-amber-800 dark:text-amber-300 hover:bg-amber-500/25",
@@ -58,20 +58,20 @@ const STATUS_TONE: Record<Status, string> = {
   excused: "bg-sky-500/15 text-sky-800 dark:text-sky-300 hover:bg-sky-500/25",
 };
 
-/** Today as YYYY-MM-DD in the marker's own timezone, not UTC. */
+// Today as YYYY-MM-DD in the marker's own timezone, not UTC.
 function today() {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 }
 
-/** The same format as `today`, `count` days back. */
+// The same format as today, count days back.
 function daysAgo(count: number) {
   const date = new Date();
   date.setDate(date.getDate() - count);
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
-/** Reads a plain date as words, without letting a timezone shift the day. */
+// Reads a plain date as words, without letting a timezone shift the day.
 function readableDate(value: string) {
   const [year, month, day] = value.split("-").map(Number) as [number, number, number];
   return new Date(Date.UTC(year, month - 1, day)).toLocaleDateString("en-GB", {
@@ -95,18 +95,17 @@ export default function AttendancePage() {
 
 function AttendanceContent() {
   const { can } = usePermissions();
-  // Opens on the whole school. Taking one register for everybody is the common
-  // case; a programme is a narrowing of it, not a precondition for it.
+  // Opens on the whole school.
   const [courseId, setCourseId] = useState<string>(ALL_COURSES);
   const [classDate, setClassDate] = useState(today());
 
-  /** Marks being edited, keyed by enrolment. Empty until the register loads. */
+  // Marks being edited, keyed by enrolment.
   const [marks, setMarks] = useState<Record<number, { status: Status; note: string }>>({});
   const [dirty, setDirty] = useState(false);
 
   const courses = trpc.attendance.markableCourses.useQuery();
 
-  /** Everyone, unless a programme is chosen. */
+  // Everyone, unless a programme is chosen.
   const wholeSchool = courseId === ALL_COURSES;
 
   const register = trpc.attendance.register.useQuery({
@@ -114,13 +113,7 @@ function AttendanceContent() {
     classDate,
   });
 
-  /**
-   * Seeds the form whenever the register changes.
-   *
-   * Anyone already marked keeps their mark; anyone not yet marked starts as
-   * present. That default is the whole point — a register is normally "all
-   * here except two", so the work is changing two rows rather than thirty.
-   */
+  // Seeds the form whenever the register changes.
   useEffect(() => {
     if (!register.data) return;
     const seeded: Record<number, { status: Status; note: string }> = {};
@@ -288,9 +281,7 @@ function AttendanceContent() {
                   { label: "Date", value: readableDate(classDate) },
                 ]}
                 onBeforeExport={() => {
-                  // The file has to match the record, not the screen: exporting
-                  // marks that were never saved would hand someone a register
-                  // the system does not actually hold.
+                  // The file has to match the record, not the screen: exporting marks that were never saved.
                   if (dirty) {
                     toast.error("Save the register first so the export matches the record.");
                     return false;
@@ -322,12 +313,7 @@ function AttendanceContent() {
                     </p>
                     <p className="truncate text-xs text-muted-foreground">
                       {student.studentNumber}
-                      {/*
-                        Named only on the whole-school list, where a student on
-                        two programmes has two rows and nothing else separates
-                        them. On a single programme it is the same word on every
-                        line, which is noise.
-                      */}
+                      {/* Named only on the whole. */}
                       {wholeSchool ? ` · ${student.courseTitle}` : ""}
                       {student.enrolmentStatus === "paused" ? " · paused" : ""}
                     </p>
@@ -418,12 +404,12 @@ function AttendanceContent() {
   );
 }
 
-/** The last fortnight, so a missed day is obvious rather than remembered. */
+// The last fortnight, so a missed day is obvious rather than remembered.
 function RecentDays({
   courseId,
   onPick,
 }: {
-  /** Undefined for the whole school, matching the register above it. */
+  // Undefined for the whole school, matching the register above it.
   courseId: number | undefined;
   onPick: (date: string) => void;
 }) {
@@ -471,7 +457,7 @@ type DayRow = {
   note: string | null;
 };
 
-/** A student with no row for the day is unmarked, which is not the same as present. */
+// A student with no row for the day is unmarked, which is not the same as present.
 const DAY_COLUMNS: ExportColumn<DayRow>[] = [
   { key: "studentNumber", header: "Student number" },
   { key: "fullName", header: "Student" },
@@ -479,12 +465,7 @@ const DAY_COLUMNS: ExportColumn<DayRow>[] = [
   { key: "note", header: "Note", value: row => row.note ?? "" },
 ];
 
-/**
- * The whole-school export, which needs the programme on every line.
- *
- * Without it a student on two programmes appears twice with no way to tell the
- * rows apart, and the file reads as a duplicate rather than as two registers.
- */
+// The whole-school export, which needs the programme on every line.
 const DAY_COLUMNS_ALL: ExportColumn<DayRow>[] = [
   { key: "studentNumber", header: "Student number" },
   { key: "fullName", header: "Student" },
@@ -515,11 +496,7 @@ const HISTORY_COLUMNS: ExportColumn<HistoryRow>[] = [
 
 type ExportMeta = { label: string; value: string };
 
-/**
- * CSV or PDF from one button, so the two never drift apart.
- *
- * The caller decides what a file contains; this only decides which writer runs.
- */
+// CSV or PDF from one button, so the two never drift apart.
 function ExportMenu<T>({
   label,
   disabled,
@@ -537,7 +514,7 @@ function ExportMenu<T>({
   columns: ExportColumn<T>[];
   rows: () => T[];
   meta: () => ExportMeta[];
-  /** Returning false calls the export off, having said why. */
+  // Returning false calls the export off, having said why.
   onBeforeExport?: () => boolean;
 }) {
   const [busy, setBusy] = useState(false);
@@ -584,12 +561,7 @@ function ExportMenu<T>({
   );
 }
 
-/**
- * Attendance over a window rather than a single day.
- *
- * The register above answers "who is here today". This answers "what happened
- * across March", which is the question a file is usually wanted for.
- */
+// Attendance over a window rather than a single day.
 function AttendanceHistory({
   courses,
   initialCourseId,

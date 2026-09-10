@@ -2,23 +2,12 @@ import { eq, sql } from "drizzle-orm";
 import { getDb, users, type User } from "@blush/db";
 import { checkPasswordStrength, hashPassword, verifyPassword } from "./password";
 
-/**
- * Email and password sign-in.
- *
- * Two behaviours here are deliberate and worth not "tidying up" later:
- *
- *   The failure message never distinguishes an unknown email from a wrong
- *   password, so the form cannot be used to enumerate who has an account.
- *
- *   A missing account still runs a hash comparison against a dummy digest, so
- *   the response takes the same time either way and timing does not leak what
- *   the message refuses to say.
- */
+// Email and password authentication with rate limiting and lockout.
 
 const MAX_ATTEMPTS = 8;
 const LOCKOUT_MINUTES = 15;
 
-/** Compared against when no account matches, purely to burn the same time. */
+// Dummy hash compared against missing accounts to prevent timing enumeration.
 const DUMMY_HASH =
   "scrypt$16384$8$1$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 
@@ -79,7 +68,7 @@ export async function signInWithPassword(
     return { ok: false, reason: "invalid", message: GENERIC_FAILURE };
   }
 
-  // Checked after the password so a disabled account cannot be probed.
+  // Verify account is active after password confirmation to prevent probing.
   if (!account.isActive) {
     return {
       ok: false,
@@ -97,7 +86,7 @@ export async function signInWithPassword(
   return { ok: true, user: { ...account, lastSignedIn: signedInAt } };
 }
 
-/** Sets a password after checking it is strong enough. */
+// Updates account password after validating strength requirements.
 export async function setPassword(
   userId: number,
   password: string,
@@ -129,7 +118,7 @@ export async function setPassword(
   return { ok: true };
 }
 
-/** Changes a password after confirming the current one. */
+// Changes password after validating existing credentials.
 export async function changePassword(
   userId: number,
   currentPassword: string,
@@ -163,7 +152,7 @@ export type CreateAccountInput = {
   mustChangePassword?: boolean;
 };
 
-/** Creates a sign-in account. Callers must have checked authorisation first. */
+// Creates a new user credentials account.
 export async function createAccount(
   input: CreateAccountInput,
 ): Promise<{ ok: true; userId: number } | { ok: false; message: string }> {
@@ -207,7 +196,7 @@ export const DEFAULT_ADMIN = {
   name: "Augustina Appiah",
 } as const;
 
-/** Creates the owner account if the system has no administrator yet. */
+// Creates the default administrator account if none exists.
 export async function ensureDefaultAdmin(): Promise<{ created: boolean }> {
   const db = await getDb();
   if (!db) return { created: false };

@@ -8,32 +8,11 @@ import { dayBounds, isFutureDay, isoDay, toDayKey } from "../services/closing";
 import { money, toAmountString, toMinor } from "../services/money";
 import { permissionProcedure, router } from "../trpc";
 
-/**
- * End-of-day closing.
- *
- * Two different questions get asked at the end of a trading day, and this
- * keeps them apart:
- *
- *   1. What did we take? Every channel counted - cash, MoMo, card, bank
- *      transfer, online - because that is the day's income.
- *   2. Does the drawer add up? Only cash, because only cash is in the drawer.
- *      MoMo and card money never passes through the till, so reconciling a
- *      physical count against total takings would report a shortfall every
- *      time somebody paid by card.
- *
- * So `totalSales` is the day's takings and `expectedCash` is what should be in
- * the till: cash in, less the cash paid out of it.
- */
+// End-of-day closing.
 
 export type DaySummary = Awaited<ReturnType<typeof summariseDay>>;
 
-/**
- * What the books say about one day, computed fresh from the transactions.
- *
- * Refunds are netted off the payment they came from rather than ignored: a
- * payment taken and refunded on the same day left no money in the till, and
- * the count will show that.
- */
+// What the books say about one day, computed fresh from the transactions.
 async function summariseDay(db: Awaited<ReturnType<typeof dbOrThrow>>, date: Date) {
   const { start, end } = dayBounds(date);
 
@@ -85,8 +64,7 @@ async function summariseDay(db: Awaited<ReturnType<typeof dbOrThrow>>, date: Dat
     .filter(row => row.method === "cash")
     .reduce((sum, row) => sum + toMinor(row.total), 0);
 
-  // One person paying twice is one customer, and a student paying for a store
-  // order is not two.
+  // One person paying twice is one customer.
   const [served] = await db
     .select({
       count: sql<number>`count(distinct coalesce(
@@ -116,20 +94,13 @@ async function summariseDay(db: Awaited<ReturnType<typeof dbOrThrow>>, date: Dat
     totalSales: totalSales / 100,
     totalExpenses: totalExpenses / 100,
     cashExpenses: cashExpenses / 100,
-    /** Cash in, less cash paid out. What the drawer should hold. */
+    // Cash in, less cash paid out.
     expectedCash: (cash - cashExpenses) / 100,
   };
 }
 
 export const closingRouter = router({
-  /**
-   * The day as it stands: live figures, plus the closing record if there is
-   * one.
-   *
-   * Both are returned for a closed day on purpose. If they disagree, something
-   * was booked into the day after it was signed off, and whoever is looking at
-   * it should be told rather than shown one number and left to assume.
-   */
+  // The day as it stands.
   day: permissionProcedure("closing.read")
     .input(z.object({ date: z.coerce.date() }))
     .query(async ({ input }) => {
@@ -187,24 +158,17 @@ export const closingRouter = router({
         live,
         closing: snapshot,
         isClosed: Boolean(snapshot),
-        /** True when the books moved after the day was signed off. */
+        // True when the books moved after the day was signed off.
         hasDrifted: snapshot
           ? snapshot.totalSales !== live.totalSales ||
             snapshot.expectedCash !== live.expectedCash
           : false,
-        /** Tomorrow cannot be closed; today can, once trading has finished. */
+        // Tomorrow cannot be closed; today can, once trading has finished.
         isFuture: isFutureDay(input.date),
       };
     }),
 
-  /**
-   * Locks the day.
-   *
-   * The figures are recomputed here rather than taken from the client: the
-   * browser's numbers are a display, and a closing is a financial record. The
-   * only thing the operator contributes is the physical count and the note
-   * explaining it.
-   */
+  // Locks the day.
   close: permissionProcedure("closing.write")
     .input(
       z.object({
@@ -264,8 +228,7 @@ export const closingRouter = router({
       };
 
       return db.transaction(async tx => {
-        // The unique date makes this the whole concurrency story: two people
-        // pressing Close Day at once produce one row, not two.
+        // The unique date makes this the whole concurrency story.
         const [saved] = await tx
           .insert(dailyClosings)
           .values(values)
@@ -290,13 +253,7 @@ export const closingRouter = router({
       });
     }),
 
-  /**
-   * Unlocks a closed day so it can be counted again.
-   *
-   * Held behind its own permission rather than `closing.write`. The person who
-   * closes the till should not be the person who can quietly undo it, and a
-   * reason is required so the audit trail says why.
-   */
+  // Unlocks a closed day so it can be counted again.
   reopen: permissionProcedure("closing.reopen")
     .input(
       z.object({
@@ -348,7 +305,7 @@ export const closingRouter = router({
       });
     }),
 
-  /** The archive, newest first. */
+  // The archive, newest first.
   history: permissionProcedure("closing.read")
     .input(z.object({ limit: z.number().int().min(1).max(200).default(60) }).optional())
     .query(async ({ input }) => {
@@ -385,12 +342,7 @@ export const closingRouter = router({
       }));
     }),
 
-  /**
-   * How the till has been running lately.
-   *
-   * A single day's variance says little; a run of small shortfalls says
-   * something. This is the number worth putting in front of somebody.
-   */
+  // How the till has been running lately.
   variance: permissionProcedure("closing.read")
     .input(z.object({ days: z.number().int().min(7).max(180).default(30) }).optional())
     .query(async ({ input }) => {

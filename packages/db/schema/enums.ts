@@ -1,13 +1,8 @@
 import { pgEnum } from "drizzle-orm/pg-core";
 
-/* -------------------------------------------------------------------------- */
-/* Identity & access                                                          */
-/* -------------------------------------------------------------------------- */
+// Identity & access
 
-/**
- * Coarse account type. Fine-grained authorisation lives in the roles /
- * permissions tables — this only decides which portal a session may enter.
- */
+// Account type deciding allowed portal destination.
 export const userRole = pgEnum("user_role", ["user", "student", "staff", "admin"]);
 
 export const roleKey = pgEnum("role_key", [
@@ -18,19 +13,12 @@ export const roleKey = pgEnum("role_key", [
   "storekeeper",
   "ecommerce_manager",
   "secretary",
-  /**
-   * Retired. The front desk is `secretary` now; this stays in the type because
-   * dropping a value from a Postgres enum means recreating it and rewriting
-   * every column that references it. It is no longer a role anyone can be
-   * given - see ROLE_DEFINITIONS, which is what the admin UI offers.
-   */
+  // Legacy role kept for postgres enum backward compatibility.
   "student",
   "customer",
 ]);
 
-/* -------------------------------------------------------------------------- */
-/* Academics & admissions                                                     */
-/* -------------------------------------------------------------------------- */
+// Academics & admissions
 
 export const intakeStatus = pgEnum("intake_status", ["open", "closed", "completed"]);
 
@@ -84,15 +72,11 @@ export const classStatus = pgEnum("class_status", ["scheduled", "active", "compl
 
 export const certificateStatus = pgEnum("certificate_status", ["issued", "revoked"]);
 
-/* -------------------------------------------------------------------------- */
-/* Staff                                                                      */
-/* -------------------------------------------------------------------------- */
+// Staff
 
 export const staffStatus = pgEnum("staff_status", ["active", "inactive", "on_leave"]);
 
-/* -------------------------------------------------------------------------- */
-/* Inventory & procurement                                                    */
-/* -------------------------------------------------------------------------- */
+// Inventory & procurement
 
 export const inventoryMovementType = pgEnum("inventory_movement_type", [
   "received",
@@ -111,9 +95,7 @@ export const purchaseOrderStatus = pgEnum("purchase_order_status", [
   "cancelled",
 ]);
 
-/* -------------------------------------------------------------------------- */
-/* Commerce                                                                   */
-/* -------------------------------------------------------------------------- */
+// Commerce
 
 export const cartStatus = pgEnum("cart_status", ["active", "converted", "abandoned"]);
 
@@ -140,9 +122,7 @@ export const addressType = pgEnum("address_type", ["shipping", "billing"]);
 
 export const couponType = pgEnum("coupon_type", ["percentage", "fixed"]);
 
-/* -------------------------------------------------------------------------- */
-/* Finance                                                                    */
-/* -------------------------------------------------------------------------- */
+// Finance
 
 export const feeTypeEnum = pgEnum("fee_type", [
   "tuition",
@@ -184,7 +164,7 @@ export const paymentPlanStatus = pgEnum("payment_plan_status", [
   "cancelled",
 ]);
 
-/** Lifecycle of a gateway-initiated payment, verified server-side before capture. */
+// Status progression for online payment intents.
 export const paymentIntentStatus = pgEnum("payment_intent_status", [
   "initiated",
   "pending",
@@ -199,7 +179,7 @@ export const paymentIntentPurpose = pgEnum("payment_intent_purpose", [
   "application_fee",
 ]);
 
-/** Where a revenue line came from. Every line is traceable to its source row. */
+// Origin classification for ledger revenue entries.
 export const revenueSource = pgEnum("revenue_source", [
   "student_fee",
   "application_fee",
@@ -223,20 +203,12 @@ export const expenseCategory = pgEnum("expense_category", [
   "other",
 ]);
 
-/**
- * Which half of the business an expense belongs to.
- *
- * The school and the salon-with-store are run as two sets of books under one
- * roof, so every cost has to say which one it came out of - otherwise neither
- * side's spending means anything on its own.
- */
+// Business division assignment for cost tracking.
 export const expenseScope = pgEnum("expense_scope", ["school", "store"]);
 
 export const approvalStatus = pgEnum("approval_status", ["pending", "approved", "rejected"]);
 
-/* -------------------------------------------------------------------------- */
-/* Operations                                                                 */
-/* -------------------------------------------------------------------------- */
+// Operations
 
 export const appointmentStatus = pgEnum("appointment_status", [
   "requested",
@@ -283,9 +255,7 @@ export const notificationType = pgEnum("notification_type", [
 
 export const deliveryStatus = pgEnum("delivery_status", ["queued", "sent", "failed", "skipped"]);
 
-/* -------------------------------------------------------------------------- */
-/* Content                                                                    */
-/* -------------------------------------------------------------------------- */
+// Content
 
 export const publishStatus = pgEnum("publish_status", ["draft", "published", "archived"]);
 

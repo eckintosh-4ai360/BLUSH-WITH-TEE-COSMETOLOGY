@@ -1,30 +1,23 @@
 import { TRPCError } from "@trpc/server";
 import { ENV } from "@blush/env";
 
-/**
- * Payment gateway boundary.
- *
- * The rule this file exists to enforce (§49): a payment is only ever marked
- * successful after the server has asked the provider what happened and matched
- * the amount and reference. A browser saying "it worked" proves nothing, so no
- * code path outside this module may move a payment to succeeded.
- */
+// Payment gateway boundary.
 
 export type GatewayVerification = {
-  /** What the provider says the state of the charge is. */
+  // What the provider says the state of the charge is.
   status: "succeeded" | "pending" | "failed";
-  /** Amount the provider actually captured, in minor units. */
+  // Amount the provider actually captured, in minor units.
   amountMinor: number;
   currency: string;
   providerReference: string;
-  /** Reference we sent when the charge was initiated, echoed back. */
+  // Reference we sent when the charge was initiated, echoed back.
   merchantReference: string | null;
   raw: unknown;
 };
 
 export interface PaymentGateway {
   readonly name: string;
-  /** Returns whatever the client needs to open the provider checkout. */
+  // Returns whatever the client needs to open the provider checkout.
   initiate(input: {
     reference: string;
     amountMinor: number;
@@ -32,14 +25,11 @@ export interface PaymentGateway {
     email: string;
     callbackUrl?: string;
   }): Promise<{ providerReference: string | null; checkoutUrl: string | null }>;
-  /** Asks the provider, server to server, what really happened. */
+  // Asks the provider, server to server, what really happened.
   verify(providerReference: string): Promise<GatewayVerification>;
 }
 
-/**
- * Paystack is the usual choice for Ghana. Only the verify call matters for
- * correctness, and it is a plain server-to-server GET with the secret key.
- */
+// Paystack is the usual choice for Ghana.
 class PaystackGateway implements PaymentGateway {
   readonly name = "paystack";
 
@@ -124,11 +114,7 @@ class PaystackGateway implements PaymentGateway {
   }
 }
 
-/**
- * Development stand-in. It never reports success on its own: a developer has
- * to confirm the charge through the admin API, which keeps the local flow
- * shaped exactly like the real one instead of auto-approving.
- */
+// Development stand-in.
 class ManualGateway implements PaymentGateway {
   readonly name = "manual";
   private readonly confirmed = new Map<string, number>();
@@ -137,7 +123,7 @@ class ManualGateway implements PaymentGateway {
     return { providerReference: input.reference, checkoutUrl: null };
   }
 
-  /** Test hook used by the development confirm endpoint. */
+  // Test hook used by the development confirm endpoint.
   confirm(providerReference: string, amountMinor: number) {
     this.confirmed.set(providerReference, amountMinor);
   }
@@ -162,9 +148,7 @@ export function getGateway(): PaymentGateway {
   if (secretKey) return new PaystackGateway(secretKey);
 
   if (ENV.isProduction) {
-    // Refusing here is deliberate: a production deployment with no gateway
-    // configured must fail loudly rather than fall back to a stub that could
-    // be coaxed into approving a payment.
+    // Refusing here is deliberate.
     throw new TRPCError({
       code: "PRECONDITION_FAILED",
       message: "No payment gateway is configured for this environment.",
@@ -174,7 +158,7 @@ export function getGateway(): PaymentGateway {
   return manualGateway;
 }
 
-/** Development-only: mark a simulated charge as paid. */
+// Development-only.
 export function confirmManualPayment(providerReference: string, amountMinor: number) {
   if (ENV.isProduction) {
     throw new TRPCError({
@@ -185,11 +169,7 @@ export function confirmManualPayment(providerReference: string, amountMinor: num
   manualGateway.confirm(providerReference, amountMinor);
 }
 
-/**
- * Checks a provider response against what we asked for. Both the state and the
- * amount have to line up, so a smaller-than-expected capture cannot clear a
- * larger balance.
- */
+// Checks a provider response against what we asked for.
 export function assertVerificationMatches(
   verification: GatewayVerification,
   expected: { amountMinor: number; currency: string },

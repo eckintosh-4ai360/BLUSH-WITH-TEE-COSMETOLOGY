@@ -33,11 +33,7 @@ import {
 } from "../platform.utils";
 import { permissionProcedure, router, throttledPublicProcedure } from "../trpc";
 
-/**
- * Certificate numbers are sequential and printed on the award, so `verify` is
- * the one public endpoint an attacker can walk to harvest every graduate.
- * An employer checks a handful; a scraper wants thousands.
- */
+// Certificate numbers are sequential and printed on the award.
 const verifyLimit = throttledPublicProcedure({ bucket: "certificates.verify", limit: 20, windowMs: 10 * 60_000 });
 
 export const certificatesRouter = router({
@@ -65,15 +61,12 @@ export const certificatesRouter = router({
             studentName: studentProfiles.fullName,
             studentNumber: studentProfiles.studentNumber,
             courseTitle: courses.title,
-            // Counted here rather than fetched per row: the table shows only
-            // whether a scan is on file, and one query should answer that.
+            // Counted here rather than fetched per row.
             scanCount: sql<number>`(
               select count(*) from ${certificateScans}
               where ${certificateScans.certificateId} = ${certificates.id}
             )`,
-            // The newest copy is the one Print hands over, so the row carries
-            // its key. Resolved here rather than fetched on click: opening a
-            // tab after an await is what popup blockers stop.
+            // The newest copy is the one Print hands over, so the row carries its key.
             latestScanKey: sql<string | null>`(
               select ${certificateScans.storageKey} from ${certificateScans}
               where ${certificateScans.certificateId} = ${certificates.id}
@@ -111,7 +104,7 @@ export const certificatesRouter = router({
       );
     }),
 
-  /** Students who have completed a course but hold no certificate yet. */
+  // Students who have completed a course but hold no certificate yet.
   eligible: permissionProcedure("certificates.read").query(async () => {
     const db = await dbOrThrow();
 
@@ -269,17 +262,7 @@ export const certificatesRouter = router({
       return { success: true };
     }),
 
-  /**
-   * Scanned copies of the paper award.
-   *
-   * The certificate the app prints is generated from the row; what the school
-   * hands over is signed, stamped, and sometimes signed back on collection.
-   * These are those scans, kept against the record so the office file can be
-   * answered from the certificate rather than from a filing cabinet.
-   *
-   * The bytes live behind the storage proxy, so what reaches the browser is an
-   * app URL authorized on every fetch, never a Cloudinary address.
-   */
+  // Scanned copies of the paper award.
   scans: permissionProcedure("certificates.read")
     .input(z.object({ certificateId: z.number().int().positive() }))
     .query(async ({ input }) => {
@@ -331,8 +314,7 @@ export const certificatesRouter = router({
         .limit(1);
       if (!certificate) throw new TRPCError({ code: "NOT_FOUND", message: "Certificate not found." });
 
-      // Checks the declared type against the file's own signature, so a
-      // renamed executable cannot arrive dressed as a scan.
+      // Checks the declared type against the file's own signature.
       let buffer: Buffer;
       try {
         buffer = validateDocumentUpload(input.mimeType, input.base64Data);
@@ -396,9 +378,7 @@ export const certificatesRouter = router({
 
       await db.delete(certificateScans).where(eq(certificateScans.id, input.scanId));
 
-      // The row is what the app reads, so it goes first. An object that
-      // outlives it is unreachable - nothing holds the key any more - and a
-      // storage outage should not pin a wrongly filed scan to the record.
+      // The row is what the app reads, so it goes first.
       try {
         await storageDelete(scan.storageKey);
       } catch {
@@ -417,7 +397,7 @@ export const certificatesRouter = router({
       return { success: true };
     }),
 
-  /** Everything the printable certificate template needs. */
+  // Everything the printable certificate template needs.
   detail: permissionProcedure("certificates.read")
     .input(z.object({ certificateId: z.number().int().positive() }))
     .query(async ({ input }) => {
@@ -473,13 +453,7 @@ export const certificatesRouter = router({
     }),
 });
 
-/**
- * Public certificate verification (§37).
- *
- * Accepts either the printed certificate number or the token from the QR code.
- * The response is deliberately minimal - enough for an employer to confirm the
- * award is genuine, and nothing more about the student.
- */
+// Public certificate verification.
 export const certificateVerificationRouter = router({
   verify: verifyLimit
     .input(z.object({ value: z.string().trim().min(4).max(64) }))
@@ -537,7 +511,7 @@ export const certificateVerificationRouter = router({
     }),
 });
 
-/** Weighted grade across the assessments the student sat for this course. */
+// Weighted grade across the assessments the student sat for this course.
 async function computeGrade(
   db: Awaited<ReturnType<typeof dbOrThrow>>,
   studentId: number,

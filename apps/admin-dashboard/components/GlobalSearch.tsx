@@ -14,13 +14,7 @@ import {
 import { Kbd } from "@blush/ui/components/ui/kbd";
 import { trpc } from "@/lib/trpc";
 
-/**
- * One box that resolves any reference in the system (§61): a student number,
- * an order number, a certificate number, a person, or a product SKU.
- *
- * Results are permission-filtered on the server, so this never surfaces a
- * record the caller could not open anyway.
- */
+// One box that resolves any reference in the system.
 export function GlobalSearch() {
   const router = useRouter();
   const [open, setOpen] = useState(false);

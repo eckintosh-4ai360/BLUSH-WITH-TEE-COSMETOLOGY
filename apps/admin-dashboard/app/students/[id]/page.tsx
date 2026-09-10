@@ -47,10 +47,7 @@ function formatDate(value: Date | string | null | undefined) {
   return value ? new Date(value).toLocaleDateString("en-GB") : "—";
 }
 
-/**
- * One student's fee account: the equation from §24, the charges behind it, and
- * every payment and adjustment that moved it.
- */
+// One student's fee account.
 function StudentDetailContent({ studentId }: { studentId: number }) {
   const { can, isAdmin } = usePermissions();
   const documents = useDocuments();
@@ -177,8 +174,7 @@ function StudentDetailContent({ studentId }: { studentId: number }) {
         </div>
       </header>
 
-      {/* Billed - discounts + surcharges - paid = outstanding. Laid out in that
-          order so the figure at the end is arrived at rather than asserted. */}
+      {/* Billed - discounts + surcharges - paid = outstanding. */}
       <Card className="p-5">
         <dl className="flex flex-wrap items-end gap-x-8 gap-y-4">
           {figures.map(figure => (

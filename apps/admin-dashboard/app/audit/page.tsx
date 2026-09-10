@@ -48,8 +48,7 @@ function AuditContent() {
   const facets = trpc.platform.auditFacets.useQuery();
   const utils = trpc.useUtils();
 
-  // Shared by the table and by export, so a download covers exactly what the
-  // filters describe rather than the page on screen.
+  // Shared by the table and by export.
   const filters = {
     sortDir: "desc" as const,
     search: search || undefined,
@@ -190,7 +189,7 @@ function AuditContent() {
   );
 }
 
-/** Compact before/after, only for the fields that actually changed. */
+// Compact before/after, only for the fields that actually changed.
 function ChangeCell({ oldValue, newValue }: { oldValue: unknown; newValue: unknown }) {
   const next = (newValue ?? {}) as Record<string, unknown>;
   const previous = (oldValue ?? {}) as Record<string, unknown>;

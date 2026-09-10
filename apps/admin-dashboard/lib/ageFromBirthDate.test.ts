@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ageFromBirthDate } from "./ageFromBirthDate";
 
-/** Fixed so the tests do not change their mind on somebody's birthday. */
+// Fixed so the tests do not change their mind on somebody's birthday.
 const TODAY = new Date(2026, 8, 2); // 2 September 2026
 
 describe("ageFromBirthDate", () => {
@@ -19,8 +19,7 @@ describe("ageFromBirthDate", () => {
   });
 
   it("reads the date as written, not as midnight in London", () => {
-    // Parsed as an instant this is the 31st for anyone west of Greenwich,
-    // which would make a 1 September birthday read a year short.
+    // Parsed as an instant this is the 31st for anyone west of Greenwich.
     expect(ageFromBirthDate("2001-09-01", TODAY)).toBe(25);
   });
 

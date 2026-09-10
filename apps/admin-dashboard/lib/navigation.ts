@@ -34,7 +34,7 @@ export type NavItem = {
   label: string;
   path: string;
   icon: LucideIcon;
-  /** Shown when the caller holds any one of these. */
+  // Shown when the caller holds any one of these.
   permissions: PermissionKey[];
 };
 
@@ -44,14 +44,7 @@ export type NavSection = {
   items: NavItem[];
 };
 
-/**
- * The admin navigation (§52).
- *
- * Every entry here points at a route that exists, and is gated by the
- * permission that route needs - so the sidebar a storekeeper sees differs from
- * an accountant's, and nothing in it leads to a dead end. The gate is
- * cosmetic; each page and procedure enforces the same permission again.
- */
+// The admin navigation.
 export const NAV_SECTIONS: NavSection[] = [
   {
     label: "",

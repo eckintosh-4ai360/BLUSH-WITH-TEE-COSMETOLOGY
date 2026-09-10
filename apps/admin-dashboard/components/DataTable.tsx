@@ -37,19 +37,14 @@ import { downloadCsv, downloadPdf } from "@/lib/exportTable";
 
 export type Column<T> = {
   key: string;
-  /**
-   * The column heading. An empty one marks the column as chrome rather than
-   * data - a row's action buttons, say. Chrome has no name to offer in the
-   * column menu and no value to write into an export, so it is left out of
-   * both and always renders.
-   */
+  // The column heading.
   header: string;
-  /** How the cell renders. Defaults to the raw value at `key`. */
+  // How the cell renders.
   cell?: (row: T) => ReactNode;
-  /** Plain value used for CSV export; defaults to the value at `key`. */
+  // Plain value used for CSV export; defaults to the value at key.
   value?: (row: T) => string | number | null | undefined;
   align?: "left" | "right";
-  /** Hidden by default but available from the column menu. */
+  // Hidden by default but available from the column menu.
   optional?: boolean;
   className?: string;
 };
@@ -71,38 +66,29 @@ type DataTableProps<T> = {
   isLoading?: boolean;
   isFetching?: boolean;
   error?: { message: string } | null;
-  /** Current search term, owned by the page so it can drive the query. */
+  // Current search term, owned by the page so it can drive the query.
   search: string;
   onSearchChange: (value: string) => void;
   searchPlaceholder?: string;
   page: number;
   onPageChange: (page: number) => void;
-  /** Filter controls, rendered in one row above the table. */
+  // Filter controls, rendered in one row above the table.
   filters?: ReactNode;
   actions?: ReactNode;
   onRowClick?: (row: T) => void;
   rowKey: (row: T) => string | number;
   emptyMessage?: string;
-  /** Adds CSV/PDF export of every row matching the current filters. */
+  // Adds CSV/PDF export of every row matching the current filters.
   exportFileName?: string;
-  /** Heading printed on the PDF export; defaults to `title`. */
+  // Heading printed on the PDF export; defaults to title.
   pdfTitle?: string;
-  /**
-   * Fetches every row behind the current filters, so export is not limited to
-   * the page on screen. Without it, export falls back to the visible page.
-   */
+  // Fetches every row behind the current filters.
   fetchAllRows?: () => Promise<T[]>;
-  /** Summary line under the table, e.g. a filtered total. */
+  // Summary line under the table, e.
   footer?: ReactNode;
 };
 
-/**
- * The one table every admin list uses (§43).
- *
- * Paging, filtering and sorting all happen on the server - this component only
- * reports what the user asked for. It never receives an unbounded result set,
- * so a table with a hundred thousand rows behaves the same as one with ten.
- */
+// The one table every admin list uses.
 export function DataTable<T>({
   title,
   description,
@@ -149,17 +135,13 @@ export function DataTable<T>({
 
   const named = useMemo(() => columns.filter(column => column.header.trim()), [columns]);
 
-  // An action column exports as a blank heading over a blank cell, because the
-  // buttons in it are not a value. Only named columns reach the file.
+  // An action column exports as a blank heading over a blank cell.
   const exportable = useMemo(() => visible.filter(column => column.header.trim()), [visible]);
 
   const rows = data?.rows ?? [];
   const showSkeleton = isLoading && !data;
 
-  /**
-   * Runs an export over every row matching the current filters, not just the
-   * page on screen. Failure is surfaced rather than leaving a silent no-op.
-   */
+  // Runs an export over every row matching the current filters, not just the page on screen.
   const runExport = async (write: (rows: T[]) => void | Promise<void>) => {
     setExporting(true);
     try {

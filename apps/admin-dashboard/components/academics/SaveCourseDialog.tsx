@@ -35,11 +35,11 @@ export type SaveableCourse = {
   toiletries?: string | null;
   isFeatured?: boolean;
   isActive?: boolean;
-  /** The advertised syllabus, in the order it is listed. */
+  // The advertised syllabus, in the order it is listed.
   outline?: string[];
 };
 
-/** One item per line, blank lines ignored, so pasting a list just works. */
+// One item per line, blank lines ignored, so pasting a list just works.
 function parseOutline(text: string): string[] {
   return text
     .split("\n")

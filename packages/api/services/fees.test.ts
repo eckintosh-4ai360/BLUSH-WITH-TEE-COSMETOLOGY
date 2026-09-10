@@ -22,8 +22,7 @@ describe("payment allocation", () => {
   });
 
   it("pulls an explicitly chosen charge to the front", () => {
-    // GHS 200 against the chosen charge of 320 leaves it part paid, and there
-    // is nothing left to reach the charge that would otherwise have come first.
+    // GHS 200 against the chosen charge of 320 leaves it part paid.
     const { lines } = planAllocation([charge(1, "150.00"), charge(2, "320.00")], 20000, 2);
 
     expect(lines).toHaveLength(1);

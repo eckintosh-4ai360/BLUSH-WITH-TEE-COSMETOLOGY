@@ -1,13 +1,4 @@
-/**
- * Creates the owner account if the system has no administrator yet, and
- * verifies the credentials round-trip.
- *
- * The same routine runs automatically on the first sign-in attempt, so this
- * script exists to set the account up ahead of time and to give a straight
- * answer about whether the database and hashing are working.
- *
- *   pnpm --filter @blush/auth ensure-admin
- */
+// Standalone script to initialize and verify default administrator account.
 
 import { closeDb } from "@blush/db";
 import { DEFAULT_ADMIN, ensureDefaultAdmin, signInWithPassword } from "./credentials";
@@ -22,7 +13,7 @@ async function main() {
       : `Owner account ${DEFAULT_ADMIN.email} already exists`,
   );
 
-  // Prove the stored hash actually verifies, rather than assuming it does.
+  // Validate that default credentials verify correctly.
   const check = await signInWithPassword(DEFAULT_ADMIN.email, DEFAULT_ADMIN.password);
 
   if (check.ok) {

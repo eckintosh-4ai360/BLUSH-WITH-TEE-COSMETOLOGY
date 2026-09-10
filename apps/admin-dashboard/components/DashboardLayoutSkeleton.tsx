@@ -1,13 +1,10 @@
 import { Skeleton } from "@blush/ui/components/ui/skeleton";
 
-/**
- * Mirrors the signed-in shell: a glass navigation frame with the content
- * panel inset inside it, so nothing jumps when the real layout arrives.
- */
+// Mirrors the signed-in shell.
 export function DashboardLayoutSkeleton() {
   return (
     <div className="admin-dashboard-shell flex h-svh gap-0 overflow-hidden p-2">
-      {/* Sidebar skeleton */}
+      {/* Sidebar skeleton. */}
       <div className="admin-glass-card hidden w-64 shrink-0 flex-col rounded-[1.25rem] border p-2 md:flex">
         <div className="flex h-16 items-center gap-2.5">
           <Skeleton className="size-9 rounded-xl bg-white/65 dark:bg-white/10" />
@@ -29,7 +26,7 @@ export function DashboardLayoutSkeleton() {
         <Skeleton className="h-14 w-full rounded-xl bg-white/50 dark:bg-white/6" />
       </div>
 
-      {/* Inset content panel */}
+      {/* Inset content panel. */}
       <div className="admin-content-panel flex min-w-0 flex-1 flex-col overflow-hidden rounded-[1.5rem]">
         <div className="flex h-16 shrink-0 items-center gap-3 border-b border-white/60 bg-white/35 px-5 backdrop-blur-xl dark:border-white/8 dark:bg-white/4">
           <Skeleton className="h-4 w-32 bg-white/60 dark:bg-white/8" />

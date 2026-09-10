@@ -12,34 +12,14 @@ import { dbOrThrow } from "../dbOrThrow";
 import { recordAudit } from "../services/audit";
 import { permissionProcedure, router } from "../trpc";
 
-/**
- * The daily attendance register (§23).
- *
- * Marking a class is one action, not one action per student: an instructor
- * standing in front of a room wants to open today's list, change the two people
- * who are not there, and save. That shape is why `mark` takes the whole
- * register rather than a single row, and why the page can send a full class in
- * one request instead of thirty.
- *
- * Re-marking is expected — someone arrives late, or a mistake is corrected —
- * so writes upsert on `(enrollmentId, classDate)`. The unique index has always
- * said "one mark per student per class day"; this is the first code that
- * actually honours it rather than colliding with it.
- */
+// The daily attendance register.
 
 const ATTENDANCE_STATUS = ["present", "late", "absent", "excused"] as const;
 
-/** A year at a time. Long enough for a full intake, short enough to stay one query. */
+// A year at a time.
 const MAX_HISTORY_DAYS = 366;
 
-/**
- * A calendar day, not an instant.
- *
- * Taken as `YYYY-MM-DD` text and built in UTC rather than accepting a Date,
- * because a browser in Tarkwa sending midnight local time as an ISO instant can
- * land on the previous day once Postgres casts it — which would file Monday's
- * register under Sunday.
- */
+// A calendar day, not an instant.
 const classDateInput = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Use a date written as YYYY-MM-DD.")
@@ -54,27 +34,11 @@ const classDateInput = z
   });
 
 export const attendanceRouter = router({
-  /**
-   * The day's register, with whatever was already recorded for that date.
-   *
-   * `courseId` is a filter, not a requirement. The default is the whole school
-   * in one list: a small school takes one register in the morning, and making
-   * somebody pick a programme first - then pick the next one, and the next -
-   * turned one job into as many jobs as there are programmes. Narrowing to a
-   * single programme is still there for when a class is what you want.
-   *
-   * Withdrawn and completed enrolments are left out — they are not in the room
-   * — but paused ones are kept, because a pause is often the very thing an
-   * absence record is evidence for.
-   *
-   * A student enrolled on two programmes appears once per enrolment. That is
-   * deliberate: attendance is recorded against an enrolment, so they really are
-   * two separate registers, and `courseTitle` on each row says which is which.
-   */
+  // The day's register, with whatever was already recorded for that date.
   register: permissionProcedure("attendance.read")
     .input(
       z.object({
-        /** Omitted means every programme. */
+        // Omitted means every programme.
         courseId: z.number().int().positive().optional(),
         classDate: classDateInput,
       }),
@@ -111,9 +75,7 @@ export const attendanceRouter = router({
         .from(enrollments)
         .innerJoin(studentProfiles, eq(enrollments.studentId, studentProfiles.id))
         .innerJoin(courses, eq(enrollments.courseId, courses.id))
-        // Left-joined on the date so an unmarked student still appears, with a
-        // null status. An inner join would silently hide exactly the people the
-        // register exists to catch.
+        // Left-joined on the date so an unmarked student still appears, with a null status.
         .leftJoin(
           attendanceRecords,
           and(
@@ -128,9 +90,7 @@ export const attendanceRouter = router({
             sql`${studentProfiles.deletedAt} is null`,
           ),
         )
-        // By name, then by programme, so the whole-school list reads as one
-        // roll call rather than as programmes stacked end to end - the marker
-        // is going down a room, not down a syllabus.
+        // By name, then by programme, so the whole-school list reads as one roll call rather than.
         .orderBy(asc(studentProfiles.fullName), asc(courses.title));
 
       return {
@@ -141,7 +101,7 @@ export const attendanceRouter = router({
       };
     }),
 
-  /** Programmes that have somebody enrolled, for the register's picker. */
+  // Programmes that have somebody enrolled, for the register's picker.
   markableCourses: permissionProcedure("attendance.read").query(async () => {
     const db = await dbOrThrow();
 
@@ -159,12 +119,7 @@ export const attendanceRouter = router({
       .orderBy(asc(courses.title));
   }),
 
-  /**
-   * Saves a whole register in one transaction.
-   *
-   * All or nothing on purpose: a half-saved register is worse than an unsaved
-   * one, because it looks finished.
-   */
+  // Saves a whole register in one transaction.
   mark: permissionProcedure("attendance.write")
     .input(
       z.object({
@@ -178,9 +133,7 @@ export const attendanceRouter = router({
             }),
           )
           .min(1)
-          // A whole-school register, not a class one, since that is what the
-          // page now sends by default. Still a ceiling rather than a target:
-          // past this the caller is not a person marking a room.
+          // A whole-school register, not a class one, since that is what the page now sends by default.
           .max(1000),
       }),
     )
@@ -195,9 +148,7 @@ export const attendanceRouter = router({
         });
       }
 
-      // Checked before writing rather than trusting the ids the browser sent:
-      // an enrolment id is a plain integer, and nothing else stops a caller
-      // marking somebody on a programme they cannot see.
+      // Checked before writing rather than trusting the ids the browser sent.
       const known = await db
         .select({ id: enrollments.id })
         .from(enrollments)
@@ -248,19 +199,12 @@ export const attendanceRouter = router({
       return { saved: input.entries.length };
     }),
 
-  /**
-   * Every mark in a window, one row per student per day.
-   *
-   * Flat rather than summarised because this is what gets exported: a
-   * spreadsheet of marks can be pivoted into whatever shape the reader wants,
-   * where a pre-summarised one cannot be taken apart again. Absences sort to
-   * the front of a day so the exception is the first thing read.
-   */
+  // Every mark in a window, one row per student per day.
   history: permissionProcedure("attendance.read")
     .input(
       z
         .object({
-          /** Omitted means every programme, for a whole-school export. */
+          // Omitted means every programme, for a whole-school export.
           courseId: z.number().int().positive().optional(),
           from: classDateInput,
           to: classDateInput,
@@ -320,21 +264,16 @@ export const attendanceRouter = router({
           classDate: row.classDate.toISOString().slice(0, 10),
         })),
         totals,
-        // Distinct days actually marked, so an empty Sunday is not counted as
-        // a day the school failed to take a register.
+        // Distinct days actually marked.
         daysMarked: new Set(rows.map(row => row.classDate.toISOString().slice(0, 10))).size,
       };
     }),
 
-  /**
-   * The last few days marked, so it is obvious at a glance whether yesterday
-   * was missed. Scoped to a programme, or the whole school when none is given -
-   * the same filter the register itself takes.
-   */
+  // The last few days marked, so it is obvious at a glance whether yesterday was missed.
   recentDays: permissionProcedure("attendance.read")
     .input(
       z.object({
-        /** Omitted means every programme. */
+        // Omitted means every programme.
         courseId: z.number().int().positive().optional(),
         days: z.number().int().min(1).max(60).default(14),
       }),

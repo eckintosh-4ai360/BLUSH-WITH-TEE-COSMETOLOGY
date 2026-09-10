@@ -13,14 +13,14 @@ import {
 import { galleryCategory, publishStatus } from "./enums";
 import { users } from "./identity";
 
-/** Editable marketing pages (About, Admissions copy, policy pages, ...). */
+// CMS page content for static and marketing pages.
 export const pages = pgTable(
   "pages",
   {
     id: serial("id").primaryKey(),
     slug: varchar("slug", { length: 120 }).notNull().unique(),
     title: varchar("title", { length: 180 }).notNull(),
-    /** Structured blocks so the marketing site can lay content out properly. */
+    // Structured page body content.
     content: text("content"),
     seoTitle: varchar("seoTitle", { length: 180 }),
     seoDescription: varchar("seoDescription", { length: 320 }),
@@ -59,7 +59,7 @@ export const banners = pgTable(
   table => [index("banners_placement_idx").on(table.placement, table.status)],
 );
 
-/** Salon and clinic services advertised on the public site. */
+// Salon and clinic services listed on public site.
 export const siteServices = pgTable(
   "siteServices",
   {
@@ -186,7 +186,7 @@ export const blogPosts = pgTable(
     categoryId: integer("categoryId").references(() => blogCategories.id, {
       onDelete: "set null",
     }),
-    /** Comma-separated tags; kept simple because tagging is editorial, not relational. */
+    // Comma-separated editorial tags.
     tags: varchar("tags", { length: 320 }),
     seoTitle: varchar("seoTitle", { length: 180 }),
     seoDescription: varchar("seoDescription", { length: 320 }),

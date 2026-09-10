@@ -19,7 +19,7 @@ import { applyStockMovement } from "../services/stock";
 import { storageGet } from "@blush/storage";
 import { publicProcedure, router, throttledPublicProcedure } from "../trpc";
 
-/** Order number plus email is a guessable pair worth brute-forcing. */
+// Order number plus email is a guessable pair worth brute-forcing.
 const lookupLimit = throttledPublicProcedure({ bucket: "store.lookupOrder", limit: 30, windowMs: 10 * 60_000 });
 const checkoutLimit = throttledPublicProcedure({ bucket: "store.checkout", limit: 15, windowMs: 60 * 60_000 });
 
@@ -355,8 +355,7 @@ export const storeRouter = router({
           message: "Your cart has expired.",
         });
 
-      // A customer's checkout is what empties the shelf, so it is also where
-      // the shop finds out. Recorded here and acted on after the commit.
+      // A customer's checkout is what empties the shelf, so it is also where the shop finds out.
       let stockWentLow = false;
 
       const placed = await db.transaction(async tx => {
@@ -380,8 +379,7 @@ export const storeRouter = router({
             message: "Your cart is empty.",
           });
 
-        // Always take the rows in the same order, so two checkouts sharing a
-        // product cannot each hold half of what the other is waiting for.
+        // Always take the rows in the same order.
         items.sort((a, b) => a.inventoryItemId - b.inventoryItemId);
 
         const total = calculateOrderTotal(items);
@@ -417,11 +415,7 @@ export const storeRouter = router({
             lineTotal: (money(item.sellingPrice) * item.quantity).toFixed(2),
           }))
         );
-        // Deducted through applyStockMovement rather than a bare UPDATE: it
-        // locks the row FOR UPDATE before reading the balance, which is what
-        // stops two checkouts both seeing the last unit and both selling it.
-        // The stock read above is unlocked and only feeds pricing, so it is
-        // not safe to decide availability from.
+        // Deducted through applyStockMovement rather than a bare UPDATE.
         for (const item of items) {
           const movement = await applyStockMovement(tx, {
             inventoryItemId: item.inventoryItemId,
@@ -441,8 +435,7 @@ export const storeRouter = router({
         return { orderNumber, total, paymentStatus: "pending" as const };
       });
 
-      // Nothing is awaited: the customer's order is placed, and a warning to
-      // the shop is not something their checkout should wait on or fail for.
+      // Nothing is awaited.
       if (stockWentLow) alertLowStockInBackground(db);
 
       return placed;

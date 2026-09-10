@@ -24,8 +24,7 @@ export default function GalleryPage() {
           </p>
         </div>
 
-        {/* Four across only from lg. At 768 a quarter-row tile is ~170px wide
-            and the captions it carries spill straight out of it. */}
+        {/* Responsive photo grid layout. */}
         <section className="mt-16 grid auto-rows-[220px] grid-cols-2 gap-5 md:auto-rows-[260px] lg:auto-rows-[280px] lg:grid-cols-4">
           {moments.map((moment, index) => (
             <article

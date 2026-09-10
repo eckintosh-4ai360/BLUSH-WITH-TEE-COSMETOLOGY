@@ -6,13 +6,13 @@ import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 
 export type HeroSlide = {
-  /** Photograph under /public/hero. Falls back to `tone` until one is added. */
+  // Hero photograph path, falling back to background tone.
   src: string;
   alt: string;
   label: string;
   meta: string;
   href: string;
-  /** Gradient wash shown while the photograph is missing or still loading. */
+  // Background gradient wash displayed during image load.
   tone: string;
 };
 
@@ -61,8 +61,7 @@ export default function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
               aria-hidden={!isActive}
               className={`absolute inset-0 transition-opacity duration-[900ms] ease-out ${isActive ? "opacity-100" : "opacity-0"}`}
             >
-              {/* The wash sits underneath so a missing or slow photograph still
-                  reads as a designed panel rather than a blank hole. */}
+              {/* Gradient background underlay while image is loading. */}
               <div className={`absolute inset-0 bg-gradient-to-br ${slide.tone}`} />
               {!missing[slide.src] && (
                 <Image

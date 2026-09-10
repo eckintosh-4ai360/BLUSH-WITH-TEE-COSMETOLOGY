@@ -24,13 +24,7 @@ export type ReceivableLine = {
   unitCost: number;
 };
 
-/**
- * Books goods in against a purchase order.
- *
- * Part deliveries are the normal case, so every line is entered separately and
- * defaults to what is still outstanding. The server refuses more than was
- * ordered; this form just makes that hard to attempt by accident.
- */
+// Books goods in against a purchase order.
 export function ReceiveStockDialog({
   open,
   onOpenChange,
@@ -53,9 +47,7 @@ export function ReceiveStockDialog({
     .map(line => ({ ...line, remaining: line.quantityOrdered - line.quantityReceived }))
     .filter(line => line.remaining > 0);
 
-  // Seeded when the dialog opens, keyed on the order rather than on `lines`:
-  // depending on the array would re-seed — and wipe what the user typed — on
-  // any render that handed down a fresh identity.
+  // Seeded when the dialog opens, keyed on the order rather than on lines: depending on.
   useEffect(() => {
     setQuantities(
       Object.fromEntries(

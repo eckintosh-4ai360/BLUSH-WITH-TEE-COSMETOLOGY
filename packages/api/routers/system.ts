@@ -8,11 +8,7 @@ export const systemRouter = router({
     .input(z.object({ timestamp: z.number().min(0, "timestamp cannot be negative") }))
     .query(() => ({ ok: true })),
 
-  /**
-   * Broadcasts a message to every administrator through the platform's own
-   * notification centre. This used to post to an external service; it now
-   * stays inside the system, where the recipient can act on it.
-   */
+  // Broadcasts a message to every administrator through the platform's own notification centre.
   notifyOwner: adminProcedure
     .input(
       z.object({

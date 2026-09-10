@@ -8,16 +8,16 @@ export type SeriesKey = {
   key: string;
   label: string;
   color: string;
-  /** Rendered per cell in the table view; defaults to a plain number. */
+  // Custom table cell formatter.
   format?: (value: number) => string;
 };
 
 type ChartFrameProps = {
   title: string;
   subtitle?: string;
-  /** Identity channel. Always shown for two or more series. */
+  // Series configuration list.
   series: SeriesKey[];
-  /** Rows behind the plot, exposed as an accessible table on demand. */
+  // Dataset rows for accessible table view.
   rows?: Array<Record<string, string | number>>;
   categoryKey?: string;
   categoryLabel?: string;
@@ -29,12 +29,7 @@ type ChartFrameProps = {
   children: React.ReactNode;
 };
 
-/**
- * Shared chart shell: heading, legend, and a table view of the same numbers.
- *
- * The table is not decoration - it is the relief path for readers who cannot
- * separate two marks by colour, and the accessible equivalent of the plot.
- */
+// Shared chart shell providing heading, legend, and table view.
 export function ChartFrame({
   title,
   subtitle,
@@ -83,7 +78,7 @@ export function ChartFrame({
         </div>
       </header>
 
-      {/* A single series is named by the title; a legend box would restate it. */}
+      {/* Single series is named by chart title. */}
       {series.length > 1 ? (
         <ul className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
           {series.map(item => (
@@ -193,7 +188,7 @@ function ChartTable({
   );
 }
 
-/** Hover card shared by every chart, so tooltips read identically everywhere. */
+// Shared hover card for chart tooltips.
 export function VizTooltip({
   active,
   payload,

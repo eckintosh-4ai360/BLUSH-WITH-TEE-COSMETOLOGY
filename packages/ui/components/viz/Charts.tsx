@@ -20,13 +20,7 @@ import { VizTooltip, type SeriesKey } from "./ChartFrame";
 const AXIS_TICK = { fill: "var(--viz-axis)", fontSize: 11 };
 const HEIGHT = 260;
 
-/**
- * Trend over time with several money series on one shared axis.
- *
- * Income streams stack (they sum to total income); spend rides as a line for
- * comparison. Both are cedis, so one axis is honest - a second scale would
- * invent a relationship that is not in the data.
- */
+// Area trend chart for monetary metrics over time.
 export function MoneyTrendChart({
   data,
   stacked,
@@ -68,8 +62,7 @@ export function MoneyTrendChart({
             stackId="income"
             fill={series.color}
             maxBarSize={MARKS.maxBarSize}
-            // A 2px surface gap separates touching segments; only the top
-            // segment carries the rounded data-end.
+            // 2px gap between segments with rounded terminal edge.
             stroke={VIZ.surface}
             strokeWidth={MARKS.gap}
             radius={index === stacked.length - 1 ? MARKS.columnRadius : undefined}
@@ -97,7 +90,7 @@ export function MoneyTrendChart({
   );
 }
 
-/** Single-series columns - one colour, no legend, values on the caps. */
+// Vertical bar chart for single-metric time series.
 export function SingleColumnChart({
   data,
   dataKey,
@@ -156,12 +149,7 @@ export function SingleColumnChart({
   );
 }
 
-/**
- * Horizontal bars for nominal categories.
- *
- * Every bar takes slot 1: the categories have no natural order, so shading
- * them by size would double-encode the length that is already on screen.
- */
+// Horizontal bar chart for categorical metrics.
 export function CategoryBarChart({
   data,
   dataKey,
@@ -221,7 +209,7 @@ export function CategoryBarChart({
   );
 }
 
-/** Two series side by side, e.g. applications against enrolments. */
+// Paired column chart comparing two related series.
 export function GroupedBarChart({
   data,
   series,
@@ -281,7 +269,7 @@ export function GroupedBarChart({
   );
 }
 
-/** Stock in against stock out - two lines on a shared unit axis. */
+// Comparative line chart for opposing stock movements.
 export function DualLineChart({
   data,
   series,

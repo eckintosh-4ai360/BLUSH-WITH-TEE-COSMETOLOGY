@@ -130,8 +130,7 @@ function OrderDetail({ orderId }: { orderId: number }) {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {/* A real branded PDF, not window.print(): printing the page put the
-              dashboard chrome on the customer's invoice. */}
+          {/* A real branded PDF, not window. */}
           <Button
             variant="outline"
             className="gap-2"

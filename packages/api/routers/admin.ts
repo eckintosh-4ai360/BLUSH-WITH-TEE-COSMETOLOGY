@@ -60,14 +60,10 @@ import { announce } from "../services/messaging/announce";
 import { flushInBackground } from "../services/messaging/dispatch";
 import { adminProcedure, permissionProcedure, router } from "../trpc";
 
-/** One syllabus line, as the school advertises it. */
+// One syllabus line, as the school advertises it.
 const outlineInput = z.array(z.string().trim().min(1).max(180)).max(40).optional();
 
-/**
- * The values `expenses.category` can hold. The configurable `expenseCategories`
- * table is the real list; this is only here to keep the legacy enum column
- * populated with the matching value when one exists.
- */
+// The values expenses.
 const LEGACY_EXPENSE_CATEGORIES = [
   "rent",
   "utilities",
@@ -86,20 +82,13 @@ function isLegacyExpenseCategory(key: string): key is (typeof LEGACY_EXPENSE_CAT
   return (LEGACY_EXPENSE_CATEGORIES as readonly string[]).includes(key);
 }
 
-/** Says what is in the way and what to do about it, not that a write failed. */
+// Says what is in the way and what to do about it, not that a write failed.
 function alreadyEnrolled(studentName: string, courseTitle: string, status: string): string {
   const standing = status === "paused" ? "a paused enrolment on" : "already on";
   return `${studentName} is ${standing} ${courseTitle}. Remove that enrolment, or graduate the student, before placing them on it again.`;
 }
 
-/**
- * Rewrites a programme's syllabus to exactly `outline`, in that order.
- *
- * Matched by position rather than cleared and re-inserted, because a module row
- * is what a class and an assessment point at. Dropping and recreating the set
- * would blank `classes.moduleId` and `assessments.moduleId` across a term's
- * records every time somebody corrected a spelling here.
- */
+// Rewrites a programme's syllabus to exactly outline, in that order.
 async function saveOutline(
   tx: Parameters<Parameters<Awaited<ReturnType<typeof dbOrThrow>>["transaction"]>[0]>[0],
   courseId: number,
@@ -169,7 +158,7 @@ export const adminNamespaceRouter = router({
         status: z
           .enum(["draft", "submitted", "under_review", "more_information", "approved", "rejected"])
           .optional(),
-        /** Length of the programme applied for, in weeks. */
+        // Length of the programme applied for, in weeks.
         durationWeeks: z.number().int().positive().optional(),
       })
     )
@@ -177,8 +166,7 @@ export const adminNamespaceRouter = router({
       const db = await dbOrThrow();
       const { page = 1, pageSize = 20, search, status, durationWeeks } = input;
 
-      // A removed application is gone from every list that reads this, the
-      // export included, in the same way a removed programme or student is.
+      // A removed application is gone from every list that reads this, the export included.
       const conditions: SQL[] = [isNull(applications.deletedAt)];
       if (status) conditions.push(eq(applications.status, status));
       if (durationWeeks) conditions.push(eq(courses.durationWeeks, durationWeeks));
@@ -201,8 +189,7 @@ export const adminNamespaceRouter = router({
           .select({
             application: applications,
             courseTitle: courses.title,
-            // What the applicant was quoted; the programme's current price
-            // stands in for rows filed before the quote was recorded.
+            // What the applicant was quoted.
             courseTuition: sql<string | null>`coalesce(${applications.tuition}, ${courses.tuition})`,
             courseProductFee: sql<string | null>`coalesce(${applications.productFee}, ${courses.productFee})`,
           })
@@ -212,9 +199,7 @@ export const adminNamespaceRouter = router({
           .orderBy(desc(applications.createdAt))
           .limit(pageSize)
           .offset(offset),
-        // Joined here as well as above because the duration filter asks about
-        // the course. `courseId` is non-null with a restricted delete, so every
-        // application has exactly one course and the join adds no rows.
+        // Joined here as well as above because the duration filter asks about the course.
         db
           .select({ total: count() })
           .from(applications)
@@ -234,14 +219,7 @@ export const adminNamespaceRouter = router({
     return Promise.all(documents.map(async document => ({ ...document, url: (await storageGet(document.storageKey)).url })));
   }),
 
-  /**
-   * The students who can still be placed on a programme.
-   *
-   * Scoped the same way the register is: a removed record is gone, and a
-   * graduate has finished with the school and is read from the graduates
-   * screen instead. Both were being offered by the enrolment picker, which is
-   * the only caller.
-   */
+  // The students who can still be placed on a programme.
   students: adminProcedure.query(async () => {
     const db = await dbOrThrow();
     const rows = await db.select({ student: studentProfiles, enrollment: enrollments, courseTitle: courses.title }).from(studentProfiles).leftJoin(enrollments, eq(studentProfiles.id, enrollments.studentId)).leftJoin(courses, eq(enrollments.courseId, courses.id)).where(and(isNull(studentProfiles.deletedAt), ne(studentProfiles.status, "graduated"))).orderBy(desc(studentProfiles.createdAt), desc(enrollments.enrolledAt));
@@ -258,9 +236,7 @@ export const adminNamespaceRouter = router({
   createEnrollment: adminProcedure.input(z.object({ studentId: z.number().int().positive(), courseId: z.number().int().positive(), expectedCompletionDate: z.coerce.date().optional() })).mutation(async ({ input, ctx }) => {
     const db = await dbOrThrow();
 
-    // Leaving a removed or graduated student out of the picker is presentation;
-    // this is the check that holds. A form opened before the student graduated
-    // is still sitting on someone's screen with the old list in it.
+    // Leaving a removed or graduated student out of the picker is presentation.
     const [student] = await db
       .select({ id: studentProfiles.id, fullName: studentProfiles.fullName, status: studentProfiles.status })
       .from(studentProfiles)
@@ -287,10 +263,7 @@ export const adminNamespaceRouter = router({
       throw new TRPCError({ code: "NOT_FOUND", message: "That programme was not found." });
     }
 
-    // Read first so the refusal can name the student and the programme. The
-    // index below is what actually holds the rule; this is here because
-    // "duplicate key value violates unique constraint" is not something to put
-    // in front of somebody enrolling a student.
+    // Read first so the refusal can name the student and the programme.
     const [live] = await db
       .select({ id: enrollments.id, status: enrollments.status })
       .from(enrollments)
@@ -310,16 +283,12 @@ export const adminNamespaceRouter = router({
     try {
       const [enrollment] = await db.insert(enrollments).values({ studentId: input.studentId, courseId: input.courseId, expectedCompletionDate: input.expectedCompletionDate }).returning({ id: enrollments.id });
 
-      // Placing a student on a programme is what makes them liable for its
-      // fees. Without this the account stays empty and every figure downstream
-      // - the payment dialog, the fee register, the arrears run - reads zero.
+      // Placing a student on a programme is what makes them liable for its fees.
       const billed = await syncStudentCharges(db, input.studentId, ctx.user.id);
 
       return { id: enrollment?.id, charged: billed.raised + billed.repaired };
     } catch (error) {
-      // Two people enrolling the same student at once both pass the read above
-      // and one of them lands here. The database settled it; this only turns
-      // its answer back into the sentence the other caller already got.
+      // Two people enrolling the same student at once both pass the read above.
       if (isUniqueViolation(error, "enrollment_live_course_unique")) {
         throw new TRPCError({ code: "CONFLICT", message: alreadyEnrolled(student.fullName, course.title, "active") });
       }
@@ -327,14 +296,7 @@ export const adminNamespaceRouter = router({
     }
   }),
 
-  /**
-   * Takes an enrolment off the active register.
-   *
-   * Marked withdrawn rather than deleted. `attendanceRecords` cascades from
-   * `enrollmentId`, so removing the row would take the student's attendance
-   * history with it, and certificates and fee charges would quietly lose the
-   * enrolment they were raised against.
-   */
+  // Takes an enrolment off the active register.
   removeEnrollment: adminProcedure
     .input(z.object({ enrollmentId: z.number().int().positive() }))
     .mutation(async ({ input, ctx }) => {
@@ -400,21 +362,7 @@ export const adminNamespaceRouter = router({
     return { id: assessment?.id };
   }),
 
-  /**
-   * Takes an assessment out of the catalogue.
-   *
-   * Soft, and not for the usual reason. `assessmentResults` cascades from
-   * `assessmentId`, so deleting the row would take every mark ever recorded
-   * against it - and unlike a mistyped expense, those marks are the only
-   * evidence the practical was sat at all. The row stays, drops out of the
-   * catalogue and the mark sheets, and stops counting towards the weighted
-   * grade a certificate is issued with.
-   *
-   * The marks it holds are counted and returned rather than hidden: a
-   * mistakenly created assessment nobody has marked and one carrying a whole
-   * cohort's exam results are very different things to remove, and the person
-   * pressing the button is owed that difference before they do.
-   */
+  // Takes an assessment out of the catalogue.
   deleteAssessment: permissionProcedure("academics.write")
     .input(z.object({ assessmentId: z.number().int().positive() }))
     .mutation(async ({ input, ctx }) => {
@@ -465,18 +413,7 @@ export const adminNamespaceRouter = router({
       return { id: before.id, title: before.title, marksKept: markCount };
     }),
 
-  /**
-   * Records an application taken in person.
-   *
-   * The public form is the usual way one arrives, but a school also takes
-   * enquiries at the desk and over the phone, and those had nowhere to go: the
-   * only submit procedure lives on the public router, which the dashboard does
-   * not mount. This produces the same row, so a walk-in and a web applicant
-   * move through review identically.
-   *
-   * Gated on `admissions.write` rather than owner-only, because taking down an
-   * application is the admissions officer's job.
-   */
+  // Records an application taken in person.
   createApplication: permissionProcedure("admissions.write")
     .input(
       z.object({
@@ -529,8 +466,7 @@ export const adminNamespaceRouter = router({
       }
 
       const recorded = await db.transaction(async tx => {
-        // Same dedup as the public form, so an applicant already known to the
-        // school does not become a second person record (§34).
+        // Same dedup as the public form.
         await resolvePerson(tx, {
           fullName: input.fullName,
           email,
@@ -567,9 +503,7 @@ export const adminNamespaceRouter = router({
             education: input.education,
             courseId: input.courseId,
             paymentPlan: input.paymentPlan,
-            // The quote this form is signed against, copied for the same reason
-            // as on a public submission: a later price revision must not change
-            // what an admission form already in a folder says.
+            // The quote this form is signed against, copied for the same reason as on a public.
             tuition: course.tuition,
             productFee: course.productFee,
             duration: input.duration || `${course.durationWeeks} weeks`,
@@ -611,19 +545,7 @@ export const adminNamespaceRouter = router({
       return recorded;
     }),
 
-  /**
-   * Corrects an admission form already on file.
-   *
-   * The desk takes these down from a paper form and from people speaking on
-   * the phone, so a misheard surname or a transposed digit is ordinary rather
-   * than exceptional, and re-keying the whole form to fix one field is how a
-   * second wrong copy gets made.
-   *
-   * Deliberately narrower than the form it edits. The reference, the status
-   * and the review history are the file's own record of what happened to it
-   * and are not the desk's to rewrite; approving or declining still goes
-   * through `reviewApplication`, where the applicant gets told.
-   */
+  // Corrects an admission form already on file.
   updateApplication: permissionProcedure("admissions.write")
     .input(
       z.object({
@@ -683,10 +605,7 @@ export const adminNamespaceRouter = router({
         throw new TRPCError({ code: "NOT_FOUND", message: "That programme is unavailable." });
       }
 
-      // The quote is frozen against the programme it was given for, so an edit
-      // that leaves the programme alone must not quietly re-price a form
-      // somebody has already signed. Moving the applicant to a different
-      // programme is a different quote, and takes that programme's price.
+      // The quote is frozen against the programme it was given.
       const movedProgramme = existing.courseId !== input.courseId;
 
       await db
@@ -744,20 +663,7 @@ export const adminNamespaceRouter = router({
       return { id: existing.id, reference: existing.reference, courseTitle: course.title };
     }),
 
-  /**
-   * Takes an admission form off the admissions list.
-   *
-   * Soft, like every other removal here: the row keeps its reference and its
-   * audit trail, and an administrator can put it back. What it must not do is
-   * remove an application somebody has already been admitted on - the student
-   * record, their enrolment and their fees all hang off this row, and the
-   * screens that show them would be left naming a form nobody can open.
-   */
-  /**
-   * Removing an application is held to a higher bar than recording one.
-   * The front desk types applications in and corrects its own typos;
-   * destroying the record of somebody having applied is not part of that.
-   */
+  // Takes an admission form off the admissions list.
   deleteApplication: permissionProcedure("admissions.delete")
     .input(z.object({ applicationId: z.number().int().positive() }))
     .mutation(async ({ input, ctx }) => {
@@ -819,9 +725,7 @@ export const adminNamespaceRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       const db = await dbOrThrow();
-      // Scoped past removed forms like every other read of this table: a
-      // dialog left open over a deletion must not endorse a form that is no
-      // longer on the list.
+      // Scoped past removed forms like every other read of this table.
       const [app] = await db
         .select()
         .from(applications)
@@ -851,14 +755,12 @@ export const adminNamespaceRouter = router({
 
   reviewApplication: permissionProcedure("admissions.review").input(z.object({ applicationId: z.number().int().positive(), status: z.enum(["under_review", "more_information", "approved", "rejected"]), decisionNote: z.string().max(2000).optional() })).mutation(async ({ input, ctx }) => {
     const db = await dbOrThrow();
-    // Removed forms are not reviewable: approving one would open a student
-    // record against a form no screen can show.
+    // Removed forms are not reviewable.
     const [application] = await db.select().from(applications).where(and(eq(applications.id, input.applicationId), isNull(applications.deletedAt))).limit(1);
     if (!application) throw new TRPCError({ code: "NOT_FOUND", message: "Application not found." });
     await db.update(applications).set({ status: input.status, decisionNote: input.decisionNote, reviewedByUserId: ctx.user.id }).where(eq(applications.id, application.id));
 
-    // Carried out of the approval branch below so the message can quote the
-    // new student number when there is one.
+    // Carried out of the approval branch below so the message can quote the new student number.
     let studentNumber: string | null = null;
 
     if (input.status === "approved") {
@@ -866,9 +768,6 @@ export const adminNamespaceRouter = router({
       if (!existing) {
         const accountId = application.userId ?? (application.email ? await findStudentAccountForEmail(db, application.email) : null);
         // Linked to a person like every other route that creates a student.
-        // Without it an approved student who later shops becomes a second
-        // identity, which is the exact duplication resolvePerson exists to
-        // prevent (§34).
         const personId = await resolvePerson(db, {
           fullName: application.fullName,
           email: application.email,
@@ -882,8 +781,7 @@ export const adminNamespaceRouter = router({
         const [student] = await db.insert(studentProfiles).values({ applicationId: application.id, personId, userId: accountId, studentNumber, fullName: application.fullName, email: application.email ?? null, phone: application.phone }).returning({ id: studentProfiles.id });
         if (student?.id) {
           await db.insert(enrollments).values({ studentId: student.id, courseId: application.courseId, status: "active" });
-          // Was a hardcoded `0.00` "Program tuition" row, which is why an
-          // approved applicant arrived owing nothing at all.
+          // Was a hardcoded 0.
           await syncStudentCharges(db, student.id, ctx.user.id);
         }
         if (accountId) {
@@ -895,8 +793,7 @@ export const adminNamespaceRouter = router({
       }
     }
 
-    // "under_review" is an internal step and is deliberately not announced:
-    // an applicant does not need a text saying somebody has opened their form.
+    // "under_review" is an internal step and is deliberately not announced.
     const announcement = {
       approved: "application_approved",
       rejected: "application_rejected",
@@ -974,11 +871,10 @@ export const adminNamespaceRouter = router({
       .orderBy(desc(expenses.expenseDate));
   }),
 
-  /** The pick list behind the expense form, seeded rows and staff-added alike. */
+  // The pick list behind the expense form, seeded rows and staff-added alike.
   expenseCategories: adminProcedure.query(async () => {
     const db = await dbOrThrow();
-    // The seeded categories are this list, so an installation whose first stop
-    // is /finance rather than the dashboard must not find the dropdown empty.
+    // The seeded categories are this list.
     await ensurePlatformBootstrapped(db);
     return db
       .select({ id: expenseCategories.id, key: expenseCategories.key, name: expenseCategories.name })
@@ -987,10 +883,7 @@ export const adminNamespaceRouter = router({
       .orderBy(asc(expenseCategories.name));
   }),
 
-  /**
-   * Adds a category the seed list did not anticipate, so "Other" is a starting
-   * point rather than a dead end.
-   */
+  // Adds a category the seed list did not anticipate.
   addExpenseCategory: adminProcedure
     .input(z.object({ name: z.string().trim().min(2).max(120) }))
     .mutation(async ({ input, ctx }) => {
@@ -998,8 +891,7 @@ export const adminNamespaceRouter = router({
       const name = input.name.trim();
       const key = slugify(name).replaceAll("-", "_").slice(0, 48);
 
-      // Two admins naming the same category at once must not turn into a
-      // unique-key crash for whoever lost the race; both end up on one row.
+      // Two admins naming the same category at once must not turn into a unique.
       const [created] = await db
         .insert(expenseCategories)
         .values({ key, name })
@@ -1024,8 +916,7 @@ export const adminNamespaceRouter = router({
       if (!existing) {
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "The category could not be saved." });
       }
-      // Re-adding a retired name brings it back, rather than failing on a row
-      // the person cannot see and cannot do anything about.
+      // Re-adding a retired name brings it back, rather than failing on a row the person cannot.
       if (!existing.isActive) {
         await db
           .update(expenseCategories)
@@ -1039,7 +930,7 @@ export const adminNamespaceRouter = router({
     .input(
       z.object({
         title: z.string().min(2).max(180),
-        /** A `key` from `expenseCategories`, which staff can add to. */
+        // A key from expenseCategories, which staff can add to.
         category: z.string().trim().min(1).max(48),
         amount: z.number().positive(),
         expenseDate: z.coerce.date(),
@@ -1064,9 +955,7 @@ export const adminNamespaceRouter = router({
         .insert(expenses)
         .values({
           title: input.title,
-          // `expenses.category` is a Postgres enum that cannot grow to fit a
-          // name someone typed today, so anything outside it is filed as
-          // "other" there and identified by `categoryId` instead.
+          // Expenses.
           category: isLegacyExpenseCategory(category.key) ? category.key : "other",
           categoryId: category.id,
           amount: input.amount.toFixed(2),
@@ -1092,10 +981,7 @@ export const adminNamespaceRouter = router({
     return { income, outgoings, net: income - outgoings, outstandingFees: money(outstanding?.total), storeRevenue: money(storeRevenue?.total) };
   }),
 
-  /**
-   * Name-or-number lookup for the payment form. A student number is the thing
-   * on the receipt, but a person at the desk is a name first, so both resolve.
-   */
+  // Name-or-number lookup for the payment form.
   searchStudents: adminProcedure
     .input(z.object({ term: z.string().trim().min(1).max(80) }))
     .query(async ({ input }) => {
@@ -1124,7 +1010,7 @@ export const adminNamespaceRouter = router({
         .limit(10);
     }),
 
-  /** What a chosen student still owes, and the charges the money can go to. */
+  // What a chosen student still owes, and the charges the money can go to.
   studentFees: adminProcedure
     .input(z.object({ studentId: z.number().int().positive() }))
     .query(async ({ input }) => {
@@ -1207,10 +1093,7 @@ export const adminNamespaceRouter = router({
           throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Payment could not be recorded." });
         }
 
-        // Shared with the finance module rather than reimplemented: it writes
-        // the allocation rows and moves `amountPaid`, so the charge list this
-        // form reads back is not left claiming the money is still owed. An
-        // overpayment cascades to the student's other open charges.
+        // Shared with the finance module rather than reimplemented.
         await allocatePayment(tx, {
           paymentId: payment.id,
           studentId: input.studentId,
@@ -1244,7 +1127,7 @@ export const adminNamespaceRouter = router({
     return { id: file?.id, url: stored.url };
   }),
 
-  /** Academic programmes management. */
+  // Academic programmes management.
   courses: permissionProcedure("academics.read")
     .input(
       z
@@ -1556,21 +1439,7 @@ export const adminNamespaceRouter = router({
       });
     }),
 
-  /**
-   * Takes a programme off the books.
-   *
-   * Soft, like removing a student, and for a stronger reason: applications,
-   * enrolments and certificates all point at a course with `on delete
-   * restrict`, so a real DELETE would either be refused by the database or,
-   * where it succeeded, cascade away every intake, module, class, assessment
-   * and fee structure attached to it. Setting `deletedAt` takes the programme
-   * out of the admin list and off the public site - both already filter on it -
-   * while every admission form that quotes it still resolves its title.
-   *
-   * A programme somebody is still studying is refused. Ending a cohort is a
-   * decision about those students, not a side effect of tidying the prospectus,
-   * and closing it to new admissions is the action that was actually wanted.
-   */
+  // Takes a programme off the books.
   deleteCourse: permissionProcedure("academics.write")
     .input(z.object({ id: z.number().int().positive() }))
     .mutation(async ({ input, ctx }) => {
@@ -1586,13 +1455,7 @@ export const adminNamespaceRouter = router({
         throw new TRPCError({ code: "NOT_FOUND", message: "Programme not found." });
       }
 
-      // Paused counts as still on the programme: a student who broke off for a
-      // term has not finished it, and their course must not disappear while
-      // they are away. Completed and withdrawn are history and do not block.
-      //
-      // Only students actually on the register block it. One who has been
-      // removed is not coming to class, and counting them would leave the
-      // programme blocked by somebody no screen can show you.
+      // Paused counts as still on the programme.
       const [enrolled] = await db
         .select({ total: count() })
         .from(enrollments)
@@ -1616,8 +1479,7 @@ export const adminNamespaceRouter = router({
       return db.transaction(async tx => {
         await tx
           .update(courses)
-          // Closed as well as removed: `deletedAt` hides it from the lists that
-          // filter on it, and `isActive` is what the admission paths check.
+          // Closed as well as removed.
           .set({ deletedAt: new Date(), isActive: false, updatedAt: new Date() })
           .where(eq(courses.id, input.id));
 

@@ -4,12 +4,7 @@ import { useCallback, useMemo } from "react";
 import type { PermissionKey } from "@blush/shared/permissions";
 import { trpc } from "@/lib/trpc";
 
-/**
- * The caller permission set, used to decide what the dashboard shows.
- *
- * This is presentation only. Hiding a menu item is a courtesy to the reader;
- * the API refuses the call regardless of what the browser renders.
- */
+// The caller permission set, used to decide what the dashboard shows.
 export function usePermissions() {
   const session = trpc.auth.session.useQuery(undefined, {
     retry: false,

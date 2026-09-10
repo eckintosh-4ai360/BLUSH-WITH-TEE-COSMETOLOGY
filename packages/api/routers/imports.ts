@@ -15,28 +15,9 @@ import { resolvePerson } from "../services/people";
 import { applyStockMovement } from "../services/stock";
 import { permissionProcedure, router } from "../trpc";
 
-/**
- * Bulk import from a spreadsheet.
- *
- * Three things shape the design:
- *
- *   The same procedure previews and commits, switched by `dryRun`. Two
- *   procedures would mean two copies of the validation, and the preview would
- *   eventually promise something the commit did not do.
- *
- *   A row that fails validation is reported and skipped; it does not abort the
- *   file. Someone importing two hundred students should not lose the other
- *   hundred and ninety-nine to one missing phone number — and because the
- *   preview reports exactly what the commit will do, nothing is a surprise.
- *
- *   The commit is one transaction. Validation failures are decided before it
- *   opens, so anything that goes wrong inside it is unexpected, and a
- *   half-imported file is worse than none.
- */
-
-/** What will happen, or did happen, to one row. */
+// Bulk import from a spreadsheet.
 export type RowOutcome = {
-  /** 1-based position in the file, counting the header as row 1. */
+  // 1-based position in the file, counting the header as row 1.
   line: number;
   label: string;
   action: "create" | "update" | "skip" | "error";
@@ -45,7 +26,7 @@ export type RowOutcome = {
 
 const importOptions = {
   dryRun: z.boolean().default(true),
-  /** Whether a row matching an existing record updates it or is left alone. */
+  // Whether a row matching an existing record updates it or is left alone.
   onDuplicate: z.enum(["skip", "update"]).default("skip"),
 };
 
@@ -62,28 +43,17 @@ function summarise(outcomes: RowOutcome[]) {
   };
 }
 
-/**
- * One spreadsheet row, as loose key/value text.
- *
- * Deliberately not a zod object with required fields. A schema that demanded
- * `fullName` would reject the entire request when a single row was missing it,
- * which is exactly the behaviour the per-row reporting below exists to avoid —
- * one incomplete line must cost that line, not the file. Every field is
- * checked individually further down, where a failure has a row number attached
- * to it.
- */
+// One spreadsheet row, as loose key/value text.
 const importRow = z.record(z.string().max(64), z.string().max(1000));
 
 type ImportRow = z.infer<typeof importRow>;
 
-/** Reads a field as trimmed text, treating absent and blank as the same. */
+// Reads a field as trimmed text, treating absent and blank as the same.
 function field(row: ImportRow, key: string): string {
   return (row[key] ?? "").trim();
 }
 
-/* -------------------------------------------------------------------------- */
-/* Students                                                                   */
-/* -------------------------------------------------------------------------- */
+// Students.
 
 const STUDENT_STATUS = [
   "active",
@@ -107,7 +77,7 @@ type ValidStudent = {
   emergencyContactPhone: string | null;
 };
 
-/** A calendar date with no time, so a birthday cannot shift across a timezone. */
+// A calendar date with no time, so a birthday cannot shift across a timezone.
 function parseDate(value: string): Date | null {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (!match) return null;
@@ -132,8 +102,7 @@ export const importsRouter = router({
       const outcomes: RowOutcome[] = [];
       const valid: ValidStudent[] = [];
 
-      // Duplicates within the file itself, which the database cannot catch
-      // until the second insert has already been decided on.
+      // Duplicates within the file itself.
       const seenEmails = new Set<string>();
       const seenNumbers = new Set<string>();
 
@@ -201,8 +170,7 @@ export const importsRouter = router({
         });
       });
 
-      // Looked up in two queries rather than one per row: an import of five
-      // hundred students would otherwise be a thousand round trips.
+      // Looked up in two queries rather than one per row.
       const emails = valid.map(row => row.email);
       const numbers = valid.map(row => row.studentNumber).filter((n): n is string => Boolean(n));
 
@@ -238,9 +206,7 @@ export const importsRouter = router({
       for (const row of valid) {
         const existingId = idByEmail.get(row.email);
 
-        // A student number already used by somebody else is a collision, not a
-        // duplicate: importing it would either fail the unique index or move
-        // the number off the student who holds it.
+        // A student number already used by somebody else is a collision, not a duplicate: importing.
         const numberOwner = row.studentNumber ? idByNumber.get(row.studentNumber) : undefined;
         if (numberOwner !== undefined && numberOwner !== existingId) {
           outcomes.push({
@@ -288,8 +254,7 @@ export const importsRouter = router({
 
       await db.transaction(async tx => {
         for (const row of toCreate) {
-          // Routed through resolvePerson so a customer who already shops with
-          // the school does not become a second person record (§34).
+          // Routed through resolvePerson so a customer who already shops with the school does not.
           const personId = await resolvePerson(tx, {
             fullName: row.fullName,
             email: row.email,
@@ -334,9 +299,7 @@ export const importsRouter = router({
       return summarise(outcomes);
     }),
 
-  /* ------------------------------------------------------------------------ */
-  /* Products                                                                 */
-  /* ------------------------------------------------------------------------ */
+  // Products.
 
   products: permissionProcedure("inventory.write")
     .input(
@@ -365,7 +328,7 @@ export const importsRouter = router({
 
       const seenSkus = new Set<string>();
 
-      /** Accepts "1,200.50" and "GHS 45" as well as "45.00". */
+      // Accepts "1,200.
       const parseMoney = (value: string): number | null => {
         const cleaned = value.replace(/[^\d.-]/g, "");
         if (!cleaned) return null;
@@ -564,8 +527,7 @@ export const importsRouter = router({
             })
             .returning({ id: inventoryItems.id });
 
-          // Opening stock is a movement, not a column write, so the ledger
-          // accounts for every unit on the shelf (§48).
+          // Opening stock is a movement, not a column write, so the ledger accounts for every unit.
           if (item?.id && row.quantityOnHand > 0) {
             await applyStockMovement(tx, {
               inventoryItemId: item.id,

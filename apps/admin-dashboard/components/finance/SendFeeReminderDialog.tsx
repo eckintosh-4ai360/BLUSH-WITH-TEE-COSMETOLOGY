@@ -13,20 +13,13 @@ import {
 import { formatMoney } from "@blush/ui/lib/viz";
 import { trpc } from "@/lib/trpc";
 
-/**
- * Confirms an arrears text before it goes out.
- *
- * A text message cannot be recalled and quotes a figure the student will hold
- * the school to, so the exact wording, the number it is addressed to and the
- * balance it names are all shown first — and all come from the server, from
- * the same code that does the sending.
- */
+// Confirms an arrears text before it goes out.
 export function SendFeeReminderDialog({
   studentId,
   onOpenChange,
   onSent,
 }: {
-  /** Null closes the dialog; a student id opens it for that account. */
+  // Null closes the dialog; a student id opens it for that account.
   studentId: number | null;
   onOpenChange: (open: boolean) => void;
   onSent: (result: { status: string; error: string | null }) => void;

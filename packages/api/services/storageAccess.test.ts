@@ -1,11 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { classifyStorageKey } from "./storageAccess";
 
-/**
- * The classification is what decides whether a file is served without a
- * session, so the cases that matter are the ones where a private key could be
- * mistaken for a public one.
- */
+// The classification is what decides whether a file is served without a session.
 describe("classifyStorageKey", () => {
   const folder = "image/blush-with-tee";
 
@@ -22,8 +18,7 @@ describe("classifyStorageKey", () => {
   });
 
   it("treats certificate scans as their own class", () => {
-    // Not `internal`: a scanned award carries a name and a signature, and a
-    // storefront account has a session.
+    // Not internal: a scanned award carries a name.
     expect(classifyStorageKey(`${folder}/certificates/12/1712-signed_ab12cd34`)).toBe(
       "certificate",
     );
@@ -36,9 +31,7 @@ describe("classifyStorageKey", () => {
   });
 
   it("holds generated reports to a back-office permission", () => {
-    // Not `internal`: that class is satisfied by any session, and a storefront
-    // customer has one. This report names suppliers and unit costs, and its
-    // address goes out by SMS.
+    // Not internal: that class is satisfied by any session, and a storefront customer has one.
     expect(classifyStorageKey(`${folder}/reports/low-stock-2026-09-02_ab12cd34`)).toBe("report");
   });
 

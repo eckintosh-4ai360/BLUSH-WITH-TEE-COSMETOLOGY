@@ -14,7 +14,7 @@ import { announce } from "../services/messaging/announce";
 import { flushInBackground } from "../services/messaging/dispatch";
 import { router, throttledPublicProcedure } from "../trpc";
 
-/** An applicant fills a form once; a script fills it as fast as it can. */
+// An applicant fills a form once; a script fills it as fast as it can.
 const submitLimit = throttledPublicProcedure({ bucket: "admissions.submit", limit: 5, windowMs: 60 * 60_000 });
 const uploadLimit = throttledPublicProcedure({ bucket: "admissions.upload", limit: 20, windowMs: 60 * 60_000 });
 const lookupLimit = throttledPublicProcedure({ bucket: "admissions.lookup", limit: 30, windowMs: 10 * 60_000 });
@@ -85,8 +85,7 @@ export const admissionsRouter = router({
         education: input.education,
         courseId: input.courseId,
         paymentPlan: input.paymentPlan,
-        // The quote the applicant is signing against. Copied now so a later
-        // price revision cannot rewrite an admission form already in a folder.
+        // The quote the applicant is signing against.
         tuition: course.tuition,
         productFee: course.productFee,
         duration: input.duration || `${course.durationWeeks} weeks`,
@@ -103,8 +102,6 @@ export const admissionsRouter = router({
       .returning({ id: applications.id });
 
     // Confirmed to the applicant on the channels the school has switched on.
-    // Queued rather than sent here so a provider outage cannot turn a
-    // successfully filed application into an error on the form.
     await announce(db, {
       type: "application_submitted",
       recipient: {
@@ -160,20 +157,7 @@ export const admissionsRouter = router({
     }).returning({ id: applicationDocuments.id });
     return { documentId: inserted[0]?.id, url: stored.url };
   }),
-  /**
-   * An applicant checking on their own application.
-   *
-   * Public and unauthenticated, so the selected columns are the whole security
-   * boundary. What comes back is what the applicant themselves filled in, plus
-   * the decision if one has been made - enough for them to print the form they
-   * signed, which is the common reason for coming back here.
-   *
-   * What is deliberately absent is the office side of the record: the CEO
-   * endorsement and its signature, who reviewed it, the row id, the linked
-   * account. Those are the school's notes on the applicant, not the
-   * applicant's own submission, and reference-plus-email is a weak enough key
-   * that it should only unlock the latter.
-   */
+  // An applicant checking on their own application.
   lookup: lookupLimit.input(z.object({ reference: z.string().min(6), email: z.string().optional().or(z.literal("")) })).query(async ({ input }) => {
     const db = await dbOrThrow();
     const query = input.email && input.email.trim().length > 0 ? input.email.trim().toLowerCase() : null;
@@ -185,8 +169,7 @@ export const admissionsRouter = router({
       decisionNote: applications.decisionNote,
       courseTitle: courses.title,
 
-      // The fees as quoted at the time, falling back to the programme's
-      // current price for applications filed before the quote was recorded.
+      // The fees as quoted at the time, falling back to the programme's current price.
       tuition: sql<string | null>`coalesce(${applications.tuition}, ${courses.tuition})`,
       productFee: sql<string | null>`coalesce(${applications.productFee}, ${courses.productFee})`,
 

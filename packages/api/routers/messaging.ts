@@ -15,13 +15,7 @@ import { resetEmailTransport, sendEmail, verifyEmail } from "../services/messagi
 import { sendSms } from "../services/messaging/sms";
 import { permissionProcedure, router } from "../trpc";
 
-/**
- * Writes one messaging setting.
- *
- * These rows are created by bootstrap, but an installation that predates this
- * feature will not have them yet, so the row is created if it is missing
- * rather than failing the save.
- */
+// Writes one messaging setting.
 async function saveSetting(
   db: Awaited<ReturnType<typeof dbOrThrow>>,
   key: string,
@@ -41,13 +35,7 @@ async function saveSetting(
 const channelRule = z.object({ email: z.boolean(), sms: z.boolean() });
 
 export const messagingRouter = router({
-  /**
-   * The configuration as the settings page sees it.
-   *
-   * Secrets never leave the server: the API key and app password come back as
-   * a fixed mask with a flag saying whether one is stored, which is all the
-   * page needs to say "configured" without ever holding the value.
-   */
+  // The configuration as the settings page sees it.
   config: permissionProcedure("settings.read").query(async () => {
     const db = await dbOrThrow();
     return {
@@ -62,7 +50,7 @@ export const messagingRouter = router({
         enabled: z.boolean(),
         baseUrl: z.string().trim().url().max(255),
         senderId: z.string().trim().max(11),
-        /** Absent or the mask means "leave the stored key alone". */
+        // Absent or the mask means "leave the stored key alone".
         apiKey: z.string().trim().max(255).optional(),
       }),
     )
@@ -97,8 +85,7 @@ export const messagingRouter = router({
         ctx.user.id,
       );
 
-      // The key itself is never written to the audit log; that it changed is
-      // the part worth recording.
+      // The key itself is never written to the audit log.
       await recordAudit(db, ctx.actor, {
         action: "update_setting",
         entity: "systemSetting",
@@ -130,8 +117,7 @@ export const messagingRouter = router({
     .mutation(async ({ input, ctx }) => {
       const db = await dbOrThrow();
       const current = await readMessagingConfig(db);
-      // Google prints app passwords in four blocks of four; people paste them
-      // as shown and the spaces are not part of the secret.
+      // Google prints app passwords in four blocks of four.
       const supplied = input.appPassword?.replace(/\s+/g, "");
       const appPassword = keepSecret(supplied, current.email.appPassword);
 
@@ -159,8 +145,7 @@ export const messagingRouter = router({
         ctx.user.id,
       );
 
-      // The credentials changed, so the pooled connection built from the old
-      // ones must not be reused.
+      // The credentials changed.
       resetEmailTransport();
 
       await recordAudit(db, ctx.actor, {
@@ -216,14 +201,7 @@ export const messagingRouter = router({
       return { success: true };
     }),
 
-  /**
-   * Sends one message to a chosen address, right now.
-   *
-   * Deliberately bypasses the outbox and reports the provider's answer
-   * verbatim. Setting up SMTP or an SMS sender ID is mostly a matter of
-   * finding out exactly why it is refusing you, and a queued row that quietly
-   * retries is no help with that.
-   */
+  // Sends one message to a chosen address, right now.
   test: permissionProcedure("settings.write")
     .input(
       z.object({
@@ -257,7 +235,7 @@ export const messagingRouter = router({
         : { ok: false as const, detail: result.error };
     }),
 
-  /** Proves the SMTP credentials without sending anything to anybody. */
+  // Proves the SMTP credentials without sending anything to anybody.
   verifyEmail: permissionProcedure("settings.write").mutation(async () => {
     const db = await dbOrThrow();
     const config = await readMessagingConfig(db);
@@ -267,7 +245,7 @@ export const messagingRouter = router({
       : { ok: false as const, detail: result.error };
   }),
 
-  /** Shows a template with the placeholders filled, so wording can be checked. */
+  // Shows a template with the placeholders filled, so wording can be checked.
   preview: permissionProcedure("settings.read")
     .input(z.object({ template: z.string().max(4000) }))
     .query(({ input }) =>
@@ -280,8 +258,7 @@ export const messagingRouter = router({
         amount: "GHS 500.00",
         balance: "Your outstanding balance is GHS 1,200.00.",
         note: "Please send a copy of your certificate.",
-        // The low-stock alert is the one event addressed to the school rather
-        // than to a student, so its placeholders belong here too.
+        // The low-stock alert is the one event addressed to the school rather than to a student, so.
         count: 3,
         items: "- Shea butter 500g (out of stock, reorder at 6)\n- Cotton pads (2 left)",
         topItem: "Shea butter 500g (out of stock, reorder at 6)",
@@ -295,18 +272,13 @@ export const messagingRouter = router({
     return recentDeliveries(db);
   }),
 
-  /** Retries whatever is still waiting, on demand. */
+  // Retries whatever is still waiting, on demand.
   flushQueue: permissionProcedure("settings.write").mutation(async () => {
     const db = await dbOrThrow();
     return flush(db, 50);
   }),
 
-  /**
-   * Puts a message that gave up back in the queue.
-   *
-   * The attempt counter is reset too, otherwise the row would be past its
-   * limit and the next flush would step straight over it.
-   */
+  // Puts a message that gave up back in the queue.
   retry: permissionProcedure("settings.write")
     .input(z.object({ id: z.number().int().positive() }))
     .mutation(async ({ input }) => {

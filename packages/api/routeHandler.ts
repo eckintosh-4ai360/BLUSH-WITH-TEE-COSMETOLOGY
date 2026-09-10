@@ -2,10 +2,7 @@ import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import type { AnyRouter } from "@trpc/server";
 import { createContext } from "./context";
 
-/**
- * Builds the `{ GET, POST }` pair for an app's `app/api/trpc/[trpc]/route.ts`,
- * replacing the old Express `createExpressMiddleware` mount.
- */
+// Builds the { GET, POST } pair for an app's app/api/trpc/[trpc]/route.
 export function createTrpcRouteHandler<TRouter extends AnyRouter>(router: TRouter) {
   const handler = (req: Request) =>
     fetchRequestHandler({

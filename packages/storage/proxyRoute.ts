@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isStorageConfigured, storageGetSignedUrl } from "./index";
 
-/**
- * What the app decided about one request for one storage key.
- *
- * `unauthenticated` and `forbidden` are kept apart so the handler can answer
- * 401 or 403 rather than collapsing both into "no".
- */
+// Access control evaluation outcomes for storage key requests.
 export type StorageAccessDecision = "allow" | "unauthenticated" | "forbidden";
 
 export type StorageAccessCheck = (
@@ -14,17 +9,7 @@ export type StorageAccessCheck = (
   key: string,
 ) => Promise<StorageAccessDecision>;
 
-/**
- * Builds the `/api/manus-storage/[...key]` Route Handler: resolves a signed
- * Cloudinary delivery URL for the requested key and 307-redirects to it.
- *
- * Assets are stored as Cloudinary `authenticated` resources, so this handler
- * is the only way to reach them — which makes it the enforcement point for the
- * app's access rules, not a convenience wrapper. `authorize` is required for
- * exactly that reason: mounting the route without a policy would publish every
- * admissions document to anyone holding a key, so the type system does not
- * allow it.
- */
+// Creates authenticated route handler that redirects valid requests to signed URLs.
 export function createStorageProxyHandler(authorize: StorageAccessCheck) {
   return async function GET(
     request: NextRequest,
@@ -40,7 +25,7 @@ export function createStorageProxyHandler(authorize: StorageAccessCheck) {
     try {
       decision = await authorize(request, key);
     } catch (err) {
-      // A policy that cannot reach the database must refuse, never wave through.
+      // Refuse access on authorization failure.
       console.error("[StorageProxy] authorization failed:", err);
       return NextResponse.json({ error: "Storage proxy error" }, { status: 502 });
     }

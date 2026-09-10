@@ -2,10 +2,7 @@ import { describe, expect, it } from "vitest";
 import { PRODUCT_IMPORT_COLUMNS, STUDENT_IMPORT_COLUMNS } from "@blush/shared/imports";
 import { buildTemplateCsv, mapRows, parseCsv } from "./csv";
 
-/**
- * The cases here are the ones that corrupt a row silently rather than failing
- * loudly — which is how a bad import gets discovered a week later.
- */
+// The cases here are the ones that corrupt a row silently rather than failing loudly —.
 
 describe("parseCsv", () => {
   it("reads a plain file", () => {

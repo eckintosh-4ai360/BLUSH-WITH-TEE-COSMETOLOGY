@@ -41,7 +41,7 @@ export const suppliers = pgTable(
     email: varchar("email", { length: 320 }),
     address: text("address"),
     productsSupplied: text("productsSupplied"),
-    /** Money owed to this supplier, maintained by receipt and payment flows. */
+    // Outstanding payables balance owed to supplier.
     outstandingBalance: numeric("outstandingBalance", { precision: 12, scale: 2 })
       .default("0.00")
       .notNull(),
@@ -57,11 +57,7 @@ export const suppliers = pgTable(
   table => [index("suppliers_name_idx").on(table.name)],
 );
 
-/**
- * One row per stock-keeping item. This is deliberately both the product record
- * and the stock record: a single source of truth means the storefront, the
- * classroom, and the stockroom can never disagree about what is on hand.
- */
+// Single source of truth for stock-keeping and product items.
 export const inventoryItems = pgTable(
   "inventoryItems",
   {
@@ -70,7 +66,7 @@ export const inventoryItems = pgTable(
     slug: varchar("slug", { length: 180 }).unique(),
     name: varchar("name", { length: 180 }).notNull(),
     description: text("description"),
-    /** Legacy free-text category, superseded by categoryId. */
+    // Legacy free-text category maintained alongside categoryId.
     category: varchar("category", { length: 80 }).notNull(),
     categoryId: integer("categoryId").references(() => productCategories.id, {
       onDelete: "set null",
@@ -130,10 +126,7 @@ export const productVariations = pgTable(
   table => [index("product_variations_item_idx").on(table.inventoryItemId)],
 );
 
-/**
- * Append-only stock ledger. Quantity on hand is only ever changed alongside a
- * movement row inside the same transaction, so stock is always explainable.
- */
+// Append-only stock movement audit ledger.
 export const inventoryMovements = pgTable(
   "inventoryMovements",
   {
@@ -143,7 +136,7 @@ export const inventoryMovements = pgTable(
       .references(() => inventoryItems.id, { onDelete: "restrict" }),
     movementType: inventoryMovementType("movementType").notNull(),
     quantityDelta: integer("quantityDelta").notNull(),
-    /** Running balance after this movement, for point-in-time reporting. */
+    // Running stock balance recorded after each movement.
     balanceAfter: integer("balanceAfter"),
     unitCost: numeric("unitCost", { precision: 10, scale: 2 }),
     referenceType: varchar("referenceType", { length: 64 }),

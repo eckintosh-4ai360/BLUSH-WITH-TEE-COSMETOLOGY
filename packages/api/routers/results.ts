@@ -15,38 +15,10 @@ import { gradeForPercent, readGrading, toPercent } from "../services/grading";
 import { ordinal, positionsByScore, tiedPositions } from "../services/ranking";
 import { permissionProcedure, router } from "../trpc";
 
-/**
- * Marking an assessment, and the positions that fall out of it (§25).
- *
- * The unit of work is a whole assessment, not one student at a time: somebody
- * has a stack of marked practicals in front of them and wants to type the room
- * in and save once. That is why `record` takes the sheet rather than a row -
- * the same reason the attendance register does - and why re-marking upserts
- * instead of colliding with the `(assessmentId, studentId)` unique index.
- *
- * Two things are worked out here rather than typed in:
- *
- *   The grade. It comes from the school's own band table, the one certificates
- *   are graded against, so a practical marked "B" and a certificate saying "B"
- *   mean the same thing. A hand-typed letter can disagree with its own score;
- *   a derived one cannot.
- *
- *   The position. Recomputed from the marks every time they are read, never
- *   stored. A stored position is correct until the first mark is corrected and
- *   silently wrong afterwards, and correcting a mark is the ordinary case.
- */
-
-/** One assessment is one room. Past this, something has gone wrong. */
+// Marking an assessment, and the positions that fall out of it.
 const MAX_SHEET_ENTRIES = 300;
 
-/**
- * Who is sitting the assessment.
- *
- * Everyone on the programme it belongs to, active or paused - a pause is
- * usually the reason a mark is missing, so hiding them would hide the gap the
- * sheet exists to show. Withdrawn and completed enrolments are left out, and
- * so is anyone taken off the register.
- */
+// Who is sitting the assessment.
 async function roster(db: DbExecutor, courseId: number) {
   return db
     .select({
@@ -67,7 +39,7 @@ async function roster(db: DbExecutor, courseId: number) {
     .orderBy(asc(studentProfiles.fullName));
 }
 
-/** The assessment plus the programme it is set against, or a 404. */
+// The assessment plus the programme it is set against, or a 404.
 async function assessmentOrThrow(db: DbExecutor, assessmentId: number) {
   const [row] = await db
     .select({
@@ -86,8 +58,6 @@ async function assessmentOrThrow(db: DbExecutor, assessmentId: number) {
     .innerJoin(courses, eq(assessments.courseId, courses.id))
     .leftJoin(courseModules, eq(assessments.moduleId, courseModules.id))
     // A removed assessment cannot be marked, and its sheet cannot be opened.
-    // The marks already on it survive the removal; there is just no way back
-    // in to change them without restoring the assessment first.
     .where(and(eq(assessments.id, assessmentId), isNull(assessments.deletedAt)))
     .limit(1);
 
@@ -98,21 +68,11 @@ async function assessmentOrThrow(db: DbExecutor, assessmentId: number) {
 }
 
 export const resultsRouter = router({
-  /**
-   * The catalogue, with how much of each assessment has been marked.
-   *
-   * The counts are the point: "Practical 1 - 12 of 18 marked" is what tells
-   * somebody which sheet still needs work, and a catalogue that only listed
-   * titles could not say it.
-   */
+  // The catalogue, with how much of each assessment has been marked.
   catalogue: permissionProcedure("results.read").query(async () => {
     const db = await dbOrThrow();
 
-    // Counted with correlated subqueries rather than grouped joins. Two
-    // derived tables would each want to call their count "total", and the
-    // reference to either one is then ambiguous - which Postgres rejects at
-    // run time, not at compile time. The catalogue is one row per assessment,
-    // so there is nothing to gain by being cleverer than this.
+    // Counted with correlated subqueries rather than grouped joins.
     return db
       .select({
         id: assessments.id,
@@ -143,13 +103,7 @@ export const resultsRouter = router({
       .orderBy(asc(courses.title), asc(assessments.title));
   }),
 
-  /**
-   * One assessment's mark sheet: every student sitting it, with their mark and
-   * the position it earns.
-   *
-   * Left-joined on the result so an unmarked student still appears with a null
-   * score. An inner join would hide exactly the people the sheet is for.
-   */
+  // One assessment's mark sheet.
   sheet: permissionProcedure("results.read")
     .input(z.object({ assessmentId: z.number().int().positive() }))
     .query(async ({ input }) => {
@@ -200,8 +154,7 @@ export const resultsRouter = router({
         };
       });
 
-      // Position order, so the sheet reads as a result sheet. The unmarked
-      // gather at the end alphabetically, which is where the work is.
+      // Position order, so the sheet reads as a result sheet.
       rows.sort((a, b) => {
         if (a.position === null && b.position === null) {
           return a.fullName.localeCompare(b.fullName);
@@ -234,13 +187,7 @@ export const resultsRouter = router({
       };
     }),
 
-  /**
-   * Saves a whole mark sheet in one transaction.
-   *
-   * All or nothing, like the register: a half-saved sheet is worse than an
-   * unsaved one because it looks finished, and the positions worked out from
-   * it would be positions in a room that was only partly marked.
-   */
+  // Saves a whole mark sheet in one transaction.
   record: permissionProcedure("results.write")
     .input(
       z.object({
@@ -249,7 +196,7 @@ export const resultsRouter = router({
           .array(
             z.object({
               studentId: z.number().int().positive(),
-              /** Null clears a mark, which is how a wrong entry is undone. */
+              // Null clears a mark, which is how a wrong entry is undone.
               score: z.number().min(0).nullable(),
               instructorComment: z.string().trim().max(2000).optional(),
             }),
@@ -271,8 +218,7 @@ export const resultsRouter = router({
         });
       }
 
-      // A mark above the total is a typo every time, and it would put its
-      // student first on a position list they did not earn.
+      // A mark above the total is a typo every time.
       const over = input.entries.find(
         entry => entry.score !== null && entry.score > assessment.totalScore,
       );
@@ -283,9 +229,7 @@ export const resultsRouter = router({
         });
       }
 
-      // Checked against the register rather than trusting the ids the browser
-      // sent: a student id is a plain integer, and nothing else stops a caller
-      // filing a mark against somebody who is not on this programme.
+      // Checked against the register rather than trusting the ids the browser sent.
       const sitting = new Set((await roster(db, assessment.courseId)).map(row => row.studentId));
       const stranger = ids.find(id => !sitting.has(id));
       if (stranger !== undefined) {
@@ -312,8 +256,7 @@ export const resultsRouter = router({
                   assessmentId: input.assessmentId,
                   studentId: entry.studentId,
                   score: entry.score.toFixed(2),
-                  // Derived, never taken from the client: a typed letter can
-                  // disagree with the score sitting next to it.
+                  // Derived, never taken from the client: a typed letter can disagree with the score sitting.
                   grade: gradeForPercent(percent, grading.bands),
                   instructorComment: entry.instructorComment || null,
                   gradedByUserId: ctx.user.id,
@@ -366,11 +309,7 @@ export const resultsRouter = router({
     }),
 });
 
-/**
- * One student's mark on one assessment, for the single-entry form on the staff
- * screen. Upserts for the same reason the sheet does - the unique index has
- * always said one mark per student per assessment, and re-marking is ordinary.
- */
+// One student's mark on one assessment, for the single-entry form on the staff screen.
 export async function recordOneResult(
   db: DbExecutor,
   input: {

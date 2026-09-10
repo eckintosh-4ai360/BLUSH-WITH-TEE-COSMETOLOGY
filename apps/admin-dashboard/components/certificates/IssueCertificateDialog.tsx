@@ -18,13 +18,7 @@ import { trpc } from "@/lib/trpc";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
-/**
- * Issues a certificate to a student who has completed a course.
- *
- * Only completed enrolments without a certificate are offered, so the common
- * mistakes - awarding twice, or awarding to someone still studying - are not
- * reachable from the interface. The server enforces both regardless.
- */
+// Issues a certificate to a student who has completed a course.
 export function IssueCertificateDialog({
   open,
   onOpenChange,

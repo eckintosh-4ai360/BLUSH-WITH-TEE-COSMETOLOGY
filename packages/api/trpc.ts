@@ -26,15 +26,7 @@ const requireUser = t.middleware(async ({ ctx, next }) => {
 
 export const protectedProcedure = t.procedure.use(requireUser);
 
-/**
- * A public procedure with a per-caller budget.
- *
- * The caller is identified by the forwarded address, which a client behind no
- * trusted proxy can rewrite — so this raises the cost of scraping rather than
- * making it impossible. It belongs here anyway: the endpoints it guards are
- * unauthenticated, and without it a single machine can walk the whole
- * certificate register or fill the applications table overnight.
- */
+// A public procedure with a per-caller budget.
 export function throttledPublicProcedure(rule: RateLimitRule) {
   return t.procedure.use(async ({ ctx, next }) => {
     enforceRateLimit(ctx.ipAddress, rule);
@@ -42,11 +34,7 @@ export function throttledPublicProcedure(rule: RateLimitRule) {
   });
 }
 
-/**
- * Loads the caller permission set once per request and exposes an audit actor
- * built from the same session, so every downstream procedure can both check
- * authorisation and attribute what it writes.
- */
+// Loads the caller permission set once per request.
 const withAccess = t.middleware(async ({ ctx, next }) => {
   if (!ctx.user) {
     throw new TRPCError({ code: "UNAUTHORIZED", message: UNAUTHED_ERR_MSG });
@@ -65,14 +53,10 @@ const withAccess = t.middleware(async ({ ctx, next }) => {
   return next({ ctx: { ...ctx, user: ctx.user, db, access, actor } });
 });
 
-/** Any signed-in account, with its resolved permissions attached. */
+// Any signed-in account, with its resolved permissions attached.
 export const authedProcedure = t.procedure.use(withAccess);
 
-/**
- * Builds a procedure that refuses the call unless the caller holds every one
- * of the listed permissions. This is the enforcement point referred to in §33:
- * hiding the menu item is presentation, this is the control.
- */
+// Builds a procedure that refuses the call unless the caller holds every one of the listed.
 export function permissionProcedure(...required: PermissionKey[]) {
   return authedProcedure.use(async ({ ctx, next }) => {
     for (const permission of required) ctx.access.assert(permission);
@@ -80,7 +64,7 @@ export function permissionProcedure(...required: PermissionKey[]) {
   });
 }
 
-/** Passes when the caller holds at least one of the listed permissions. */
+// Passes when the caller holds at least one of the listed permissions.
 export function anyPermissionProcedure(...required: PermissionKey[]) {
   return authedProcedure.use(async ({ ctx, next }) => {
     if (required.length && !ctx.access.canAny(...required)) {
@@ -110,7 +94,7 @@ const requireStaff = t.middleware(async ({ ctx, next }) => {
 export const studentProcedure = protectedProcedure.use(requireStudent);
 export const staffProcedure = protectedProcedure.use(requireStaff);
 
-/** Staff-portal procedure that also carries permissions and an audit actor. */
+// Staff-portal procedure that also carries permissions and an audit actor.
 export const staffAccessProcedure = authedProcedure.use(async ({ ctx, next }) => {
   if (ctx.user.role !== "staff" && ctx.user.role !== "admin") {
     throw new TRPCError({ code: "FORBIDDEN", message: "Staff access is required." });
@@ -118,10 +102,7 @@ export const staffAccessProcedure = authedProcedure.use(async ({ ctx, next }) =>
   return next({ ctx });
 });
 
-/**
- * Reserved for owner-level operations. Prefer `permissionProcedure` for
- * anything a delegated role should be able to do.
- */
+// Reserved for owner-level operations.
 export const adminProcedure = authedProcedure.use(async ({ ctx, next }) => {
   if (ctx.user.role !== "admin") {
     throw new TRPCError({ code: "FORBIDDEN", message: NOT_ADMIN_ERR_MSG });

@@ -1,9 +1,6 @@
 export { COOKIE_NAME, LOGIN_PATH } from "@blush/shared/const";
 
-/**
- * Sends a signed-out visitor to the sign-in page, remembering where they were
- * headed so they land there after signing in.
- */
+// Redirects unauthenticated visitors to sign-in while preserving destination.
 export function startLogin(returnTo?: string) {
   if (typeof window === "undefined") return;
 

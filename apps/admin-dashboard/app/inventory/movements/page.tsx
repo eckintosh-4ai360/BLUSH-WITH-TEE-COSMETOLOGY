@@ -50,9 +50,9 @@ type MovementRow = {
   note: string | null;
   performedBy: string | null;
   createdAt: Date;
-  /** This row is itself the undo of another movement. */
+  // This row is itself the undo of another movement.
   isReversal: boolean;
-  /** This row has already been undone by a later one. */
+  // This row has already been undone by a later one.
   isReversed: boolean;
 };
 
@@ -75,8 +75,7 @@ function MovementsContent() {
 
   const utils = trpc.useUtils();
 
-  // Shared by the table and by export, so a download covers exactly what the
-  // filters describe rather than the page on screen.
+  // Shared by the table and by export.
   const filters = {
     sortDir: "desc" as const,
     search: search || undefined,
@@ -143,8 +142,7 @@ function MovementsContent() {
           ) : null}
           <span
             className={`font-medium tabular-nums ${
-              // A row that has been undone no longer describes the balance, so
-              // it reads as struck through rather than as stock that moved.
+              // Strikethrough style for reversed stock movement rows.
               row.isReversed
                 ? "text-muted-foreground line-through"
                 : row.quantityDelta > 0
@@ -189,8 +187,7 @@ function MovementsContent() {
             header: "",
             align: "right" as const,
             cell: (row: MovementRow) =>
-              // A reversal, and a row already reversed, have nothing left to
-              // undo. Saying so on the row beats a server error on the click.
+              // A reversal, and a row already reversed, have nothing left to undo.
               row.isReversal || row.isReversed ? null : (
                 <Button
                   variant="ghost"
@@ -276,8 +273,7 @@ function MovementsContent() {
             <AlertDialogAction
               disabled={reverseMovement.isPending}
               onClick={event => {
-                // Confirming holds the dialog open until the server answers, so
-                // a refusal is read where it was asked for.
+                // Confirming holds the dialog open until the server answers.
                 event.preventDefault();
                 if (reversing) reverseMovement.mutate({ movementId: reversing.id });
               }}

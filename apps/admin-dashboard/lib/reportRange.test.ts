@@ -1,13 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { RANGE_OPTIONS, describeRange, resolveRange } from "./reportRange";
 
-/**
- * These bounds decide what every report counts. The cases that matter are the
- * edges: a window that ends at midnight silently drops the day it claims to
- * cover, and one month's start bleeding into another double-counts.
- */
-
-// A fixed "now" in the middle of a month, so nothing depends on the real date.
+// These bounds decide what every report counts.
 const NOW = new Date(2026, 2, 20, 14, 30, 0); // 20 March 2026, 14:30
 
 describe("resolveRange", () => {

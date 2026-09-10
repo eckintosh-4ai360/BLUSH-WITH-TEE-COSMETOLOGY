@@ -1,24 +1,12 @@
 import { TRPCError } from "@trpc/server";
 
-/**
- * Per-caller throttling for the endpoints that answer without a session.
- *
- * This is a fixed window held in process memory. That is honest about what it
- * is: it protects one instance, and it resets on deploy. The durable answer is
- * a limiter at the edge (docs/security.md), but "at the edge, later" left
- * `certificates.verify` open in the meantime — and certificate numbers are
- * sequential by design, so an unthrottled lookup is a way to walk every
- * graduate's name and student number out of the system.
- *
- * Callers that cannot be identified (no forwarded address) share one bucket,
- * which is deliberately strict rather than deliberately generous.
- */
+// Per-caller throttling for the endpoints that answer without a session.
 
 type Window = { count: number; resetAt: number };
 
 const windows = new Map<string, Window>();
 
-/** Stops the map growing without bound on a long-lived process. */
+// Stops the map growing without bound on a long-lived process.
 const SWEEP_EVERY = 5000;
 let sinceSweep = 0;
 
@@ -31,16 +19,13 @@ function sweep(now: number) {
 }
 
 export type RateLimitRule = {
-  /** Distinguishes one endpoint's budget from another's. */
+  // Distinguishes one endpoint's budget from another's.
   bucket: string;
   limit: number;
   windowMs: number;
 };
 
-/**
- * Records one hit and throws `TOO_MANY_REQUESTS` once the budget is spent.
- * Returns the number of attempts left, for callers that want to surface it.
- */
+// Records one hit and throws TOO_MANY_REQUESTS once the budget is spent.
 export function enforceRateLimit(
   identity: string | null | undefined,
   rule: RateLimitRule,
@@ -69,7 +54,7 @@ export function enforceRateLimit(
   return rule.limit - existing.count;
 }
 
-/** Clears every window. Test helper — nothing in the app should call it. */
+// Clears every window.
 export function resetRateLimits() {
   windows.clear();
   sinceSweep = 0;

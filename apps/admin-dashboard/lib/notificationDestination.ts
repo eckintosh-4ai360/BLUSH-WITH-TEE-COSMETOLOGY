@@ -1,12 +1,4 @@
-/**
- * Top-level sections this dashboard actually serves.
- *
- * A notification is written for whoever the event concerns, so the rows an
- * applicant or a customer receives carry client-site links such as `/portal`
- * or `/store`. Those routes do not exist here, and staff do receive such rows
- * — an admin who files an application from the office is its applicant — so
- * pushing the stored link blindly lands on this app's own 404.
- */
+// Top-level sections this dashboard actually serves.
 const ADMIN_SECTIONS = new Set([
   "academics",
   "account",
@@ -25,7 +17,7 @@ const ADMIN_SECTIONS = new Set([
   "suppliers",
 ]);
 
-/** The back-office screen that shows the record a notification is about. */
+// The back-office screen that shows the record a notification is about.
 const BY_ENTITY: Record<string, (entityId: number | null) => string> = {
   application: () => "/admissions",
   certificate: () => "/students/certificates",
@@ -35,7 +27,7 @@ const BY_ENTITY: Record<string, (entityId: number | null) => string> = {
   storeOrder: entityId => (entityId ? `/orders/${entityId}` : "/orders"),
 };
 
-/** Fallback for older rows saved without an entity to point at. */
+// Fallback for older rows saved without an entity to point at.
 const BY_TYPE: Record<string, string> = {
   application_submitted: "/admissions",
   application_approved: "/admissions",
@@ -60,11 +52,7 @@ type NotificationRow = {
   link: string | null;
 };
 
-/**
- * Where clicking a notification should land, or null when this dashboard has
- * nothing to show for it. The stored link wins whenever it names a section
- * that exists here; otherwise the entity it refers to decides.
- */
+// Where clicking a notification should land, or null when this dashboard has nothing.
 export function notificationDestination(row: NotificationRow): string | null {
   const link = row.link?.trim();
   if (link?.startsWith("/")) {

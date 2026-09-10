@@ -18,12 +18,7 @@ export type AuditEntry = {
   summary?: string;
 };
 
-/**
- * Writes one immutable audit row (§44).
- *
- * Pass the transaction handle when auditing something that must not be
- * recorded unless the change itself commits - the log then rolls back with it.
- */
+// Writes one immutable audit row.
 export async function recordAudit(
   db: DbExecutor,
   actor: AuditActor | null,
@@ -44,17 +39,14 @@ export async function recordAudit(
   });
 }
 
-/** Human-readable line for the audit table, e.g. what §44 shows as examples. */
+// Human-readable line for the audit table, e.
 function describe(actor: AuditActor | null, entry: AuditEntry): string {
   const who = actor?.name?.trim() || "System";
   const what = entry.entityLabel ? `${entry.entity} ${entry.entityLabel}` : entry.entity;
   return `${who} performed ${entry.action} on ${what}`.slice(0, 400);
 }
 
-/**
- * Reduces a row to just the fields being changed, so the audit log stores a
- * readable before/after pair rather than two full records.
- */
+// Reduces a row to just the fields being changed.
 export function diffFields<T extends Record<string, unknown>>(
   before: T | null | undefined,
   after: Partial<T>,
@@ -78,7 +70,7 @@ function normalise(value: unknown): unknown {
   return value ?? null;
 }
 
-/** Pulls the caller address and agent off the request for the audit trail. */
+// Pulls the caller address and agent off the request for the audit trail.
 export function requestFingerprint(req: Request | undefined): {
   ipAddress: string | null;
   userAgent: string | null;

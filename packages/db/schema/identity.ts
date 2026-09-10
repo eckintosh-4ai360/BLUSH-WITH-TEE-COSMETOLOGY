@@ -14,11 +14,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { roleKey, userRole } from "./enums";
 
-/**
- * The identity spine. One row per human, whether they arrive as an applicant,
- * a shopper, a student, or a staff member. Every profile table points here so
- * the same person is never stored twice (§34, §47).
- */
+// Canonical person identity record linked across profiles.
 export const people = pgTable(
   "people",
   {
@@ -44,8 +40,7 @@ export const people = pgTable(
     deletedAt: timestamp("deletedAt"),
   },
   table => [
-    // Case-insensitive uniqueness, but only across live rows: a soft-deleted
-    // person must not block re-registration of the same email.
+    // Case-insensitive uniqueness across active non-deleted records.
     uniqueIndex("people_email_unique")
       .on(sql`lower(${table.email})`)
       .where(sql`${table.email} is not null and ${table.deletedAt} is null`),
@@ -63,21 +58,18 @@ export const users = pgTable(
     name: text("name"),
     email: varchar("email", { length: 320 }),
     loginMethod: varchar("loginMethod", { length: 64 }),
-    /**
-     * scrypt digest as `scrypt$N$r$p$salt$hash`. Never a plain password, and
-     * never selected into anything that leaves the server.
-     */
+    // Formatted scrypt password digest.
     passwordHash: varchar("passwordHash", { length: 255 }),
     passwordUpdatedAt: timestamp("passwordUpdatedAt"),
-    /** Set on seeded and reset accounts until the holder picks their own. */
+    // Flag prompting password change on next sign-in.
     mustChangePassword: boolean("mustChangePassword").default(false).notNull(),
-    /** Throttling state, so a stolen email cannot be brute forced. */
+    // Tracked failed sign-in attempts for account lockout.
     failedLoginAttempts: integer("failedLoginAttempts").default(0).notNull(),
     lockedUntil: timestamp("lockedUntil"),
-    /** Coarse portal gate. Real authorisation is the permission set below. */
+    // Portal destination role.
     role: userRole("role").default("user").notNull(),
     isActive: boolean("isActive").default(true).notNull(),
-    /** Reserved for the 2FA rollout described in §45; no secret is stored yet. */
+    // Two-factor authentication status flag.
     twoFactorEnabled: boolean("twoFactorEnabled").default(false).notNull(),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     updatedAt: timestamp("updatedAt")
@@ -101,12 +93,12 @@ export const roles = pgTable("roles", {
   key: roleKey("key").notNull().unique(),
   name: varchar("name", { length: 80 }).notNull(),
   description: varchar("description", { length: 255 }),
-  /** System roles are seeded and cannot be deleted from the admin UI. */
+  // Flag marking protected system roles.
   isSystem: boolean("isSystem").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
-/** Permission keys are `module.action` strings, e.g. `finance.payments.write`. */
+// Granular system permission definitions.
 export const permissions = pgTable(
   "permissions",
   {

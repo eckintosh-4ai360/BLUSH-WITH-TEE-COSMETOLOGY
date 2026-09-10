@@ -6,13 +6,7 @@ import { BadgeCheck, Ban, Search, ShieldQuestion } from "lucide-react";
 import PublicShell from "@/components/PublicShell";
 import { trpc } from "@/lib/trpc";
 
-/**
- * Public certificate verification (§37).
- *
- * Anyone with a certificate number or a QR link can confirm an award here. The
- * page shows only what an employer needs to trust the certificate; nothing
- * else about the student is exposed.
- */
+// Public certificate verification page.
 export default function VerifyPage() {
   return (
     <PublicShell>

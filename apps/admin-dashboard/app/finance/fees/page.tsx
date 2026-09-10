@@ -60,13 +60,7 @@ const STANDINGS = [
   { value: "paid", label: "Settled" },
 ] as const;
 
-/**
- * Says what actually happened, not what was attempted.
- *
- * A run that reached most of the school but not all of it is the normal
- * outcome, and rounding that up to "sent" would hide the students who still
- * have not been told.
- */
+// Says what actually happened, not what was attempted.
 function reportArrearsRun(result: ArrearsRunResult) {
   const skipped = result.skippedNoPhone + result.skippedAlreadySentToday;
   const aside = skipped ? ` ${skipped} skipped.` : "";
@@ -110,18 +104,12 @@ function FeeRegisterContent() {
   const [remindingStudentId, setRemindingStudentId] = useState<number | null>(null);
   const [arrearsRunOpen, setArrearsRunOpen] = useState(false);
 
-  /**
-   * Amounts typed into the rows, keyed by student.
-   *
-   * Held here rather than in each row so a half-typed figure survives the
-   * table re-rendering underneath it - which it does on every refetch.
-   */
+  // Amounts typed into the rows, keyed by student.
   const [intake, setIntake] = useState<Record<number, string>>({});
 
   const utils = trpc.useUtils();
 
-  // Shared by the table and by export, so a download covers exactly what the
-  // filters describe rather than the page on screen.
+  // Shared by the table and by export.
   const filters = { sortDir: "desc" as const, search: search || undefined, standing };
 
   const query = trpc.finance.feeRegister.useQuery({ ...filters, page, pageSize: 25 });
@@ -163,8 +151,7 @@ function FeeRegisterContent() {
       key: "status",
       header: "Status",
       cell: row => {
-        // Nothing billed is its own answer. Calling it "paid" would tell a
-        // clerk the account is settled when in fact it was never raised.
+        // Nothing billed is its own answer.
         if (!row.billedAnything) {
           return (
             <Badge variant="outline" className="text-muted-foreground">
@@ -225,9 +212,7 @@ function FeeRegisterContent() {
           {
             key: "receive",
             header: "Receive payment",
-            // The whole point of the register: take the money on the row you
-            // are already looking at, rather than opening a dialog to re-find
-            // the student you just found.
+            // The whole point of the register.
             cell: (row: RegisterRow) => (
               <span
                 className="flex items-center gap-2"
@@ -274,12 +259,7 @@ function FeeRegisterContent() {
                   <Pencil className="h-3.5 w-3.5" />
                 </Button>
 
-                {/*
-                  Receipt printing moved here with the rest of the intake. It
-                  reprints the student's most recent payment - the one a clerk
-                  is asked to reissue - and is disabled outright when there is
-                  no payment to reprint, rather than producing a blank slip.
-                */}
+                {/* Receipt printing moved here with the rest of the intake. */}
                 <Button
                   variant="ghost"
                   size="sm"
@@ -394,8 +374,7 @@ function FeeRegisterContent() {
         onOpenChange={open => !open && setRemindingStudentId(null)}
         onSent={result => {
           setRemindingStudentId(null);
-          // Only "sent" is a send. A row left "queued" was refused by the
-          // provider and still has retries, which is a failure to report now.
+          // Only "sent" is a send.
           if (result.status === "sent") toast.success("The reminder was sent.");
           else toast.error(result.error ?? "The reminder could not be delivered.");
         }}
@@ -408,8 +387,7 @@ function FeeRegisterContent() {
         onOpenChange={open => !open && setPayingStudentId(null)}
         onRecorded={() => {
           toast.success("Payment recorded and the balance updated.");
-          // The typed figure has been banked; leaving it in the box invites
-          // somebody to press the button a second time.
+          // The typed figure has been banked.
           if (payingStudentId !== null) {
             setIntake(current => {
               const next = { ...current };

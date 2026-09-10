@@ -11,31 +11,20 @@ export type AnnounceInput = {
     name: string;
     email?: string | null;
     phone?: string | null;
-    /** Present only when this person has a sign-in. */
+    // Present only when this person has a sign-in.
     userId?: number | null;
   };
-  /** In-app heading. The email subject comes from the template instead. */
+  // In-app heading.
   title: string;
   body?: string;
-  /** Fills the `{{placeholders}}` in the email and SMS templates. */
+  // Fills the {{placeholders}} in the email and SMS templates.
   facts?: Record<string, string | number | null | undefined>;
   entityType?: string;
   entityId?: number;
   link?: string;
 };
 
-/**
- * Tells one person that something happened, on every channel they are due.
- *
- * The distinction this exists to handle is that most people the school writes
- * to have no account. An applicant is told their application arrived and
- * whether it was accepted long before there is a student record, let alone a
- * sign-in - so the in-app notification is the optional part here, and the
- * email and text are the parts that always apply.
- *
- * Call it inside the transaction that caused the event. Nothing is sent from
- * here; `flushInBackground` does that once the transaction has committed.
- */
+// Tells one person that something happened, on every channel they are due.
 export async function announce(
   db: DbExecutor,
   input: AnnounceInput,
@@ -78,19 +67,13 @@ export async function announce(
   });
 }
 
-/**
- * "Hello Ama," rather than "Hello Ama Serwaa Mensah,".
- *
- * Messages are addressed the way a person at the desk would say it. The full
- * name stays available as `{{fullName}}` for the templates that want it.
- */
+// "Hello Ama," rather than "Hello Ama Serwaa Mensah,".
 export function firstName(fullName: string): string {
   const first = fullName.trim().split(/\s+/)[0];
   return first || fullName.trim();
 }
 
-// Cached for the life of the process: the school's name is read on every
-// message and changes about once.
+// Cached for the life of the process.
 let cachedSchoolName: string | null = null;
 
 export function resetSchoolNameCache(): void {

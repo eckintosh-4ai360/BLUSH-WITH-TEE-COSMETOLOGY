@@ -29,10 +29,7 @@ export const staffProfiles = pgTable(
     email: varchar("email", { length: 320 }),
     photoKey: varchar("photoKey", { length: 512 }),
     employmentDate: date("employmentDate", { mode: "date" }),
-    /**
-     * Compensation. Never selected into a response unless the caller holds
-     * `staff.salary.read`, which only finance and ownership roles carry (§32).
-     */
+    // Confidential staff salary amount.
     salary: numeric("salary", { precision: 12, scale: 2 }),
     status: staffStatus("status").default("active").notNull(),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
@@ -45,7 +42,7 @@ export const staffProfiles = pgTable(
   table => [index("staff_profiles_status_idx").on(table.status)],
 );
 
-/** Which courses and classes a staff member may teach or mark. */
+// Course and class assignments for instructors and teaching staff.
 export const staffAssignments = pgTable(
   "staffAssignments",
   {

@@ -25,7 +25,7 @@ type ScannedCertificate = {
   courseTitle: string;
 };
 
-/** Mirrors the server's own ceiling, so an oversized file fails before upload. */
+// Mirrors the server's own ceiling, so an oversized file fails before upload.
 const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
 const ACCEPTED = "application/pdf,image/jpeg,image/png,image/webp";
 
@@ -44,14 +44,7 @@ function formatSize(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-/**
- * The scanned copies filed against one certificate.
- *
- * What the app prints is generated from the record; what the school hands over
- * is paper that was signed and stamped, and often signed back by the student
- * on collection. This is where those scans are filed and read back, so the
- * office copy is reachable from the certificate itself.
- */
+// The scanned copies filed against one certificate.
 export function CertificateScansDialog({
   certificate,
   onOpenChange,

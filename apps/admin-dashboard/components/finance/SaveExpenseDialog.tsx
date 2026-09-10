@@ -40,10 +40,7 @@ const CATEGORIES = [
 
 const METHODS = ["cash", "mobile_money", "bank", "card", "online"] as const;
 
-/**
- * The school and the salon-with-store keep separate books, so every cost has
- * to say which side of the house it came out of.
- */
+// The school and the salon.
 const SCOPES = [
   { value: "school", label: "School" },
   { value: "store", label: "Store" },
@@ -53,12 +50,12 @@ type Scope = (typeof SCOPES)[number]["value"];
 
 const today = () => new Date().toISOString().slice(0, 10);
 
-/** The fields an edit fills back in. Everything else is set by the server. */
+// The fields an edit fills back in.
 export type EditableExpense = {
   id: number;
   title: string;
   category: string;
-  /** The category as filed - a custom name, or the enum when there is none. */
+  // The category as filed - a custom name, or the enum when there is none.
   categoryLabel?: string | null;
   amount: number;
   expenseDate: Date | string;
@@ -72,7 +69,7 @@ export type EditableExpense = {
 const asDateInput = (value: Date | string) =>
   new Date(value).toISOString().slice(0, 10);
 
-/** Falls back rather than throwing: an older row may hold a value since retired. */
+// Falls back rather than throwing.
 const asOption = <T extends readonly string[]>(
   options: T,
   value: string | undefined,
@@ -88,13 +85,13 @@ export function SaveExpenseDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;
-  /** Present when correcting an existing expense rather than recording one. */
+  // Present when correcting an existing expense rather than recording one.
   editing?: EditableExpense | null;
 }) {
   const { can } = usePermissions();
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<(typeof CATEGORIES)[number]>("other");
-  /** Only meaningful under "other"; the server ignores it otherwise. */
+  // Only meaningful under "other"; the server ignores it otherwise.
   const [customCategory, setCustomCategory] = useState("");
   const [scope, setScope] = useState<Scope>("school");
   const [amount, setAmount] = useState("");
@@ -104,14 +101,12 @@ export function SaveExpenseDialog({
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  // Seeded when it opens rather than when it closes, so reopening on a
-  // different row never shows the previous one's figures for a frame.
+  // Seeded when it opens rather than when it closes.
   useEffect(() => {
     if (!open) return;
     setTitle(editing?.title ?? "");
     setCategory(asOption(CATEGORIES, editing?.category, "other"));
-    // An expense already filed under a named category reopens showing that
-    // name, not an empty box that would blank it on save.
+    // An expense already filed under a named category reopens showing that name, not an empty.
     setCustomCategory(
       editing && editing.categoryLabel && editing.categoryLabel !== editing.category
         ? editing.categoryLabel
@@ -223,11 +218,7 @@ export function SaveExpenseDialog({
               </Select>
             </div>
 
-            {/*
-              "Other" on its own records that nobody knew where to file the
-              money. Naming it here turns the entry into a real category, which
-              is then offered to whoever records the next one.
-            */}
+            {/* "Other" on its own records that nobody knew where to file the money. */}
             {category === "other" ? (
               <div className="space-y-2 sm:col-span-2">
                 <Label htmlFor="expense-category-name">What kind of expense?</Label>

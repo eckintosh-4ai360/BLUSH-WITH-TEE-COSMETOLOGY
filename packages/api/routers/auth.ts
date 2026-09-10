@@ -21,11 +21,7 @@ import {
   throttledPublicProcedure,
 } from "../trpc";
 
-/**
- * Per-account lockout already stops eight guesses at one inbox. This stops the
- * other shape of the same attack: one password tried against many addresses,
- * which never trips a per-account counter.
- */
+// Per-account lockout already stops eight guesses at one inbox.
 const loginLimit = throttledPublicProcedure({ bucket: "auth.login", limit: 20, windowMs: 15 * 60_000 });
 
 export const authRouter = router({
@@ -36,12 +32,7 @@ export const authRouter = router({
     return safe;
   }),
 
-  /**
-   * Email and password sign-in.
-   *
-   * On the first call against an empty system this also creates the owner
-   * account, so a fresh install can be signed into without a console step.
-   */
+  // Email and password sign-in.
   login: loginLimit
     .input(
       z.object({
@@ -125,11 +116,7 @@ export const authRouter = router({
       return { success: true } as const;
     }),
 
-  /**
-   * The signed-in account plus the permissions it actually holds, so the
-   * dashboard can render the right navigation. This is a convenience for the
-   * UI - every procedure re-checks the same permissions server-side.
-   */
+  // The signed-in account plus the permissions it actually holds, so the dashboard can render.
   session: authedProcedure.query(({ ctx }) => ({
     user: {
       id: ctx.user.id,

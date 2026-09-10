@@ -12,11 +12,7 @@ export type StudentAccount = {
   outstanding: number;
 };
 
-/**
- * The student account equation from §24, computed from real rows:
- *
- *   Total Fees - Discounts + Additional Charges - Payments = Outstanding
- */
+// The student account equation from, computed from real rows: Total Fees - Discounts +.
 export async function studentAccountSummary(
   db: DbExecutor,
   studentId: number,
@@ -73,23 +69,13 @@ export type AllocatableCharge = {
 export type AllocationLine = {
   feeChargeId: number;
   amountMinor: number;
-  /** What the charge total becomes once this line is applied. */
+  // What the charge total becomes once this line is applied.
   paidAfterMinor: number;
   dueMinor: number;
   settled: boolean;
 };
 
-/**
- * Decides how one payment is spread across the charges it settles.
- *
- * Pure on purpose: this is the arithmetic the whole fee system rests on, so it
- * is kept free of database access and tested directly. `allocatePayment` does
- * the reading and writing around it.
- *
- * Charges are settled in the order given (oldest due date first), except that
- * an explicitly chosen charge is pulled to the front. Any surplus beyond what
- * is owed is left unallocated and reported as `unallocatedMinor`.
- */
+// Decides how one payment is spread across the charges it settles.
 export function planAllocation(
   charges: AllocatableCharge[],
   amountMinor: number,
@@ -132,20 +118,14 @@ export function planAllocation(
   return { lines, unallocatedMinor: remaining };
 }
 
-/**
- * Spreads a payment across the charges it settles and moves each to its
- * correct status. Allocation is the only thing that may write
- * `feeCharges.amountPaid`.
- *
- * Must run inside the same transaction as the payment insert.
- */
+// Spreads a payment across the charges it settles and moves each to its correct status.
 export async function allocatePayment(
   db: DbExecutor,
   input: {
     paymentId: number;
     studentId: number;
     amountMinor: number;
-    /** Settle this charge first; the remainder cascades to the rest. */
+    // Settle this charge first; the remainder cascades to the rest.
     preferredFeeChargeId?: number | null;
   },
 ): Promise<Array<{ feeChargeId: number; amountMinor: number }>> {
@@ -183,10 +163,7 @@ export async function allocatePayment(
   return lines.map(line => ({ feeChargeId: line.feeChargeId, amountMinor: line.amountMinor }));
 }
 
-/**
- * Bills the configured fees for an enrolment. Called once when an application
- * is approved, so a new student starts with a correct, itemised account.
- */
+// Bills the configured fees for an enrolment.
 export async function raiseChargesFromStructure(
   db: DbExecutor,
   input: {
@@ -229,7 +206,7 @@ function addDays(date: Date, days: number): Date {
   return next;
 }
 
-/** Guards against a refund exceeding what was actually collected. */
+// Guards against a refund exceeding what was actually collected.
 export function assertRefundable(paidMinor: number, alreadyRefundedMinor: number, requestMinor: number) {
   if (requestMinor <= 0) {
     throw new TRPCError({ code: "BAD_REQUEST", message: "Refund amount must be positive." });

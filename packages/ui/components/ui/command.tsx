@@ -35,8 +35,7 @@ function CommandDialog({
   children,
   className,
   showCloseButton = true,
-  // Forwarded to the inner Command. Callers whose results are already filtered
-  // server-side pass `shouldFilter={false}` so cmdk does not filter them again.
+  // Pass shouldFilter=false when results are pre-filtered on the server.
   shouldFilter,
   filter,
   ...props

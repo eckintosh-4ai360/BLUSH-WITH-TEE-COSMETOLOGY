@@ -42,9 +42,7 @@ export const staffRouter = router({
   }),
   recordAttendance: staffProcedure.input(z.object({ enrollmentId: z.number().int().positive(), classDate: z.coerce.date(), status: z.enum(["present", "late", "absent", "excused"]), note: z.string().max(255).optional() })).mutation(async ({ input, ctx }) => {
     const db = await dbOrThrow();
-    // Upserts: `(enrollmentId, classDate)` is unique, so correcting a mark or
-    // marking a latecomer would otherwise fail on the constraint rather than
-    // update the row the index was added to keep singular.
+    // Upserts: (enrollmentId, classDate) is unique, so correcting a mark or marking a latecomer.
     await db
       .insert(attendanceRecords)
       .values({ ...input, recordedByUserId: ctx.user.id })
@@ -78,9 +76,7 @@ export const staffRouter = router({
   }),
   enrollments: staffProcedure.query(async () => {
     const db = await dbOrThrow();
-    // A student removed from the register takes their enrolments with them:
-    // the row survives the soft delete, so it has to be excluded here or the
-    // register keeps teaching someone who is no longer on file.
+    // A student removed from the register takes their enrolments with them.
     return db.select({ enrollment: enrollments, studentName: studentProfiles.fullName, courseTitle: courses.title }).from(enrollments).innerJoin(studentProfiles, eq(enrollments.studentId, studentProfiles.id)).innerJoin(courses, eq(enrollments.courseId, courses.id)).where(and(eq(enrollments.status, "active"), isNull(studentProfiles.deletedAt)));
   }),
   assessments: staffProcedure.query(async () => {
@@ -100,15 +96,7 @@ export const staffRouter = router({
     await db.update(applications).set({ status: input.status, reviewedByUserId: ctx.user.id }).where(eq(applications.id, input.applicationId));
     return { success: true };
   }),
-  /**
-   * One mark, for the single-student form on this screen. The whole-sheet
-   * version lives on `results.record`.
-   *
-   * The grade is no longer accepted from the caller: it is worked out from the
-   * score against the school's band table, so a mark and its letter cannot
-   * disagree. Re-marking updates in place rather than colliding with the
-   * `(assessmentId, studentId)` unique index, which is what a plain insert did.
-   */
+  // One mark, for the single-student form on this screen.
   recordResult: staffProcedure.input(z.object({ assessmentId: z.number().int().positive(), studentId: z.number().int().positive(), score: z.number().min(0), instructorComment: z.string().max(2000).optional() })).mutation(async ({ input, ctx }) => {
     const db = await dbOrThrow();
     return recordOneResult(db, { ...input, gradedByUserId: ctx.user.id });

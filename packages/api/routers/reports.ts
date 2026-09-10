@@ -29,25 +29,7 @@ import {
 } from "../services/pagination";
 import { permissionProcedure, router } from "../trpc";
 
-/**
- * The standard report set (§42, §65).
- *
- * Every report is a summary rather than a feed: the activity feeds already
- * exist as their own screens, and duplicating them here would mean two places
- * to keep correct. What these add is the arithmetic across rows — collected
- * against billed, revenue against expenses, present against sessions held.
- *
- * Two rules hold throughout:
- *
- *   Reports are read-only and never cache. A figure on a report is computed
- *   from the same rows the ledger screens show, at the moment it is asked for.
- *
- *   Every one is gated on `reports.read` *and* the permission for the data it
- *   reads, so being allowed to run reports is not a way around not being
- *   allowed to see salaries, or fees, or attendance.
- */
-
-/** A date window. Both ends optional; absent means unbounded. */
+// The standard report set,.
 const rangeInput = z.object({
   dateFrom: z.coerce.date().optional(),
   dateTo: z.coerce.date().optional(),
@@ -55,11 +37,7 @@ const rangeInput = z.object({
 
 type Range = z.infer<typeof rangeInput>;
 
-/**
- * Reversals are stored as negative counter-entries rather than deletions
- * (§29), so a plain SUM already nets refunds off. Nothing here needs to filter
- * them out — and filtering them out would overstate income.
- */
+// Reversals are stored as negative counter.
 function revenueWindow(range: Range) {
   return and(
     range.dateFrom ? gte(revenueTransactions.occurredAt, range.dateFrom) : undefined,
@@ -67,7 +45,7 @@ function revenueWindow(range: Range) {
   );
 }
 
-/** Rejected expenses are proposals that were turned down, not money spent. */
+// Rejected expenses are proposals that were turned down, not money spent.
 function expenseWindow(range: Range) {
   return and(
     ne(expenses.approvalStatus, "rejected"),
@@ -79,17 +57,7 @@ function expenseWindow(range: Range) {
 const MONTH = sql`date_trunc('month', ${revenueTransactions.occurredAt})`;
 
 export const reportsRouter = router({
-  /* ---------------------------------------------------------------------- */
-  /* Finance                                                                */
-  /* ---------------------------------------------------------------------- */
-
-  /**
-   * Income against expenses, month by month.
-   *
-   * Built by full-joining two independent aggregates rather than joining the
-   * underlying rows: revenue and expenses share no key, and joining them would
-   * multiply every revenue line by the number of expenses in its month.
-   */
+  // Finance Income against expenses, month by month.
   incomeVsExpenses: permissionProcedure("reports.read", "finance.read")
     .input(rangeInput)
     .query(async ({ input }) => {
@@ -145,10 +113,7 @@ export const reportsRouter = router({
       return { rows, totals };
     }),
 
-  /**
-   * Profit and loss for one window: where the money came from, where it went,
-   * and what is left.
-   */
+  // Profit and loss for one window.
   profitAndLoss: permissionProcedure("reports.read", "finance.read")
     .input(rangeInput)
     .query(async ({ input }) => {
@@ -197,14 +162,7 @@ export const reportsRouter = router({
       };
     }),
 
-  /**
-   * Fee collection by programme: billed against collected.
-   *
-   * Charges carry `amountPaid` maintained by the allocator, so collection is
-   * read off the charge rather than re-derived from payment rows — the two
-   * agree by construction, and only one of them knows which charge a part
-   * payment settled.
-   */
+  // Fee collection by programme.
   feeCollection: permissionProcedure("reports.read", "fees.read")
     .input(rangeInput)
     .query(async ({ input }) => {
@@ -260,18 +218,7 @@ export const reportsRouter = router({
       };
     }),
 
-  /* ---------------------------------------------------------------------- */
-  /* School                                                                 */
-  /* ---------------------------------------------------------------------- */
-
-  /**
-   * Per-course performance: how many enrolled, how many finished, and how they
-   * scored.
-   *
-   * Enrolment and result counts are gathered separately for the same reason as
-   * income and expenses above — one student with six results would otherwise
-   * be counted six times in the enrolment column.
-   */
+  // School Per-course performance: how many enrolled, how many finished, and how they scored.
   coursePerformance: permissionProcedure("reports.read", "academics.read")
     .input(rangeInput)
     .query(async ({ input }) => {
@@ -298,8 +245,7 @@ export const reportsRouter = router({
           .select({
             courseId: assessments.courseId,
             results: count(),
-            // Scored out of the assessment's own total, so courses marked out
-            // of 50 and out of 100 are comparable.
+            // Scored out of the assessment's own total.
             averagePercent: sql<string>`avg(${assessmentResults.score} * 100.0 / nullif(${assessments.totalScore}, 0))`,
           })
           .from(assessmentResults)
@@ -350,13 +296,7 @@ export const reportsRouter = router({
       };
     }),
 
-  /**
-   * Attendance per student, against the minimum the school sets.
-   *
-   * `excused` counts as neither present nor a missed session: it is an
-   * authorised absence, and holding it against a rate would punish the student
-   * for something already approved.
-   */
+  // Attendance per student, against the minimum the school sets.
   attendance: permissionProcedure("reports.read", "attendance.read")
     .input(listInputSchema)
     .query(async ({ input }) => {
@@ -377,9 +317,7 @@ export const reportsRouter = router({
       const grouped = db
         .select({
           studentId: enrollments.studentId,
-          // Every raw-SQL column in a subquery needs an explicit alias: without
-          // one, reading it back off `grouped` below throws at query time even
-          // though the types line up.
+          // Every raw-SQL column in a subquery needs an explicit alias.
           sessions: count().as("sessions"),
           present: sql<number>`count(*) filter (where ${attendanceRecords.status} = 'present')`.as("present"),
           late: sql<number>`count(*) filter (where ${attendanceRecords.status} = 'late')`.as("late"),
@@ -388,8 +326,7 @@ export const reportsRouter = router({
         })
         .from(attendanceRecords)
         .innerJoin(enrollments, eq(attendanceRecords.enrollmentId, enrollments.id))
-        // Joined inside the grouping because the search filters on the student,
-        // and a predicate cannot reference a table the subquery never reads.
+        // Joined inside the grouping because the search filters on the student.
         .innerJoin(studentProfiles, eq(enrollments.studentId, studentProfiles.id))
         .where(where)
         .groupBy(enrollments.studentId)
@@ -434,7 +371,7 @@ export const reportsRouter = router({
       );
     }),
 
-  /** Everyone who has been awarded a certificate, newest first. */
+  // Everyone who has been awarded a certificate, newest first.
   graduates: permissionProcedure("reports.read", "certificates.read")
     .input(listInputSchema)
     .query(async ({ input }) => {
@@ -484,18 +421,7 @@ export const reportsRouter = router({
       return paginate(rows, Number(total?.total ?? 0), input);
     }),
 
-  /* ---------------------------------------------------------------------- */
-  /* Stock and commerce                                                     */
-  /* ---------------------------------------------------------------------- */
-
-  /**
-   * What the stock on hand is worth, at cost and at retail.
-   *
-   * Retail value is only meaningful for items actually offered for sale, so
-   * classroom consumables contribute to the cost column and not the retail
-   * one. Reporting them at a selling price they will never be sold at would
-   * inflate the figure.
-   */
+  // Stock and commerce What the stock on hand is worth, at cost and at retail.
   stockValuation: permissionProcedure("reports.read", "inventory.read")
     .input(listInputSchema)
     .query(async ({ input }) => {
@@ -575,12 +501,7 @@ export const reportsRouter = router({
       };
     }),
 
-  /**
-   * Which products actually sell.
-   *
-   * Cancelled orders are excluded — an order that was placed and withdrawn is
-   * not a sale, and counting it would overstate both units and revenue.
-   */
+  // Which products actually sell.
   productSales: permissionProcedure("reports.read", "orders.read")
     .input(listInputSchema)
     .query(async ({ input }) => {

@@ -16,12 +16,7 @@ import { Label } from "@blush/ui/components/ui/label";
 import { Textarea } from "@blush/ui/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
 
-/**
- * Adds a product category without leaving the item form.
- *
- * Categories previously only arrived through an import or the seed, so a fresh
- * install offered an empty dropdown and no way to fill it.
- */
+// Adds a product category without leaving the item form.
 export function SaveCategoryDialog({
   open,
   onOpenChange,

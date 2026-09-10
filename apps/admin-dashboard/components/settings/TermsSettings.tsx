@@ -221,7 +221,7 @@ export function TermsSettings({ readOnly }: { readOnly: boolean }) {
         )}
       </div>
 
-      {/* Rules list */}
+      {/* Rules list. */}
       <div className="mt-6 space-y-4">
         <div className="flex items-center justify-between">
           <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
@@ -310,7 +310,7 @@ export function TermsSettings({ readOnly }: { readOnly: boolean }) {
           ))}
         </div>
 
-        {/* Footer Disclaimer */}
+        {/* Footer Disclaimer. */}
         <div className="pt-4 border-t border-border/50">
           <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5 mb-2">
             <AlertTriangle className="h-4 w-4 text-amber-600" />

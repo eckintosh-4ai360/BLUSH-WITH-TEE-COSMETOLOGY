@@ -101,7 +101,7 @@ export const ordersRouter = router({
       };
     }),
 
-  /** Everything the order page in §51 shows, in one round trip. */
+  // Everything the order page in shows, in one round trip.
   detail: permissionProcedure("orders.read")
     .input(z.object({ orderId: z.number().int().positive() }))
     .query(async ({ input }) => {
@@ -165,11 +165,7 @@ export const ordersRouter = router({
       };
     }),
 
-  /**
-   * Moves an order along its lifecycle. The transition is validated against
-   * the state machine, the timeline gets an entry, and cancelling returns any
-   * stock that was reserved (§50, §51, §64).
-   */
+  // Moves an order along its lifecycle.
   updateStatus: permissionProcedure("orders.write")
     .input(
       z.object({
@@ -258,12 +254,7 @@ export const ordersRouter = router({
       });
     }),
 
-  /**
-   * Books an offline payment against an order.
-   *
-   * Confirming payment is what deducts stock, and `stockDeductedAt` makes that
-   * idempotent - a second confirmation cannot take the units twice (§50).
-   */
+  // Books an offline payment against an order.
   recordPayment: permissionProcedure("orders.write", "payments.write")
     .input(
       z.object({
@@ -276,9 +267,7 @@ export const ordersRouter = router({
     .mutation(async ({ input, ctx }) => {
       const db = await dbOrThrow();
       const amountMinor = toMinor(input.amount);
-      // Set inside the transaction, acted on after it: paying for an order is
-      // what takes its stock off the shelf, and that is where an item can hit
-      // its reorder level.
+      // Set inside the transaction, acted on after it: paying for an order is what takes its.
       let stockWentLow = false;
 
       const settled = await db.transaction(async tx => {
@@ -363,7 +352,7 @@ export const ordersRouter = router({
       return settled;
     }),
 
-  /** Refund with an optional restock, as a counter-entry rather than an edit. */
+  // Refund with an optional restock, as a counter-entry rather than an edit.
   refund: permissionProcedure("orders.write", "payments.write")
     .input(
       z.object({
@@ -479,10 +468,7 @@ export const ordersRouter = router({
     }),
 });
 
-/**
- * Recomputes a customer lifetime totals from their paid orders. Derived rather
- * than incremented, so a refund or correction cannot leave the rollup drifting.
- */
+// Recomputes a customer lifetime totals from their paid orders.
 async function refreshCustomerTotals(
   tx: Parameters<Parameters<Awaited<ReturnType<typeof dbOrThrow>>["transaction"]>[0]>[0],
   customerId: number,

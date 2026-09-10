@@ -15,7 +15,7 @@ function Textarea({
   // Get dialog composition context if available (will be no-op if not inside Dialog)
   const dialogComposition = useDialogComposition();
 
-  // Add composition event handlers to support input method editor (IME) for CJK languages.
+  // Handle composition events for IME input.
   const {
     onCompositionStart: handleCompositionStart,
     onCompositionEnd: handleCompositionEnd,
@@ -25,9 +25,7 @@ function Textarea({
       // Check if this is an Enter key that should be blocked
       const isComposing = (e.nativeEvent as any).isComposing || dialogComposition.justEndedComposing();
 
-      // If Enter key is pressed while composing or just after composition ended,
-      // don't call the user's onKeyDown (this blocks the business logic)
-      // Note: For textarea, Shift+Enter should still work for newlines
+      // Prevent submitting while IME composition is active.
       if (e.key === "Enter" && !e.shiftKey && isComposing) {
         return;
       }
@@ -40,10 +38,9 @@ function Textarea({
       onCompositionStart?.(e);
     },
     onCompositionEnd: e => {
-      // Mark that composition just ended - this helps handle the Enter key that confirms input
+      // Track composition completion.
       dialogComposition.markCompositionEnd();
-      // Delay setting composing to false to handle Safari's event order
-      // In Safari, compositionEnd fires before the ESC keydown event
+      // Delay clearing composition state to ensure correct event ordering.
       setTimeout(() => {
         dialogComposition.setComposing(false);
       }, 100);

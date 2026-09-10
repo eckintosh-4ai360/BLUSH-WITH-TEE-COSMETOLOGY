@@ -1,12 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { notificationDestination } from "./notificationDestination";
 
-/**
- * Notifications are addressed to whoever an event concerns, not to whoever is
- * reading them, so a row written for an applicant or a customer carries a link
- * into the client site. Following one from this dashboard used to land on its
- * own 404, which is what these cases are here to keep out.
- */
+// Notifications are addressed to whoever an event concerns, not to whoever is reading them.
 
 const row = (overrides: Partial<Parameters<typeof notificationDestination>[0]> = {}) => ({
   type: "general",

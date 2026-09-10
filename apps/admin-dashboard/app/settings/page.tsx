@@ -108,7 +108,7 @@ function SettingsContent() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 pb-12">
-      {/* Page Header */}
+      {/* Page Header. */}
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/60 pb-5">
         <div>
           <div className="flex items-center gap-2">
@@ -124,7 +124,7 @@ function SettingsContent() {
           </p>
         </div>
 
-        {/* Quick Search */}
+        {/* Quick Search. */}
         <div className="relative w-full sm:w-64">
           <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -136,7 +136,7 @@ function SettingsContent() {
         </div>
       </header>
 
-      {/* Category Navigation Cards */}
+      {/* Category Navigation Cards. */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
         {CATEGORIES.map(cat => {
           const Icon = cat.icon;
@@ -185,7 +185,7 @@ function SettingsContent() {
         })}
       </div>
 
-      {/* Loading Skeleton */}
+      {/* Loading Skeleton. */}
       {query.isLoading ? (
         <div className="space-y-4">
           <Skeleton className="h-20 w-full rounded-2xl" />
@@ -193,7 +193,7 @@ function SettingsContent() {
         </div>
       ) : null}
 
-      {/* Active Category Header Banner */}
+      {/* Active Category Header Banner. */}
       {!query.isLoading && (
         <CategoryHeader
           icon={currentCategoryMeta.icon}
@@ -202,10 +202,10 @@ function SettingsContent() {
         />
       )}
 
-      {/* Category Content Panels */}
+      {/* Category Content Panels. */}
       {!query.isLoading && (
         <div className="space-y-4">
-          {/* 1. School Identity */}
+          {/* 1. */}
           {activeCategory === "school" && (
             <div className="space-y-4">
               {(groupsByCategory["school"] ?? [])
@@ -228,17 +228,17 @@ function SettingsContent() {
             </div>
           )}
 
-          {/* 2. Policies & Terms */}
+          {/* 2. */}
           {activeCategory === "terms" && (
             <TermsSettings readOnly={!can("settings.write")} />
           )}
 
-          {/* 3. Messaging & Alerts */}
+          {/* 3. */}
           {activeCategory === "messaging" && (
             <MessagingSettings readOnly={!can("settings.write")} />
           )}
 
-          {/* 4. Academics & Certs */}
+          {/* 4. */}
           {activeCategory === "academic" && (
             <div className="space-y-4">
               {(groupsByCategory["academic"] ?? [])
@@ -261,7 +261,7 @@ function SettingsContent() {
             </div>
           )}
 
-          {/* 5. Finance & Receipts */}
+          {/* 5. */}
           {activeCategory === "financial" && (
             <div className="space-y-4">
               {(groupsByCategory["financial"] ?? [])
@@ -284,7 +284,7 @@ function SettingsContent() {
             </div>
           )}
 
-          {/* 6. Store & Delivery */}
+          {/* 6. */}
           {activeCategory === "ecommerce" && (
             <div className="space-y-4">
               {(groupsByCategory["ecommerce"] ?? [])
@@ -336,9 +336,7 @@ function CategoryHeader({
 
 type Primitive = string | number | boolean;
 
-/**
- * Edits one setting card.
- */
+// Edits one setting card.
 function SettingCard({
   settingKey,
   description,

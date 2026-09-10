@@ -1,15 +1,4 @@
-/**
- * Database seeding entry point.
- *
- * Two layers:
- *   1. Foundation data - the courses, stock items and clinic services the
- *      public site needs to render. Safe and expected in every environment.
- *   2. Demo data - a realistic school for development, behind `--demo`, and
- *      refused outright when NODE_ENV is production (§73, §74).
- *
- *   pnpm db:seed            foundation only
- *   pnpm db:seed --demo     foundation plus the demo school
- */
+// Database seeding entry point for foundational and demo records.
 
 import "dotenv/config";
 import { eq } from "drizzle-orm";
@@ -47,8 +36,7 @@ async function main() {
       for (const [key, value] of Object.entries(counts)) console.log(`  ${key}: ${value}`);
     }
 
-    // The student portal is only reachable by signing in as a student, so say
-    // how rather than leaving the accounts to be discovered in the database.
+    // Output sample student credentials for portal login verification.
     const [student] = await db
       .select({ email: studentProfiles.email })
       .from(studentProfiles)

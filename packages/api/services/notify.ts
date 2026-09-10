@@ -31,17 +31,11 @@ export type NotifyInput = {
   body?: string;
   entityType?: string;
   entityId?: number;
-  /** Where clicking the notification should take the reader. */
+  // Where clicking the notification should take the reader.
   link?: string;
 };
 
-/**
- * Creates in-app notifications and queues the other channels (§38, §69).
- *
- * Email, SMS and WhatsApp are recorded as delivery rows in `queued` state; the
- * transport that drains them is configured per environment, so an unconfigured
- * channel shows as skipped rather than silently disappearing.
- */
+// Creates in-app notifications and queues the other channels,.
 export async function notify(db: DbExecutor, input: NotifyInput): Promise<void> {
   const recipients = Array.from(new Set(input.userIds)).filter(id => Number.isInteger(id) && id > 0);
   if (!recipients.length) return;
@@ -103,7 +97,7 @@ export async function notify(db: DbExecutor, input: NotifyInput): Promise<void> 
   if (deliveries.length) await db.insert(notificationDeliveries).values(deliveries);
 }
 
-/** Every user who should hear about back-office events of a given kind. */
+// Every user who should hear about back-office events of a given kind.
 export async function staffRecipients(
   db: DbExecutor,
   portalRoles: Array<"admin" | "staff"> = ["admin"],

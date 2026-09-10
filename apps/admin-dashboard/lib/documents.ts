@@ -1,14 +1,4 @@
-/**
- * Branded printable documents (§66, §67, §68).
- *
- * Receipts, statements, invoices and certificates all carry the same
- * letterhead, the same footer and the same page numbering, so one builder
- * produces them rather than four screens each inventing a layout. jsPDF is
- * imported on demand: a page that never prints anything should not ship it.
- *
- * Money is formatted here rather than passed in pre-formatted, so a document
- * cannot disagree with the screen it was printed from.
- */
+// Branded printable documents,,.
 
 import type { jsPDF } from "jspdf";
 
@@ -24,15 +14,15 @@ export type SchoolProfile = {
 };
 
 export type DocumentMeta = {
-  /** Sits under the letterhead, e.g. "Payment receipt". */
+  // Sits under the letterhead, e.
   title: string;
-  /** The document's own number, printed top right. */
+  // The document's own number, printed top right.
   reference?: string;
-  /** Who ran it, recorded on the page so a printout is attributable (§42). */
+  // Who ran it, recorded on the page so a printout is attributable.
   generatedBy?: string;
-  /** Short lines under the title, e.g. "Student: Ama Mensah". */
+  // Short lines under the title, e.
   summary?: Array<[string, string]>;
-  /** Closing line, e.g. the receipt footer note. */
+  // Closing line, e.
   footerNote?: string;
   orientation?: "portrait" | "landscape";
 };
@@ -41,16 +31,16 @@ export type DocumentTable = {
   caption?: string;
   head: string[];
   body: Array<Array<string | number>>;
-  /** Column indices rendered right-aligned, for money and counts. */
+  // Column indices rendered right-aligned, for money and counts.
   numericColumns?: number[];
-  /** Bold summary rows appended under the body, e.g. a total. */
+  // Bold summary rows appended under the body, e.
   foot?: Array<Array<string | number>>;
 };
 
 const INK = { heading: [40, 35, 48], body: [70, 62, 78], muted: [130, 122, 138] } as const;
 const BRAND: [number, number, number] = [95, 82, 119];
 
-/** GHS with thousands separators, matching what the tables on screen show. */
+// GHS with thousands separators, matching what the tables on screen show.
 export function money(value: number): string {
   return `GHS ${value.toLocaleString("en-GB", {
     minimumFractionDigits: 2,
@@ -82,8 +72,7 @@ function drawLetterhead(doc: jsPDF, school: SchoolProfile, meta: DocumentMeta): 
     doc.text(`Reg. ${school.registrationNumber}`, 14, 28.5);
   }
 
-  // Title on the left, the document's own reference on the right, so the eye
-  // finds the number in the same place on every document.
+  // Title on the left, the document's own reference on the right, so the eye finds the number.
   doc.setFont("helvetica", "bold");
   doc.setFontSize(13);
   doc.setTextColor(...INK.heading);
@@ -116,11 +105,7 @@ function drawLetterhead(doc: jsPDF, school: SchoolProfile, meta: DocumentMeta): 
   return y;
 }
 
-/**
- * Footer on every page: who generated it, when, and page N of M. Written after
- * the whole document exists, because the total page count is not known until
- * then.
- */
+// Footer on every page.
 function drawFooters(doc: jsPDF, meta: DocumentMeta) {
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -147,13 +132,7 @@ function drawFooters(doc: jsPDF, meta: DocumentMeta) {
   }
 }
 
-/**
- * Builds a branded document and saves it.
- *
- * `tables` render in order; `afterTables` gets the y position under the last
- * one, for anything a table cannot express (a signature block, a total in
- * words).
- */
+// Builds a branded document and saves it.
 export async function renderDocument({
   fileName,
   school,
@@ -210,7 +189,7 @@ export async function renderDocument({
   doc.save(`${fileName}-${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
-/** Signature line, used by letters and certificates. */
+// Signature line, used by letters and certificates.
 export function drawSignature(
   doc: jsPDF,
   y: number,

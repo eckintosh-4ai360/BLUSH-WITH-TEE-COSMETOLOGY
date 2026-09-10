@@ -3,25 +3,16 @@ import { systemSettings } from "@blush/db/schema";
 import type { DbExecutor } from "../../dbOrThrow";
 import type { NotificationType } from "../notify";
 
-/**
- * Messaging configuration: what the school sends, over which channels, using
- * whose credentials.
- *
- * Two sources, in that order of precedence. An environment variable always
- * wins, so a production deployment can keep its credentials out of the
- * database entirely; otherwise the values saved on the settings page are used,
- * which is what makes this configurable by an administrator rather than by a
- * redeploy.
- */
+// Messaging configuration.
 
 export const MESSAGING_KEYS = ["messaging.sms", "messaging.email", "messaging.events"] as const;
 
-/** Stands in for a stored secret everywhere one would otherwise be returned. */
+// Stands in for a stored secret everywhere one would otherwise be returned.
 export const SECRET_MASK = "********";
 
 export type SmsConfig = {
   enabled: boolean;
-  /** Left configurable so a provider URL change does not need a deploy. */
+  // Left configurable so a provider URL change does not need a deploy.
   baseUrl: string;
   senderId: string;
   apiKey: string;
@@ -31,20 +22,20 @@ export type EmailConfig = {
   enabled: boolean;
   host: string;
   port: number;
-  /** Gmail wants 587 with STARTTLS; 465 is implicit TLS. */
+  // Gmail wants 587 with STARTTLS; 465 is implicit TLS.
   secure: boolean;
   fromName: string;
   fromAddress: string;
-  /** The SMTP username. Gmail uses the address itself. */
+  // The SMTP username.
   user: string;
-  /** A Google app password, not the account password. */
+  // A Google app password, not the account password.
   appPassword: string;
 };
 
 export type ChannelRule = { email: boolean; sms: boolean };
 
 export type EventsConfig = {
-  /** Off by default, so wiring the credentials up does not start a send. */
+  // Off by default, so wiring the credentials up does not start a send.
   masterEnabled: boolean;
   events: Record<string, ChannelRule>;
   templates: Record<string, { subject: string; email: string; sms: string }>;
@@ -56,19 +47,12 @@ export type MessagingConfig = {
   events: EventsConfig;
 };
 
-/**
- * The events somebody is actually written to about.
- *
- * Mostly students and applicants. `low_stock` is the exception: it is the one
- * event whose audience is the school's own administrators, and it is listed
- * here so that it is switched on, worded and channelled from the same settings
- * page as everything else rather than through a separate hidden mechanism.
- */
+// The events somebody is actually written to about.
 export const MESSAGED_EVENTS: Array<{
   type: NotificationType;
   label: string;
   description: string;
-  /** Channels this event starts on, before anything is saved over it. */
+  // Channels this event starts on, before anything is saved over it.
   defaultChannels?: ChannelRule;
 }> = [
   {
@@ -111,9 +95,7 @@ export const MESSAGED_EVENTS: Array<{
     label: "Low stock alert",
     description:
       "Goes to administrators rather than to students, the moment an item falls to or below its reorder level. The email links to a PDF of everything currently low; the text links to the low-stock screen instead.",
-    // The only event that texts by default. An owner away from a desk is
-    // exactly who needs to know a shelf is emptying, and a stockout costs
-    // more than the message does.
+    // The only event that texts by default.
     defaultChannels: { email: true, sms: true },
   },
 ];
@@ -136,13 +118,7 @@ const DEFAULT_EMAIL: EmailConfig = {
   appPassword: "",
 };
 
-/**
- * Wording for each event.
- *
- * `{{placeholders}}` are filled from the event's own facts. A template that
- * asks for something the event does not carry renders as an empty string
- * rather than leaving the braces in the message.
- */
+// Wording for each event.
 export const DEFAULT_TEMPLATES: EventsConfig["templates"] = {
   application_submitted: {
     subject: "We have your application, {{name}}",
@@ -186,15 +162,7 @@ export const DEFAULT_TEMPLATES: EventsConfig["templates"] = {
       "Hello {{name}},\n\nYour certificate for {{course}} has been issued. Certificate number {{reference}}.\n\nCongratulations on completing your programme.\n\n{{school}}",
     sms: "{{school}}: Congratulations {{name}}, your certificate for {{course}} is ready. Number {{reference}}.",
   },
-  // Written for someone reading a phone. The text leads with the count and
-  // the worst item, because that is what fits in a lock-screen preview; the
-  // link is for when they sit down.
-  //
-  // Only the email carries `{{url}}`, the report itself. The text carries
-  // `{{dashboard}}`, the low-stock screen. A text message is copied to a lock
-  // screen, kept in a gateway's logs and forwarded without a thought, and the
-  // address of a file naming the school's suppliers and its unit costs does
-  // not belong in any of those places - the reader is signing in either way.
+  // Written for someone reading a phone.
   low_stock: {
     subject: "Low stock: {{count}} item(s) need reordering",
     email:
@@ -228,12 +196,7 @@ function bool(value: unknown, fallback: boolean): boolean {
   return typeof value === "boolean" ? value : fallback;
 }
 
-/**
- * Reads the whole messaging configuration, secrets included.
- *
- * Server-side only. Nothing that returns to a browser may call this without
- * going through `redact` first.
- */
+// Reads the whole messaging configuration, secrets included.
 export async function readMessagingConfig(db: DbExecutor): Promise<MessagingConfig> {
   const rows = await db
     .select({ key: systemSettings.key, value: systemSettings.value })
@@ -301,13 +264,7 @@ export async function readMessagingConfig(db: DbExecutor): Promise<MessagingConf
   return { sms, email, events };
 }
 
-/**
- * The same configuration, safe to hand to a browser.
- *
- * A stored secret becomes a fixed mask, and a secret supplied by the
- * environment is reported as such and cannot be edited from the settings page
- * - it is not the settings page's to change.
- */
+// The same configuration, safe to hand to a browser.
 export function redact(config: MessagingConfig) {
   return {
     sms: {
@@ -334,14 +291,7 @@ export function redact(config: MessagingConfig) {
   };
 }
 
-/**
- * Keeps the stored secret when the form sends the mask back.
- *
- * The settings page never receives the real value, so an untouched password
- * field returns exactly the mask it was given. Writing that through would
- * replace a working credential with eight asterisks the first time somebody
- * saved an unrelated field on the same card.
- */
+// Keeps the stored secret when the form sends the mask back.
 export function keepSecret(incoming: string | undefined, stored: string): string {
   if (incoming === undefined) return stored;
   if (incoming === SECRET_MASK) return stored;

@@ -4,12 +4,7 @@ import * as React from "react";
 
 import { cn } from "../../lib/utils";
 
-/**
- * Cells carry a smaller inter-column padding than the inset on the first and
- * last column. The edge inset matches the `px-5` chrome the cards put on their
- * headers and footers, so a column heading lines up with the section title
- * above it instead of sitting flush against the card border.
- */
+// Compact cell padding for dense data tables.
 function Table({ className, ...props }: React.ComponentProps<"table">) {
   return (
     <div

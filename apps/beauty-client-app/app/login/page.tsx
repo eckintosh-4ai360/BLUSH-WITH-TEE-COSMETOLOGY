@@ -6,13 +6,7 @@ import { Eye, EyeOff, Loader2 } from "lucide-react";
 import PublicShell from "@/components/PublicShell";
 import { trpc } from "@/lib/trpc";
 
-/**
- * Student and customer sign-in.
- *
- * Accounts are created by the school when an application is approved, so this
- * page does not offer self-registration - it says where an account comes from
- * instead of leaving someone stuck.
- */
+// Student and customer sign-in page.
 export default function LoginPage() {
   return (
     <PublicShell>

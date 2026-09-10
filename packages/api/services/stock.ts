@@ -15,40 +15,25 @@ export type MovementType =
 export type StockMovementInput = {
   inventoryItemId: number;
   movementType: MovementType;
-  /** Signed: positive adds stock, negative removes it. */
+  // Signed: positive adds stock, negative removes it.
   quantityDelta: number;
   referenceType?: string | null;
   referenceId?: number | null;
   note?: string | null;
   unitCostMinor?: number | null;
   performedByUserId?: number | null;
-  /**
-   * Only an explicit, authorised adjustment may drive stock below zero (§64).
-   * Sales and consumption never can.
-   */
+  // Only an explicit, authorised adjustment may drive stock below zero.
   allowNegative?: boolean;
 };
 
-/**
- * Applies a stock change and its ledger entry together.
- *
- * The row is locked FOR UPDATE before the balance is read, so two concurrent
- * checkouts cannot both see the last unit and both sell it. Callers must be
- * inside a transaction for that lock to mean anything.
- */
+// Applies a stock change and its ledger entry together.
 export async function applyStockMovement(
   db: DbExecutor,
   input: StockMovementInput,
 ): Promise<{
   balanceAfter: number;
   movementId: number | undefined;
-  /**
-   * True when this movement is the one that took the item to or below its
-   * reorder level. The caller raises the low-stock alert on it once the
-   * transaction has committed - a warning must not go out for a sale that
-   * then rolls back, and only the edge is worth reporting, otherwise every
-   * subsequent sale of an already-low item would raise it again.
-   */
+  // True when this movement is the one that took the item to or below its reorder level.
   crossedReorderLevel: boolean;
 }> {
   if (!Number.isInteger(input.quantityDelta)) {
@@ -58,8 +43,7 @@ export async function applyStockMovement(
     throw new TRPCError({ code: "BAD_REQUEST", message: "Stock movement cannot be zero." });
   }
 
-  // FOR UPDATE holds the row until the surrounding transaction ends, so two
-  // concurrent checkouts cannot both read the last unit and both sell it.
+  // FOR UPDATE holds the row until the surrounding transaction ends.
   const [current] = await db
     .select({
       id: inventoryItems.id,
@@ -112,13 +96,7 @@ export async function applyStockMovement(
   };
 }
 
-/**
- * Whether a movement is the one that took an item low.
- *
- * Only a fall counts, and only a fall from above the line: an item already at
- * or below its reorder level is not newly low, and receiving stock never is.
- * Kept separate from the write so the rule can be read and tested on its own.
- */
+// Whether a movement is the one that took an item low.
 export function crossesReorderLevel(
   before: { quantityOnHand: number; reorderLevel: number },
   balanceAfter: number,
@@ -130,10 +108,7 @@ export function crossesReorderLevel(
   );
 }
 
-/**
- * Pure balance check, kept separate from the database so the rule can be unit
- * tested and reused by validation before a write is attempted.
- */
+// Pure balance check, kept separate from the database so the rule can be unit tested.
 export function inventoryBalanceAfter(quantityOnHand: number, quantityDelta: number): number {
   if (!Number.isInteger(quantityOnHand) || !Number.isInteger(quantityDelta)) {
     throw new Error("Inventory quantities must be whole numbers.");

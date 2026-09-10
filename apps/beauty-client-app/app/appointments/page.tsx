@@ -13,9 +13,7 @@ export default function AppointmentsPage() {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    // Held before the await: React clears `currentTarget` once the handler
-    // returns, so resetting through it afterwards throws - and the throw would
-    // be caught below and reported as a failed booking that in fact succeeded.
+    // Retain form reference before await to prevent null access after submit.
     const form = event.currentTarget;
     const data = new FormData(form);
     try {

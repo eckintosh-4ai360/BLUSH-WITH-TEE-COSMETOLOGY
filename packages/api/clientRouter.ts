@@ -10,7 +10,7 @@ import { storeRouter } from "./routers/store";
 import { systemRouter } from "./routers/system";
 import { router } from "./trpc";
 
-/** Mounted by the beauty-client-app only - public + student-portal procedures. */
+// Mounted by the beauty-client-app only - public + student-portal procedures.
 export const clientAppRouter = router({
   system: systemRouter,
   auth: authRouter,

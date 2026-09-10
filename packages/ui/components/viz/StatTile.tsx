@@ -12,10 +12,7 @@ import { Skeleton } from "../ui/skeleton";
 
 export type StatTone = "default" | "good" | "warning" | "critical";
 
-/**
- * Status tones are reserved for state, never reused as a fifth series colour.
- * Each ships with a label and an icon so meaning never rests on colour alone.
- */
+// Semantic color tones for status indicators.
 const TONE_CLASS: Record<StatTone, string> = {
   default: "text-[#263746] dark:text-foreground",
   good: "text-emerald-700 dark:text-emerald-400",
@@ -31,11 +28,7 @@ const TONE_BADGE: Record<StatTone, string> = {
     "bg-[#ef5c7b] text-white shadow-[0_14px_28px_rgba(239,92,123,0.24)]",
 };
 
-/**
- * A tone that means something is wrong tints the whole card, not just the
- * figure - a reader scanning twenty tiles should spot trouble without
- * reading a single number.
- */
+// Background tint for warning and alert status tiles.
 const TONE_SURFACE: Record<StatTone, string> = {
   default: "admin-glass-card",
   good: "admin-glass-card",
@@ -43,7 +36,7 @@ const TONE_SURFACE: Record<StatTone, string> = {
   critical: "admin-glass-card admin-glass-card-critical",
 };
 
-/** Headline tiles keep a fixed icon-badge order inspired by the dashboard mockup. */
+// Icon badge styling palette.
 export type StatAccent = "magenta" | "plum" | "rose" | "berry";
 
 const ACCENT_BADGE: Record<StatAccent, string> = {
@@ -61,17 +54,14 @@ export type StatTileProps = {
   tone?: StatTone;
   href?: string;
   isLoading?: boolean;
-  /** Renders the figure at hero scale for the number a view leads with. */
+  // Hero typography styling for primary dashboard KPI.
   emphasis?: boolean;
-  /** Uses the headline icon-badge palette. Reserved for a headline row. */
+  // Featured KPI card highlighting primary metric.
   accent?: StatAccent;
   onClick?: () => void;
 };
 
-/**
- * A single headline number. This is the right form for one current value -
- * a one-bar bar chart says the same thing with more ink.
- */
+// Metric tile displaying primary value with optional trend.
 export function StatTile({
   label,
   value,
@@ -170,7 +160,7 @@ export function StatTile({
   return <article className={className}>{body}</article>;
 }
 
-/** A titled group of stat tiles, the shape the dashboard reads in. */
+// Group of stat tiles arranged under a section header.
 export function StatGroup({
   title,
   description,
@@ -183,7 +173,7 @@ export function StatGroup({
   description?: string;
   action?: React.ReactNode;
   children: React.ReactNode;
-  /** Lets a dashboard hide a secondary group until the reader asks for it. */
+  // Collapsible section for secondary dashboard metrics.
   collapsible?: boolean;
   defaultOpen?: boolean;
 }) {

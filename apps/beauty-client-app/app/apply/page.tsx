@@ -143,9 +143,9 @@ function ApplyFormContent() {
     email?: string;
     courseTitle: string;
     applicantName: string;
-    /** Everything that was submitted, kept so it can be printed. */
+    // Retained application details for printing.
     form: AdmissionFormData["application"];
-    /** The fees quoted for the programme they chose. */
+    // Quoted programme fees.
     tuition: number | string | null;
     productFee: number | string | null;
   } | null>(null);
@@ -283,13 +283,7 @@ function ApplyFormContent() {
     }
   }
 
-  /**
-   * Opens the signed admission form in a window of its own.
-   *
-   * Used both straight after submitting and later from the status tracker -
-   * plenty of applicants close the confirmation without printing, and the
-   * school still expects the form on day one.
-   */
+  // Opens the printable signed admission form in a popup window.
   function openAdmissionForm(
     form: AdmissionFormData["application"],
     courseTitle: string,

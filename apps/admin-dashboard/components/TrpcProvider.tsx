@@ -20,14 +20,10 @@ export function TrpcProvider({ children }: { children: React.ReactNode }) {
     const client = new QueryClient({
       defaultOptions: {
         queries: {
-          // Screens share the same lists (students, courses, staff), so a
-          // short freshness window lets a second visit paint from cache
-          // instead of showing the skeleton again. Mutations invalidate the
-          // keys they touch, so edits still land immediately.
+          // Screens share the same lists (students, courses, staff), so a short freshness window lets.
           staleTime: 30_000,
           gcTime: 30 * 60_000,
-          // A failed list should say so rather than sit under a skeleton
-          // through three backed-off retries.
+          // A failed list should say so rather than sit under a skeleton through three backed.
           retry: 1,
         },
       },

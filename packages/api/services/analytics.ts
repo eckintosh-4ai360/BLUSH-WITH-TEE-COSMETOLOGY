@@ -16,10 +16,7 @@ import {
 import type { DbExecutor } from "../dbOrThrow";
 import { fromMinor, toMinor } from "./money";
 
-/**
- * Ghana keeps GMT year-round, so a UTC day boundary is the local business day.
- * Centralised here so every "today" figure on the dashboard agrees.
- */
+// Ghana keeps GMT year-round, so a UTC day boundary is the local business day.
 export function startOfToday(now = new Date()): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 }
@@ -34,9 +31,7 @@ export function startOfMonthsAgo(months: number, now = new Date()): Date {
 
 const asNumber = (value: unknown) => Number(value ?? 0);
 
-/* -------------------------------------------------------------------------- */
-/* Headline metrics (§20)                                                     */
-/* -------------------------------------------------------------------------- */
+// Headline metrics.
 
 export async function studentMetrics(db: DbExecutor) {
   const monthStart = startOfMonth();
@@ -73,14 +68,7 @@ export async function studentMetrics(db: DbExecutor) {
   };
 }
 
-/**
- * What share of the money taken in was kept, as a percentage.
- *
- * Both arguments are in minor units so the division is not taken from an
- * already-rounded cedi figure. A period with no income has no margin to
- * report rather than a division by zero - the same guard the profit-and-loss
- * report uses.
- */
+// What share of the money taken in was kept, as a percentage.
 export function profitMargin(incomeMinor: number, expenseMinor: number): number {
   if (incomeMinor <= 0) return 0;
   return ((incomeMinor - expenseMinor) / incomeMinor) * 100;
@@ -255,13 +243,11 @@ export async function admissionMetrics(db: DbExecutor) {
   };
 }
 
-/* -------------------------------------------------------------------------- */
-/* Chart series (§20, §70)                                                    */
-/* -------------------------------------------------------------------------- */
+// Chart series.
 
 const MONTH_KEY = (column: unknown) => sql<string>`to_char(${column}, 'YYYY-MM')`;
 
-/** Revenue by month, split into the streams the owner compares. */
+// Revenue by month, split into the streams the owner compares.
 export async function revenueByMonth(db: DbExecutor, months = 12) {
   const since = startOfMonthsAgo(months - 1);
 
@@ -319,7 +305,7 @@ export async function revenueByMonth(db: DbExecutor, months = 12) {
   });
 }
 
-/** Expenses grouped by category, for the spend breakdown chart. */
+// Expenses grouped by category, for the spend breakdown chart.
 export async function expensesByCategory(db: DbExecutor, months = 12) {
   const since = startOfMonthsAgo(months - 1);
 
@@ -348,7 +334,7 @@ export async function expensesByCategory(db: DbExecutor, months = 12) {
   }));
 }
 
-/** New enrolments per month, so intake momentum is visible. */
+// New enrolments per month, so intake momentum is visible.
 export async function enrollmentByMonth(db: DbExecutor, months = 12) {
   const since = startOfMonthsAgo(months - 1);
 
@@ -370,7 +356,7 @@ export async function enrollmentByMonth(db: DbExecutor, months = 12) {
   }));
 }
 
-/** Best-selling products by units and revenue. */
+// Best-selling products by units and revenue.
 export async function productSales(db: DbExecutor, limit = 8) {
   const rows = await db
     .select({
@@ -394,7 +380,7 @@ export async function productSales(db: DbExecutor, limit = 8) {
   }));
 }
 
-/** Which courses attract applications and enrolments (§70 course popularity). */
+// Which courses attract applications and enrolments course popularity).
 export async function coursePopularity(db: DbExecutor, limit = 8) {
   const rows = await db
     .select({
@@ -419,7 +405,7 @@ export async function coursePopularity(db: DbExecutor, limit = 8) {
   }));
 }
 
-/** Stock in vs stock out per month, from the movement ledger. */
+// Stock in vs stock out per month, from the movement ledger.
 export async function inventoryMovementByMonth(db: DbExecutor, months = 12) {
   const since = startOfMonthsAgo(months - 1);
 
@@ -446,9 +432,7 @@ export async function inventoryMovementByMonth(db: DbExecutor, months = 12) {
   });
 }
 
-/* -------------------------------------------------------------------------- */
-/* Helpers                                                                    */
-/* -------------------------------------------------------------------------- */
+// Helpers.
 
 const MONTH_LABELS = [
   "Jan",
@@ -465,7 +449,7 @@ const MONTH_LABELS = [
   "Dec",
 ];
 
-/** Dense month axis, so a quiet month renders as zero rather than vanishing. */
+// Dense month axis, so a quiet month renders as zero rather than vanishing.
 export function monthBuckets(months: number, now = new Date()) {
   return Array.from({ length: months }, (_, index) => {
     const date = new Date(

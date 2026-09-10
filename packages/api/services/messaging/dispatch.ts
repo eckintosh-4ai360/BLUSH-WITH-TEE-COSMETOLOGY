@@ -6,10 +6,10 @@ import { readMessagingConfig, type MessagingConfig } from "./config";
 import { sendEmail } from "./email";
 import { sendSms, normaliseMsisdn } from "./sms";
 
-/** Gives up after this many tries, so a dead address is not retried forever. */
+// Gives up after this many tries, so a dead address is not retried forever.
 const MAX_ATTEMPTS = 3;
 
-/** One flush handles at most this many, so a backlog cannot stall a request. */
+// One flush handles at most this many, so a backlog cannot stall a request.
 const BATCH_SIZE = 25;
 
 export type MessageRecipient = {
@@ -21,21 +21,13 @@ export type MessageRecipient = {
 export type QueueInput = {
   type: NotificationType;
   recipient: MessageRecipient;
-  /** Values for the `{{placeholders}}` in the template. */
+  // Values for the {{placeholders}} in the template.
   facts: Record<string, string | number | null | undefined>;
-  /** Ties the row to an in-app notification when the recipient has an account. */
+  // Ties the row to an in-app notification when the recipient has an account.
   notificationId?: number;
 };
 
-/**
- * Fills a template.
- *
- * A placeholder with no matching fact renders empty rather than leaving
- * `{{balance}}` in a message a student reads - most events carry only some of
- * the facts, and a template is shared across all of them. The tidy-up
- * afterwards collapses the blank lines and doubled spaces that leaves behind,
- * so an absent optional sentence does not show as a gap.
- */
+// Fills a template.
 export function render(template: string, facts: QueueInput["facts"]): string {
   return template
     .replace(/\{\{\s*(\w+)\s*\}\}/g, (_match, key: string) => {
@@ -48,18 +40,7 @@ export function render(template: string, facts: QueueInput["facts"]): string {
     .trim();
 }
 
-/**
- * Writes the outbox rows for one event.
- *
- * Call this inside the transaction that caused the event. Nothing is sent
- * here: a message must not go out for a change that then rolls back, and an
- * SMTP round trip has no business inside a database transaction. `flush`
- * does the sending afterwards.
- *
- * A channel that is switched off, or has no address to send to, is recorded as
- * `skipped` with the reason rather than dropped, so "why did they not get a
- * text" has an answer in the log.
- */
+// Writes the outbox rows for one event.
 export async function queueMessages(
   db: DbExecutor,
   config: MessagingConfig,
@@ -125,38 +106,18 @@ export async function queueMessages(
   if (rows.length) await db.insert(notificationDeliveries).values(rows);
 }
 
-/**
- * Sends whatever is waiting.
- *
- * Safe to call from anywhere and at any time: rows are claimed by moving them
- * out of `queued` before the network call, so two overlapping flushes cannot
- * send the same message twice. Anything that fails goes back to `queued` until
- * it has been tried `MAX_ATTEMPTS` times, after which it stays `failed` and is
- * left in the log to be looked at.
- *
- * Returns a tally rather than throwing, because the caller is usually a
- * request that has already succeeded - a student's payment is recorded whether
- * or not the receipt text got through.
- */
+// Sends whatever is waiting.
 export async function flush(
   db: DbExecutor,
   limit = BATCH_SIZE,
-  /**
-   * Narrows the drain to named rows. Used by the hand-pressed sends, where the
-   * person is waiting on the outcome of their own messages and a backlog of
-   * older ones must not be what the batch spends itself on.
-   *
-   * A limit on its own does not do that: rows are drained oldest first, so the
-   * backlog is exactly what a bare `flush(db, n)` would pick up.
-   */
+  // Narrows the drain to named rows.
   onlyIds?: number | number[],
 ): Promise<{ sent: number; failed: number; skipped: number }> {
   const config = await readMessagingConfig(db);
   const tally = { sent: 0, failed: 0, skipped: 0 };
 
   const named = onlyIds === undefined ? null : [onlyIds].flat();
-  // An explicit empty list means "these rows", of which there are none - not
-  // "everything waiting", which is what dropping the clause would mean.
+  // An explicit empty list means "these rows", of which there are none - not "everything.
   if (named && !named.length) return tally;
 
   const pending = await db
@@ -174,9 +135,7 @@ export async function flush(
     .limit(limit);
 
   for (const row of pending) {
-    // Claiming the row first is what makes overlapping flushes safe: the
-    // update only matches while the row is still queued, so whichever caller
-    // gets there first owns it.
+    // Claiming the row first is what makes overlapping flushes safe.
     const claimed = await db
       .update(notificationDeliveries)
       .set({
@@ -227,22 +186,14 @@ export async function flush(
   return tally;
 }
 
-/**
- * Sends in the background, without making the caller wait or fail.
- *
- * The events this hangs off - an application submitted, a payment recorded -
- * have already been committed by the time this runs. Making the student wait
- * on an SMTP handshake to see their receipt would be the wrong trade, and an
- * unreachable provider must not turn a successful payment into an error.
- */
+// Sends in the background, without making the caller wait or fail.
 export function flushInBackground(db: DbExecutor): void {
   void flush(db).catch(() => {
-    // Deliberately swallowed. Every failure is already written to the row it
-    // belongs to, which is where anyone looking would look.
+    // Deliberately swallowed.
   });
 }
 
-/** Recent sends, newest first, for the settings page's delivery log. */
+// Recent sends, newest first, for the settings page's delivery log.
 export async function recentDeliveries(db: DbExecutor, limit = 30) {
   return db
     .select({

@@ -36,8 +36,7 @@ export const overviewTools = [
     async run(_args, ctx) {
       const access = ctx.access;
 
-      // Each block is fetched only if the caller may see it, so the model is
-      // never handed a figure it would then have to be trusted not to repeat.
+      // Each block is fetched only if the caller may see it.
       const [students, finance, inventory, commerce, admissions] = await Promise.all([
         access?.can("students.read") ? studentMetrics(ctx.db) : null,
         access?.can("finance.read") ? financeMetrics(ctx.db) : null,

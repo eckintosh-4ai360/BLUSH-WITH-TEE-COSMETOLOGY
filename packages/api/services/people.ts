@@ -14,13 +14,7 @@ export type PersonInput = {
   emergencyContactPhone?: string | null;
 };
 
-/**
- * Finds the existing person behind a contact detail, or creates one.
- *
- * This is what stops a shopper who later applies to the school from becoming
- * two records (§34). Email is the strong key; phone is the fallback for
- * walk-ins who never gave one.
- */
+// Finds the existing person behind a contact detail, or creates one.
 export async function resolvePerson(db: DbExecutor, input: PersonInput): Promise<number> {
   const email = normaliseEmail(input.email);
   const phone = normalisePhone(input.phone);
@@ -90,7 +84,7 @@ async function findPerson(
   return undefined;
 }
 
-/** Ensures the commerce facet exists for a person, without duplicating them. */
+// Ensures the commerce facet exists for a person, without duplicating them.
 export async function ensureCustomer(
   db: DbExecutor,
   input: { personId: number; userId?: number | null },
@@ -117,7 +111,7 @@ export async function ensureCustomer(
   return created.id;
 }
 
-/** Links a signed-in account to its person record, creating one if needed. */
+// Links a signed-in account to its person record, creating one if needed.
 export async function linkUserToPerson(
   db: DbExecutor,
   user: { id: number; name?: string | null; email?: string | null },
@@ -140,18 +134,7 @@ export async function linkUserToPerson(
   return personId;
 }
 
-/**
- * The account that should own the student record for this email, or null.
- *
- * An application can be submitted by a guest, so `applications.userId` is often
- * empty and the profile created on approval has no account to join against.
- * The portal looks a student up by `studentProfiles.userId`, so an unlinked
- * profile shows the "record is being prepared" empty state forever. Email is
- * the key here for the same reason it is in `resolvePerson`.
- *
- * Returns nothing when the account already holds a student record, because
- * `studentProfiles.userId` is unique and a second row would fail to insert.
- */
+// The account that should own the student record for this email, or null.
 export async function findStudentAccountForEmail(
   db: DbExecutor,
   email: string | null | undefined,
@@ -170,14 +153,7 @@ export async function findStudentAccountForEmail(
   return (await holdsStudentRecord(db, account.id)) ? null : account.id;
 }
 
-/**
- * Connects an unclaimed student record to the account that owns its email.
- *
- * Called when the account appears after the record does - an administrator
- * creating the sign-in for someone who was admitted as a guest applicant.
- * Returns the profile now held by the account, or null when there was nothing
- * to claim.
- */
+// Connects an unclaimed student record to the account that owns its email.
 export async function linkStudentAccount(
   db: DbExecutor,
   account: { id: number; email?: string | null },
@@ -211,12 +187,7 @@ export async function linkStudentAccount(
   return profile.id;
 }
 
-/**
- * Opens the student portal for an account.
- *
- * Scoped to the default role so an administrator or staff member who also
- * enrols on a course is not quietly demoted out of their own dashboard.
- */
+// Opens the student portal for an account.
 export async function grantStudentRole(db: DbExecutor, userId: number): Promise<void> {
   await db
     .update(users)

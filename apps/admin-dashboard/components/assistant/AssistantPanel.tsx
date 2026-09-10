@@ -18,7 +18,7 @@ import { AssistantMarkdown } from "./AssistantMarkdown";
 type Turn = {
   role: "user" | "assistant";
   content: string;
-  /** Tools the answer was built from, shown so a figure can be traced. */
+  // Tools the answer was built from, shown so a figure can be traced.
   consulted?: string[];
   failed?: boolean;
 };
@@ -30,13 +30,7 @@ const SUGGESTIONS = [
   "How many students are active right now?",
 ];
 
-/**
- * The assistant, as a panel over the dashboard (§20).
- *
- * It keeps its conversation in component state rather than the database: the
- * questions staff ask of it are working notes, and a transcript of them is one
- * more thing to hold, secure and eventually explain. Reopening starts fresh.
- */
+// The assistant, as a panel over the dashboard.
 export function AssistantPanel({
   open,
   onOpenChange,
@@ -82,9 +76,7 @@ export function AssistantPanel({
     const trimmed = question.trim();
     if (!trimmed || ask.isPending) return;
 
-    // Only the exchanges so far are sent as history - the new question is the
-    // input, and a failed reply is left out so the model is not asked to build
-    // on an error message.
+    // Only the exchanges so far are sent as history.
     const history = turns
       .filter(turn => !turn.failed)
       .map(turn => ({ role: turn.role, content: turn.content }));

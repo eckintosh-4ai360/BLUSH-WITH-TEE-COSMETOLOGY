@@ -1,45 +1,13 @@
-/**
- * Empties the operational tables so a real school can be entered from scratch.
- *
- *   pnpm --filter @blush/db db:reset -- --confirm
- *
- * What survives, and why:
- *
- *   permissions, roles, rolePermissions   The authorisation catalogue. Wiping
- *                                         it locks everybody out until the next
- *                                         request happens to reseed it.
- *   systemSettings                        School profile, currency, grading
- *                                         bands — configuration, not content.
- *   expenseCategories                     Reference data the expense form needs.
- *   users / userRoles                     Only the owner account named by
- *                                         KEEP_ACCOUNTS, so there is still a
- *                                         way to sign in afterwards.
- *
- * Everything else goes, including the sample courses, stock and clinic
- * services. Those used to be re-created automatically by
- * `initializeFoundationData` on the next public page load; that call was
- * removed from the public routers precisely so this reset holds.
- *
- * There is no undo. The script refuses to run without `--confirm`, and refuses
- * outright in production.
- */
+// Empties operational tables to reset database to initial configuration.
 
 import "dotenv/config";
 import { sql } from "drizzle-orm";
 import { closeDb, getDb } from "./index";
 
-/** Accounts that survive the reset, matched case-insensitively on email. */
+// Accounts that survive the reset, matched case-insensitively on email.
 const KEEP_ACCOUNTS = ["admin@bwtee.com"];
 
-/**
- * Emptied with TRUNCATE, in one statement.
- *
- * `people` is deliberately NOT here. TRUNCATE CASCADE ignores `ON DELETE SET
- * NULL` and truncates the whole referencing table, so truncating `people`
- * would take `users` with it (`users.personId`), and `users` would take
- * `systemSettings` (`updatedByUserId`). It is deleted further down instead,
- * where the foreign keys behave the way they were declared to.
- */
+// Operational tables emptied via TRUNCATE CASCADE.
 const TRUNCATE_TABLES = [
   "applicationDocuments",
   "applications",
@@ -103,11 +71,7 @@ const TRUNCATE_TABLES = [
   "webhookEvents",
 ];
 
-/**
- * Cleared with DELETE rather than TRUNCATE, so `ON DELETE SET NULL` is honoured
- * and the accounts pointing at these rows survive. Safe to do plainly: every
- * table that references them has already been truncated above.
- */
+// Tables cleared via DELETE to preserve foreign key nullification.
 const DELETE_TABLES = ["people"];
 
 async function main() {
@@ -132,9 +96,7 @@ async function main() {
   const before = await db.execute(sql`select count(*)::int as n from users`);
   const userCountBefore = Number((before.rows[0] as { n: number }).n);
 
-  // Refuse if CASCADE would reach a table that is meant to survive. This is
-  // the check that was missing the first time: `people` pulled `users` and
-  // `systemSettings` down with it, both of which were supposed to be kept.
+  // Guard against cascade truncating protected tables.
   const escapes = await cascadeEscapes(db, TRUNCATE_TABLES);
   if (escapes.length) {
     throw new Error(
@@ -153,8 +115,7 @@ async function main() {
     await db.execute(sql`delete from ${sql.identifier(table)}`);
   }
 
-  // Done last: the tables that referenced these accounts are already empty, so
-  // nothing is left pointing at a row that vanishes here.
+  // Delete non-whitelisted users after dependent rows are cleared.
   const keep = sql.join(
     KEEP_ACCOUNTS.map(email => sql`${email.toLowerCase()}`),
     sql`, `,
@@ -189,12 +150,7 @@ async function main() {
   await closeDb();
 }
 
-/**
- * Tables TRUNCATE CASCADE would reach beyond the ones asked for.
- *
- * Walks the foreign-key graph outward: anything referencing a table on the
- * list is truncated too, transitively, whatever its ON DELETE action says.
- */
+// Identifies dependent tables that would be affected by cascade truncation.
 async function cascadeEscapes(
   db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
   tables: string[],

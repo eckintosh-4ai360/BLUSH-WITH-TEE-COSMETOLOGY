@@ -10,44 +10,13 @@ import { flushInBackground } from "./messaging/dispatch";
 import { money } from "./money";
 import { buildLowStockPdf } from "./lowStockPdf";
 
-/**
- * Telling the people who buy the stock that the stock is running out.
- *
- * The alert is raised wherever stock is consumed, the moment a movement takes
- * an item down to its reorder level, and it goes out on every channel an
- * administrator has: the in-app notification, an email, and a text message.
- * The text is the point of the exercise - an owner is rarely at the dashboard
- * when the last tub of relaxer is sold - so it has to carry the whole story in
- * the space a text message has. It cannot, so it carries a link to a PDF of
- * the full list instead.
- *
- * Two things this is careful about:
- *
- *   Text messages cost money. An alert is sent for an item the administrators
- *   have not already been told about, and not again for that item until it has
- *   been restocked - otherwise every sale of an already-low item would send
- *   another text. `inventory.lowStockAlert` is where that memory lives.
- *
- *   Nothing here may break a sale. Every automatic entry point runs after the
- *   transaction has committed and swallows its own failures: a storage outage
- *   or an empty SMS balance must not turn a completed checkout into an error
- *   the customer sees.
- */
-
-/** Where the record of what has already been alerted on is kept. */
+// Telling the people who buy the stock that the stock is running out.
 const ALERT_STATE_KEY = "inventory.lowStockAlert";
 
-/**
- * Quiet period between automatic alerts.
- *
- * Booking in a delivery that takes thirty items past their reorder level, each
- * in its own transaction, should not send thirty texts. Items that go low
- * during the quiet period are deliberately not marked as reported, so they
- * lead the next alert rather than being lost.
- */
+// Quiet period between automatic alerts.
 const QUIET_PERIOD_MS = 30 * 60 * 1000;
 
-/** How many items the message itself names before deferring to the report. */
+// How many items the message itself names before deferring to the report.
 const NAMED_IN_MESSAGE = 3;
 
 export type LowStockRow = {
@@ -58,7 +27,7 @@ export type LowStockRow = {
   supplier: string | null;
   quantityOnHand: number;
   reorderLevel: number;
-  /** Units needed to climb back to the reorder level. Never less than one. */
+  // Units needed to climb back to the reorder level.
   shortfall: number;
   unitCost: number;
 };
@@ -67,23 +36,17 @@ export type AlertState = { lastSentAt: string | null; itemIds: number[] };
 
 export type LowStockAlertResult = {
   sent: boolean;
-  /** Items currently at or below their reorder level. */
+  // Items currently at or below their reorder level.
   lowCount: number;
-  /** Of those, the ones nobody had been told about yet. */
+  // Of those, the ones nobody had been told about yet.
   newlyLowCount: number;
   recipients: number;
   reportUrl: string | null;
-  /** Why nothing was sent, when nothing was. */
+  // Why nothing was sent, when nothing was.
   reason?: string;
 };
 
-/**
- * Everything currently at or below its reorder level.
- *
- * The comparison is `<=`, matching the low-stock filter, the dashboard tile
- * and the reports page. Worst first, because the reader is deciding what to
- * buy today rather than reading alphabetically.
- */
+// Everything currently at or below its reorder level.
 export async function lowStockItems(db: DbExecutor, limit = 500): Promise<LowStockRow[]> {
   const rows = await db
     .select({
@@ -105,8 +68,7 @@ export async function lowStockItems(db: DbExecutor, limit = 500): Promise<LowSto
         sql`${inventoryItems.quantityOnHand} <= ${inventoryItems.reorderLevel}`,
       ),
     )
-    // Emptiest shelves first, ties broken by name so two reports run minutes
-    // apart list the same items in the same order.
+    // Emptiest shelves first, ties broken by name so two reports run minutes apart list.
     .orderBy(asc(inventoryItems.quantityOnHand), asc(inventoryItems.name))
     .limit(limit);
 
@@ -118,26 +80,19 @@ export async function lowStockItems(db: DbExecutor, limit = 500): Promise<LowSto
     supplier: row.supplier ?? null,
     quantityOnHand: row.quantityOnHand,
     reorderLevel: row.reorderLevel,
-    // An item sitting exactly on its reorder level still needs buying, so the
-    // shortfall never reports as nothing to do.
+    // An item sitting exactly on its reorder level still needs buying.
     shortfall: Math.max(1, row.reorderLevel - row.quantityOnHand),
     unitCost: money(row.unitCost),
   }));
 }
 
-/** "Relaxer (out of stock, reorder at 5)" - one item, as a person would say it. */
+// "Relaxer (out of stock, reorder at 5)" - one item, as a person would say it.
 export function describeItem(row: Pick<LowStockRow, "name" | "quantityOnHand" | "reorderLevel">) {
   const left = row.quantityOnHand === 0 ? "out of stock" : `${row.quantityOnHand} left`;
   return `${row.name} (${left}, reorder at ${row.reorderLevel})`;
 }
 
-/**
- * Absolute link to something this dashboard serves.
- *
- * Falls back to the relative path when no origin is configured. A link that
- * opens nowhere is still more use in an email than no link at all, and the
- * messages are worded so they read sensibly either way.
- */
+// Absolute link to something this dashboard serves.
 export function absoluteAdminUrl(path: string): string {
   const origin = (ENV.adminUrl || ENV.siteUrl).replace(/\/+$/, "");
   return origin ? `${origin}${path}` : path;
@@ -171,20 +126,14 @@ async function writeAlertState(db: DbExecutor, state: AlertState): Promise<void>
     .onConflictDoUpdate({ target: systemSettings.key, set: { value: state as never } });
 }
 
-/**
- * Decides whether a crossing is worth a message.
- *
- * Kept pure, so the rule that governs how much the school spends on text
- * messages can be read - and tested - without a database.
- */
+// Decides whether a crossing is worth a message.
 export function shouldAlert(
   state: AlertState,
   currentIds: number[],
   now: Date,
   force = false,
 ): { send: boolean; newlyLow: number[]; reason?: string } {
-  // Only items that are still low count as reported. One that was restocked
-  // and has fallen again is news a second time.
+  // Only items that are still low count as reported.
   const current = new Set(currentIds);
   const alreadyTold = new Set(state.itemIds.filter(id => current.has(id)));
   const newlyLow = currentIds.filter(id => !alreadyTold.has(id));
@@ -211,13 +160,7 @@ type Recipient = {
   isAdmin: boolean;
 };
 
-/**
- * Who hears about it.
- *
- * Administrators and staff both get the in-app row and the email, because both
- * work the stockroom. Only administrators get the text: it is chargeable, and
- * replacing the stock is the owner's decision to make.
- */
+// Who hears about it.
 async function alertRecipients(db: DbExecutor): Promise<Recipient[]> {
   const rows = await db
     .select({
@@ -241,24 +184,7 @@ async function alertRecipients(db: DbExecutor): Promise<Recipient[]> {
   }));
 }
 
-/**
- * Publishes the report and returns the link the email carries.
- *
- * The file goes under `reports/`, which `classifyStorageKey` sorts into its
- * own class, and the storage policy holds that class to `reports.read` or
- * `inventory.read`. Being signed in is deliberately not enough: a storefront
- * customer and a student portal account both have a session, and this document
- * names the school's suppliers and what it pays them.
- *
- * The link is still kept out of the text message - see `alertLowStock` - since
- * a URL that reaches a lock screen, an SMS gateway's logs and a forwarded
- * message is not somewhere to put the address of a private file, whatever
- * guards the far end.
- *
- * Returns null when storage is unconfigured or the upload fails, and the alert
- * then points at the low-stock list in the dashboard instead. Being told about
- * the shelf without a PDF beats not being told.
- */
+// Publishes the report and returns the link the email carries.
 async function publishReport(
   rows: LowStockRow[],
   meta: { schoolName: string; requestedBy?: string | null },
@@ -276,20 +202,12 @@ async function publishReport(
     const stored = await storagePut(`reports/low-stock-${stamp}.pdf`, pdf, "application/pdf");
     return { url: absoluteAdminUrl(stored.url), key: stored.key };
   } catch {
-    // Swallowed deliberately. The fallback below is a working alert, and why a
-    // PDF failed to render is not something an administrator being warned
-    // about their stock can act on.
+    // Swallowed deliberately.
     return null;
   }
 }
 
-/**
- * Raises the alert: compiles the report, then writes the messages.
- *
- * Call it once the transaction that consumed the stock has committed. It opens
- * its own transaction, so the notifications, the delivery rows and the record
- * of what was reported are written together and none survives if any fails.
- */
+// Raises the alert.
 export async function alertLowStock(
   db: Database,
   options: { force?: boolean; actor?: AuditActor } = {},
@@ -302,8 +220,7 @@ export async function alertLowStock(
   const decision = shouldAlert(state, currentIds, now, options.force);
 
   if (!decision.send) {
-    // An item that has been restocked is forgotten, so that falling again
-    // counts as news. Only worth a write when something actually changed.
+    // An item that has been restocked is forgotten, so that falling again counts as news.
     const pruned = state.itemIds.filter(id => currentIds.includes(id));
     if (pruned.length !== state.itemIds.length) {
       await writeAlertState(db, { ...state, itemIds: pruned });
@@ -331,8 +248,7 @@ export async function alertLowStock(
   });
   const reportUrl = report?.url ?? absoluteAdminUrl("/inventory?filter=low");
 
-  // The worst few lead, because a reader stops after the first line. The rest
-  // are a count, not a wall of names.
+  // The worst few lead, because a reader stops after the first line.
   const named = rows.slice(0, NAMED_IN_MESSAGE);
   const remainder = rows.length - named.length;
   const listed = named.map(row => `- ${describeItem(row)}`).join("\n");
@@ -342,16 +258,9 @@ export async function alertLowStock(
     count: rows.length,
     items: remainder > 0 ? `${listed}\n- and ${remainder} more in the report` : listed,
     topItem: rows[0] ? describeItem(rows[0]) : "",
-    /** The report itself. Email only - see `dashboard` for the text message. */
+    // The report itself.
     url: reportUrl,
-    /**
-     * Where the text message points instead.
-     *
-     * A screen behind the dashboard's own sign-in, not the address of a file.
-     * The report link is durable and reusable; this one is a page that shows
-     * the reader nothing they could not already see, and it is the one that
-     * ends up on a lock screen and in the gateway's logs.
-     */
+    // Where the text message points instead.
     dashboard: absoluteAdminUrl("/inventory?filter=low"),
   };
 
@@ -367,8 +276,7 @@ export async function alertLowStock(
           recipient: {
             name: recipient.name,
             email: recipient.email,
-            // Staff get the in-app row and the email. The chargeable channel
-            // is reserved for the people who authorise the purchase.
+            // Staff get the in-app row and the email.
             phone: recipient.isAdmin ? recipient.phone : null,
             userId: recipient.userId,
           },
@@ -410,14 +318,7 @@ export async function alertLowStock(
   };
 }
 
-/**
- * The same thing, for a caller that has just finished a sale.
- *
- * Nothing is awaited and nothing can throw. The checkout is already complete
- * by the time this runs, and a failed alert is not the customer's problem;
- * whatever went wrong is still on the delivery row, which is where anybody
- * looking into it would look.
- */
+// The same thing, for a caller that has just finished a sale.
 export function alertLowStockInBackground(db: Database, actor?: AuditActor): void {
   void alertLowStock(db, { actor }).catch(() => {});
 }

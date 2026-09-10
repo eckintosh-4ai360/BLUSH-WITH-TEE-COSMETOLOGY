@@ -2,15 +2,7 @@ import { SignJWT, jwtVerify } from "jose";
 import { COOKIE_NAME } from "@blush/shared/const";
 import { ENV } from "@blush/env";
 
-/**
- * Session tokens.
- *
- * A short signed JWT holding only the user id and a version stamp. Everything
- * else - role, permissions, whether the account is still active - is read from
- * the database on each request, so revoking access takes effect immediately
- * rather than when a token happens to expire.
- */
-
+// Short-lived signed JWT session tokens containing user id.
 export const SESSION_TTL_SECONDS = 60 * 60 * 12;
 
 export type SessionClaims = { userId: number; email: string | null };
@@ -44,12 +36,12 @@ export async function verifySession(token: string | undefined): Promise<SessionC
 
     return { userId, email: typeof payload.email === "string" ? payload.email : null };
   } catch {
-    // Expired, tampered with, or signed by a different secret.
+    // Return null on expired or invalid token signatures.
     return null;
   }
 }
 
-/** Reads the session token from a cookie, or a bearer header for API clients. */
+// Extracts session token from cookie header or authorization bearer header.
 export function readSessionToken(req: Request): string | undefined {
   const cookieHeader = req.headers.get("cookie");
   if (cookieHeader) {
@@ -75,14 +67,7 @@ export type SessionCookieOptions = {
   maxAge: number;
 };
 
-/**
- * Cookie flags for the session.
- *
- * `SameSite=Lax` because sign-in is now same-origin - there is no third-party
- * redirect to accommodate, and Lax is what stops the cookie riding along on a
- * cross-site request. `Secure` follows the actual protocol, so localhost over
- * http still works while production over TLS is protected.
- */
+// Generates cookie attributes for secure same-origin session storage.
 export function getSessionCookieOptions(req: Request, maxAge = SESSION_TTL_SECONDS): SessionCookieOptions {
   return {
     httpOnly: true,
@@ -97,7 +82,7 @@ function isSecureRequest(req: Request): boolean {
   try {
     if (new URL(req.url).protocol === "https:") return true;
   } catch {
-    // A relative or malformed URL: fall through to the proxy header.
+    // Fall back to forwarded proto header if URL parsing fails.
   }
 
   const forwarded = req.headers.get("x-forwarded-proto");

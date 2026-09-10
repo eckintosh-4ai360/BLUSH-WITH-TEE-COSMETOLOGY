@@ -47,7 +47,7 @@ const STATUS = [
   "rejected",
 ] as const;
 
-/** Status tones: state, never reused as a chart series colour. */
+// Status tones.
 const STATUS_TONE: Record<string, string> = {
   draft: "bg-slate-500/15 text-slate-700 dark:text-slate-300 hover:bg-slate-500/15",
   submitted: "bg-sky-500/15 text-sky-800 dark:text-sky-300 hover:bg-sky-500/15",
@@ -96,7 +96,7 @@ type ApplicationRow = {
     createdAt: Date;
   };
   courseTitle: string;
-  /** Fees as quoted to this applicant; today's price stands in for old rows. */
+  // Fees as quoted to this applicant; today's price stands in for old rows.
   courseTuition: string | null;
   courseProductFee: string | null;
 };
@@ -123,8 +123,7 @@ function AdmissionsContent() {
   const [removing, setRemoving] = useState<ApplicationRow["application"] | null>(null);
   const [viewFormApp, setViewFormApp] = useState<AdmissionApplicationData | null>(null);
 
-  // Shared by the table and by export, so a download covers exactly what the
-  // filters describe rather than the page on screen.
+  // Shared by the table and by export.
   const filters = {
     search: search || undefined,
     status: status === "all" ? undefined : (status as (typeof STATUS)[number]),
@@ -274,11 +273,7 @@ function AdmissionsContent() {
                 <Pencil className="h-3.5 w-3.5" />
               </Button>
             )}
-            {/*
-              Separate from editing on purpose. Whoever records an application
-              corrects their own typos; destroying the record of somebody
-              having applied is an administrator's decision.
-            */}
+            {/* Separate from editing on purpose. */}
             {can("admissions.delete") && (
               <Button
                 variant="ghost"
@@ -419,8 +414,7 @@ function AdmissionsContent() {
             <AlertDialogAction
               disabled={remove.isPending}
               onClick={event => {
-                // Held open until the server answers, so a refusal is read
-                // where it was asked for.
+                // Held open until the server answers, so a refusal is read where it was asked for.
                 event.preventDefault();
                 if (removing) remove.mutate({ applicationId: removing.id });
               }}

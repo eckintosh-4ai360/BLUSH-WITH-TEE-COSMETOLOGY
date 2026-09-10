@@ -67,13 +67,7 @@ export type PrintableCertificate = {
 
 const methodLabel = (value: string) => value.replaceAll("_", " ");
 
-/**
- * Printable documents, sharing one letterhead.
- *
- * The school profile is fetched once per screen rather than per document, and
- * every builder is a no-op-safe async function: a failed render reports itself
- * rather than leaving a button that silently does nothing.
- */
+// Printable documents, sharing one letterhead.
 export function useDocuments() {
   const header = trpc.platform.documentHeader.useQuery();
   const session = trpc.auth.session.useQuery();
@@ -208,8 +202,7 @@ export function useDocuments() {
                 ]
               : []),
             {
-              // Spelled out as an equation rather than a single number, so the
-              // figure at the bottom can be checked rather than trusted.
+              // Spelled out as an equation rather than a single number.
               caption: "Summary",
               head: ["", "Amount"],
               body: [
@@ -346,7 +339,7 @@ export function useDocuments() {
   );
 
   return {
-    /** False until the letterhead has loaded, so buttons can wait for it. */
+    // False until the letterhead has loaded, so buttons can wait for it.
     ready: header.isSuccess,
     paymentReceipt,
     feeStatement,

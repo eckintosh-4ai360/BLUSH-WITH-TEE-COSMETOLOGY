@@ -33,7 +33,7 @@ import { adminProcedure, permissionProcedure, router } from "../trpc";
 
 const FEE_TYPES = ["tuition", "registration", "materials", "exam", "certification", "other"] as const;
 const PAYMENT_METHODS = ["cash", "mobile_money", "bank", "card", "online"] as const;
-/** The two halves of the business the school runs its books as. */
+// The two halves of the business the school runs its books as.
 const EXPENSE_SCOPES = ["school", "store"] as const;
 const EXPENSE_CATEGORIES = [
   "rent",
@@ -51,18 +51,7 @@ const EXPENSE_CATEGORIES = [
 
 const cedis = (value: number) => `GHS ${value.toFixed(2)}`;
 
-/**
- * The `expenseCategories` row an expense should point at.
- *
- * The enum column only knows the eleven categories it was declared with, and
- * "other" is the escape hatch - which on its own tells a reader nothing about
- * what the money went on. A name typed alongside it becomes a real category
- * row, so "Bank charges" is filed under "Bank charges" from then on and shows
- * up in the picker for the next person.
- *
- * Matched on a slug rather than the typed text, so "Bank Charges", "bank
- * charges" and "Bank  charges" are the same category rather than three.
- */
+// The expenseCategories row an expense should point at.
 async function resolveExpenseCategory(
   db: Awaited<ReturnType<typeof dbOrThrow>>,
   input: { category: (typeof EXPENSE_CATEGORIES)[number]; customCategory?: string },
@@ -89,8 +78,7 @@ async function resolveExpenseCategory(
     .limit(1);
 
   if (existing) {
-    // A retired category being used again is brought back rather than
-    // duplicated under a suffixed key.
+    // A retired category being used again is brought back rather than duplicated under.
     if (!existing.isActive) {
       await db
         .update(expenseCategories)
@@ -109,18 +97,7 @@ async function resolveExpenseCategory(
   return { categoryId: created?.id ?? null, label: typed };
 }
 
-/**
- * Works out the arrears text message for one student, and whether it can go.
- *
- * The balance is recomputed here rather than taken from the caller: the amount
- * a student is told they owe must come from the ledger, not from a number a
- * browser sent back. Everything else - the wording, the number format, the
- * provider - is the shared messaging configuration, so a school that has
- * reworded the reminder gets its own words here too.
- *
- * `blocker` is the single reason this cannot be sent right now, phrased for
- * the person about to press the button. It is null when the message will go.
- */
+// Works out the arrears text message for one student, and whether it can go.
 async function buildFeeReminder(db: Awaited<ReturnType<typeof dbOrThrow>>, studentId: number) {
   const [student] = await db
     .select({
@@ -149,10 +126,7 @@ async function buildFeeReminder(db: Awaited<ReturnType<typeof dbOrThrow>>, stude
     amount: cedis(summary.outstanding),
   });
 
-  // Deliberately not gated on `masterEnabled` or the per-event SMS switch.
-  // Those govern what the system sends on its own; this message exists because
-  // a member of staff asked for it by name. What is still respected is whether
-  // SMS works at all - an unconfigured provider cannot be clicked past.
+  // Deliberately not gated on masterEnabled or the per-event SMS switch.
   const blocker =
     summary.outstanding <= 0
       ? "This account has nothing outstanding."
@@ -173,29 +147,16 @@ async function buildFeeReminder(db: Awaited<ReturnType<typeof dbOrThrow>>, stude
   };
 }
 
-/** One run texts a school, not a country. Past this, something has gone wrong. */
+// One run texts a school, not a country.
 const MAX_ARREARS_RECIPIENTS = 500;
 
-/**
- * Everyone in arrears, with the message each of them would get.
- *
- * The per-student builder is deliberately not reused in a loop: it re-reads
- * the messaging config and the school name every time, which is three extra
- * round trips per student. Here the settings are read once and the balances
- * come from one aggregate, so the cost is the same for four hundred students
- * as for four.
- *
- * Every student who owes something is returned, including the ones who cannot
- * be reached. A run that quietly dropped them would report "sent to 38" while
- * nobody ever found out that six have no phone number on file.
- */
+// Everyone in arrears, with the message each of them would get.
 async function buildArrearsRun(db: Awaited<ReturnType<typeof dbOrThrow>>) {
   const [config, school] = await Promise.all([readMessagingConfig(db), schoolName(db)]);
 
   const template = config.events.templates.outstanding_fee?.sms ?? "";
 
-  // Same shape as the outstanding list, so the two can never disagree about
-  // who owes what.
+  // Same shape as the outstanding list, so the two can never disagree about who owes what.
   const owing = await db
     .select({
       id: studentProfiles.id,
@@ -214,9 +175,7 @@ async function buildArrearsRun(db: Awaited<ReturnType<typeof dbOrThrow>>) {
     )
     .orderBy(desc(sql`coalesce(sum(${feeCharges.amountDue}), 0) - coalesce(sum(${feeCharges.amountPaid}), 0)`));
 
-  // Anyone already texted about arrears today is left out. The button says
-  // "message everyone", and a second press an hour later must not mean every
-  // student is told twice what they owe.
+  // Anyone already texted about arrears today is left out.
   const since = new Date();
   since.setHours(0, 0, 0, 0);
 
@@ -259,7 +218,6 @@ async function buildArrearsRun(db: Awaited<ReturnType<typeof dbOrThrow>>) {
   );
 
   // One reason the whole run cannot go, phrased for the person at the button.
-  // Anything that stops only some students is counted instead, not raised.
   const blocker = !recipients.length
     ? "No student is in arrears."
     : !config.sms.enabled
@@ -283,16 +241,7 @@ async function buildArrearsRun(db: Awaited<ReturnType<typeof dbOrThrow>>) {
 }
 
 export const financeRouter = router({
-  /* ---------------------------------------------------------------------- */
-  /* Fee structures (§24)                                                   */
-  /* ---------------------------------------------------------------------- */
-
-  /**
-   * The fee catalogue, with the programme each line belongs to.
-   *
-   * A structure with no course is the school-wide default — registration, say —
-   * so `courseTitle` is null rather than the row being dropped by the join.
-   */
+  // Fee structures The fee catalogue, with the programme each line belongs to.
   feeStructures: permissionProcedure("fees.read").query(async () => {
     const db = await dbOrThrow();
     const rows = await db
@@ -307,18 +256,7 @@ export const financeRouter = router({
     }));
   }),
 
-  /**
-   * Bills the current price list to everyone already on the register.
-   *
-   * Changing a price list does not reach back on its own, and it should not:
-   * silently re-billing every student the moment a figure is typed is how an
-   * account nobody meant to touch acquires a charge. This is that step made
-   * explicit, for the ordinary case of adding a fee that applies to everyone
-   * and then wanting the students already enrolled to be charged it.
-   *
-   * Idempotent. Running it twice raises nothing the second time, so it is safe
-   * to press whenever somebody is unsure whether it has been run.
-   */
+  // Bills the current price list to everyone already on the register.
   applyFeeStructures: permissionProcedure("fees.write").mutation(async ({ ctx }) => {
     const db = await dbOrThrow();
     const result = await syncAllCharges(db, ctx.user.id);
@@ -395,11 +333,7 @@ export const financeRouter = router({
       return { id: created?.id };
     }),
 
-  /* ---------------------------------------------------------------------- */
-  /* Student fee accounts (§24)                                             */
-  /* ---------------------------------------------------------------------- */
-
-  /** The account equation, plus the charges behind it. */
+  // Student fee accounts The account equation, plus the charges behind it.
   studentAccount: permissionProcedure("fees.read")
     .input(z.object({ studentId: z.number().int().positive() }))
     .query(async ({ input }) => {
@@ -449,20 +383,7 @@ export const financeRouter = router({
       };
     }),
 
-  /** Outstanding-balance report, paginated server-side (§25, §43). */
-  /**
-   * The fee register: every student on the books with what they owe, and a
-   * place to take money against it.
-   *
-   * Distinct from `outstanding`, which lists only the students carrying a
-   * balance. A register has to show the settled accounts too - a clerk works
-   * down a list of names looking for one, and a name that vanishes the moment
-   * its balance clears is a name they cannot find to check.
-   *
-   * Programme and intake are read separately for the page rather than joined
-   * in: a student on two programmes would otherwise multiply their own fee
-   * rows and be billed twice over in the aggregate.
-   */
+  // Outstanding-balance report, paginated server-side,.
   feeRegister: permissionProcedure("fees.read")
     .input(
       listInputSchema.extend({
@@ -519,8 +440,7 @@ export const financeRouter = router({
           .where(where)
           .groupBy(studentProfiles.id)
           .having(standingFilter)
-          // Biggest debt first, so the work is at the top; settled accounts
-          // fall to the end where they are looked up rather than worked.
+          // Biggest debt first, so the work is at the top; settled accounts fall to the end where.
           .orderBy(desc(owing), asc(studentProfiles.fullName))
           .limit(limit)
           .offset(offset),
@@ -598,7 +518,7 @@ export const financeRouter = router({
             totalFees: billed,
             amountPaid: paid,
             outstanding: Math.max(billed - paid, 0),
-            /** Nothing billed is not the same as nothing owed; the UI says so. */
+            // Nothing billed is not the same as nothing owed; the UI says so.
             billedAnything: billed > 0,
             lastPayment: receipt
               ? {
@@ -678,17 +598,7 @@ export const financeRouter = router({
       );
     }),
 
-  /* ---------------------------------------------------------------------- */
-  /* Arrears reminders                                                      */
-  /* ---------------------------------------------------------------------- */
-
-  /**
-   * Exactly what the student would receive, before anybody sends it.
-   *
-   * A text message cannot be recalled, so the wording, the number it goes to
-   * and the figure it quotes are all shown first and come from the same code
-   * that does the sending.
-   */
+  // Arrears reminders Exactly what the student would receive, before anybody sends it.
   feeReminderPreview: permissionProcedure("fees.write")
     .input(z.object({ studentId: z.number().int().positive() }))
     .query(async ({ input }) => {
@@ -696,7 +606,7 @@ export const financeRouter = router({
       return buildFeeReminder(db, input.studentId);
     }),
 
-  /** Texts one student what they owe. */
+  // Texts one student what they owe.
   sendFeeReminder: permissionProcedure("fees.write")
     .input(z.object({ studentId: z.number().int().positive() }))
     .mutation(async ({ input, ctx }) => {
@@ -731,10 +641,7 @@ export const financeRouter = router({
         summary: `${ctx.actor.name ?? "Staff"} texted ${reminder.student.fullName} about ${cedis(reminder.outstanding)} in arrears`,
       });
 
-      // Sent in the foreground, unlike the automatic messages: somebody is
-      // watching the button and is owed a real answer rather than "queued".
-      // Narrowed to this row so a backlog of older messages cannot be what the
-      // batch spends itself on while they wait.
+      // Sent in the foreground, unlike the automatic messages: somebody is watching the button.
       await flush(db, 1, delivery.id);
 
       const [sent] = await db
@@ -744,8 +651,7 @@ export const financeRouter = router({
         .limit(1);
 
       return {
-        // Reported from the row itself, so a provider that refused the message
-        // is not announced as a success.
+        // Reported from the row itself.
         status: sent?.status ?? "queued",
         error: sent?.status === "sent" ? null : (sent?.error ?? null),
         destination: reminder.destination,
@@ -753,13 +659,7 @@ export const financeRouter = router({
       };
     }),
 
-  /**
-   * What a whole arrears run would do, before anybody sets it off.
-   *
-   * The same shape as the single-student preview and for the same reason:
-   * a few hundred text messages cannot be recalled, so the count, the total
-   * and a real example of the wording are all shown first.
-   */
+  // What a whole arrears run would do, before anybody sets it off.
   arrearsRunPreview: permissionProcedure("fees.write").query(async () => {
     const db = await dbOrThrow();
     const run = await buildArrearsRun(db);
@@ -769,7 +669,7 @@ export const financeRouter = router({
       totals: run.totals,
       capped: run.sendable.length > MAX_ARREARS_RECIPIENTS,
       limit: MAX_ARREARS_RECIPIENTS,
-      /** A real row, so the wording shown is the wording that goes out. */
+      // A real row, so the wording shown is the wording that goes out.
       sample: run.sendable[0]
         ? {
             fullName: run.sendable[0].fullName,
@@ -786,7 +686,7 @@ export const financeRouter = router({
     };
   }),
 
-  /** Texts every student in arrears the amount they personally owe. */
+  // Texts every student in arrears the amount they personally owe.
   sendArrearsRun: permissionProcedure("fees.write").mutation(async ({ ctx }) => {
     const db = await dbOrThrow();
     const run = await buildArrearsRun(db);
@@ -830,14 +730,7 @@ export const financeRouter = router({
       summary: `${ctx.actor.name ?? "Staff"} texted ${run.sendable.length} student${run.sendable.length === 1 ? "" : "s"} about ${cedis(run.totals.arrears)} in arrears`,
     });
 
-    // Drained in the foreground like the single send: somebody is watching the
-    // button and is owed the real outcome rather than "queued".
-    //
-    // Named row by row, not merely limited to the same count. Rows are drained
-    // oldest first, so a bare limit would spend the batch on whatever backlog
-    // was already waiting and leave this run's messages sitting in the queue -
-    // while the counts below, read from this run's rows, reported them as
-    // undelivered.
+    // Drained in the foreground like the single send.
     const queuedIds = queued.map(row => row.id);
     await flush(db, queuedIds.length, queuedIds);
 
@@ -848,8 +741,7 @@ export const financeRouter = router({
           .where(inArray(notificationDeliveries.id, queuedIds))
       : [];
 
-    // Counted from the rows themselves, so a provider that refused half of
-    // them is not reported back as a clean sweep.
+    // Counted from the rows themselves.
     const sent = settled.filter(row => row.status === "sent").length;
     const failed = settled.filter(row => row.status === "failed").length;
 
@@ -903,7 +795,7 @@ export const financeRouter = router({
       return { id: charge?.id };
     }),
 
-  /** Discounts and surcharges are recorded, never edited into the charge. */
+  // Discounts and surcharges are recorded, never edited into the charge.
   adjust: permissionProcedure("fees.write")
     .input(
       z.object({
@@ -940,14 +832,7 @@ export const financeRouter = router({
       return { id: row?.id };
     }),
 
-  /**
-   * Corrects an existing discount or surcharge row.
-   *
-   * The original `adjust` endpoint only adds rows; this one lets an admin
-   * overwrite a row that was recorded at the wrong amount. The old amount and
-   * reason are read first and stored in the audit log so nothing is ever lost.
-   * Admin-only: a plain staff member can still add adjustments via `adjust`.
-   */
+  // Corrects an existing discount or surcharge row.
   updateAdjustment: adminProcedure
     .input(
       z.object({
@@ -989,12 +874,7 @@ export const financeRouter = router({
       return { id: input.id };
     }),
 
-  /**
-   * Removes a mistakenly-recorded adjustment row.
-   *
-   * Deleting an adjustment is a finance correction, not a data-purge, so it is
-   * logged in full before the row is removed. Admin-only.
-   */
+  // Removes a mistakenly-recorded adjustment row.
   deleteAdjustment: adminProcedure
     .input(z.object({ id: z.number().int().positive() }))
     .mutation(async ({ input, ctx }) => {
@@ -1028,13 +908,7 @@ export const financeRouter = router({
       return { id: input.id };
     }),
 
-  /**
-   * Corrects a fee charge's billed amount and/or description.
-   *
-   * The only safe reason to use this is fixing a data-entry mistake in the
-   * original charge. Re-computes the charge status after the update so it
-   * stays consistent with the new amount. Admin-only.
-   */
+  // Corrects a fee charge's billed amount and/or description.
   updateCharge: adminProcedure
     .input(
       z.object({
@@ -1088,9 +962,7 @@ export const financeRouter = router({
       return { id: input.id };
     }),
 
-  /* ---------------------------------------------------------------------- */
-  /* Payments (§25)                                                         */
-  /* ---------------------------------------------------------------------- */
+  // Payments.
 
   payments: permissionProcedure("payments.read")
     .input(
@@ -1150,12 +1022,7 @@ export const financeRouter = router({
       );
     }),
 
-  /**
-   * Records a student payment as one atomic unit: the payment row, its
-   * allocation across open charges, and the revenue line. If any step fails
-   * none of it is written, so a balance can never fall out of step with the
-   * money actually received (§48).
-   */
+  // Records a student payment as one atomic unit.
   recordStudentPayment: permissionProcedure("payments.write")
     .input(
       z.object({
@@ -1275,8 +1142,7 @@ export const financeRouter = router({
           return { id: payment.id, reference, allocations: allocations.length, summary };
         });
 
-        // After the commit: the receipt must describe a payment that is
-        // actually on file.
+        // After the commit.
         flushInBackground(db);
         return result;
       } catch (error) {
@@ -1290,10 +1156,7 @@ export const financeRouter = router({
       }
     }),
 
-  /**
-   * Refunds are counter-entries: the payment keeps its original amount and a
-   * negative revenue line cancels it (§29). Old rows are never rewritten.
-   */
+  // Refunds are counter-entries.
   refundPayment: permissionProcedure("payments.write")
     .input(
       z.object({
@@ -1355,9 +1218,7 @@ export const financeRouter = router({
       });
     }),
 
-  /* ---------------------------------------------------------------------- */
-  /* Expenses (§27)                                                         */
-  /* ---------------------------------------------------------------------- */
+  // Expenses.
 
   expenseCategories: permissionProcedure("expenses.read").query(async () => {
     const db = await dbOrThrow();
@@ -1397,8 +1258,7 @@ export const financeRouter = router({
 
       const [rows, [total], [sum]] = await Promise.all([
         db
-          // Left-joined so an expense recorded before the category table
-          // existed still comes back, with the enum as its only label.
+          // Left-joined so an expense recorded before the category table existed still comes back.
           .select({ expense: expenses, categoryName: expenseCategories.name })
           .from(expenses)
           .leftJoin(expenseCategories, eq(expenses.categoryId, expenseCategories.id))
@@ -1418,8 +1278,7 @@ export const financeRouter = router({
           rows.map(({ expense, categoryName }) => ({
             ...expense,
             amount: money(expense.amount),
-            // What the row is filed under, in the words it was filed with. A
-            // custom category reads as itself rather than as "other".
+            // What the row is filed under, in the words it was filed with.
             categoryLabel: categoryName ?? expense.category,
           })),
           Number(total?.total ?? 0),
@@ -1434,7 +1293,7 @@ export const financeRouter = router({
       z.object({
         title: z.string().min(2).max(180),
         category: z.enum(EXPENSE_CATEGORIES),
-        /** Names the category when `category` is "other". Ignored otherwise. */
+        // Names the category when category is "other".
         customCategory: z.string().trim().max(120).optional(),
         scope: z.enum(EXPENSE_SCOPES).default("school"),
         amount: z.number().positive(),
@@ -1443,7 +1302,7 @@ export const financeRouter = router({
         paymentMethod: z.enum(PAYMENT_METHODS),
         receiptKey: z.string().max(512).optional(),
         note: z.string().max(2000).optional(),
-        /** Held for approval when the recorder cannot approve their own spend. */
+        // Held for approval when the recorder cannot approve their own spend.
         requiresApproval: z.boolean().default(false),
       }),
     )
@@ -1498,21 +1357,14 @@ export const financeRouter = router({
       return { id: expense?.id, approvalStatus: needsApproval ? "pending" : "approved" };
     }),
 
-  /**
-   * Corrects a recorded expense.
-   *
-   * An edit by someone who cannot approve sends the expense back to pending,
-   * for the same reason recording one does: otherwise the amount on an
-   * already-approved expense could be changed after the decision was made,
-   * and the approval would still be sitting there vouching for it.
-   */
+  // Corrects a recorded expense.
   updateExpense: permissionProcedure("expenses.write")
     .input(
       z.object({
         expenseId: z.number().int().positive(),
         title: z.string().min(2).max(180),
         category: z.enum(EXPENSE_CATEGORIES),
-        /** Names the category when `category` is "other". Ignored otherwise. */
+        // Names the category when category is "other".
         customCategory: z.string().trim().max(120).optional(),
         scope: z.enum(EXPENSE_SCOPES).default("school"),
         amount: z.number().positive(),
@@ -1587,14 +1439,7 @@ export const financeRouter = router({
       return { id: before.id, reopened };
     }),
 
-  /**
-   * Takes an expense off the books.
-   *
-   * Soft, like every other removal here - the row stays for the audit trail
-   * and drops out of the lists and the totals, which both filter on
-   * `deletedAt`. Removing one that has already been approved is held to the
-   * approver's bar: it changes a figure somebody signed off.
-   */
+  // Takes an expense off the books.
   deleteExpense: permissionProcedure("expenses.write")
     .input(z.object({ expenseId: z.number().int().positive() }))
     .mutation(async ({ input, ctx }) => {
@@ -1679,9 +1524,7 @@ export const financeRouter = router({
       return { success: true };
     }),
 
-  /* ---------------------------------------------------------------------- */
-  /* Revenue ledger (§28)                                                   */
-  /* ---------------------------------------------------------------------- */
+  // Revenue ledger.
 
   revenue: permissionProcedure("finance.read")
     .input(listInputSchema)

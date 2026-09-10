@@ -32,7 +32,7 @@ const FEE_TYPES = [
   "other",
 ] as const;
 
-/** A structure with no course is the school-wide default. */
+// A structure with no course is the school-wide default.
 const SCHOOL_WIDE = "school-wide";
 
 export type FeeStructure = {
@@ -46,13 +46,7 @@ export type FeeStructure = {
   isActive: boolean;
 };
 
-/**
- * Creates or edits one line of the fee catalogue.
- *
- * Editing a structure does not touch charges already raised from it (§24):
- * those record what a student was actually billed, and rewriting them would
- * quietly change what people already owe.
- */
+// Creates or edits one line of the fee catalogue.
 export function FeeStructureDialog({
   open,
   onOpenChange,
@@ -73,8 +67,7 @@ export function FeeStructureDialog({
   const [isActive, setIsActive] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Seeded on every open, because the caller sets `editing` and `open` in the
-  // same render and a state initialiser only runs once.
+  // Seeded on every open.
   useEffect(() => {
     setCourseId(editing?.courseId ? String(editing.courseId) : SCHOOL_WIDE);
     setFeeType((editing?.feeType as (typeof FEE_TYPES)[number]) ?? "tuition");

@@ -1,18 +1,4 @@
-/**
- * Repairs derived values from the tables that are the source of truth.
- *
- * Everything in the running system writes these together inside a transaction,
- * so drift should not happen. It still can: an interrupted import, a restore
- * from backup, or data written before a rule existed. This routine makes the
- * derived columns agree with the ledgers again, and it is safe to run twice.
- *
- * Rules applied, in order:
- *   1. Every completed payment has a revenue line.
- *   2. feeCharges.amountPaid equals the allocations against it.
- *   3. The stock ledger explains quantity on hand for every item.
- *
- * Run with: pnpm db:reconcile
- */
+// Reconciles derived values across revenue, charge allocations, and inventory stock.
 
 import { eq, sql } from "drizzle-orm";
 import type { getDb } from "./index";
@@ -37,8 +23,7 @@ export type ReconcileReport = {
 export async function reconcileDerivedData(db: Database): Promise<ReconcileReport> {
   const details: string[] = [];
 
-  /* --- 1. Revenue lines for completed payments -------------------------- */
-
+  // Reconcile revenue records for completed payments
   const orphanPayments = await db
     .select({
       id: payments.id,
@@ -78,8 +63,7 @@ export async function reconcileDerivedData(db: Database): Promise<ReconcileRepor
     );
   }
 
-  /* --- 2. feeCharges.amountPaid from its allocations -------------------- */
-
+  // Reconcile fee charge paid amounts from allocations
   const drifted = await db
     .select({
       id: feeCharges.id,
@@ -96,8 +80,7 @@ export async function reconcileDerivedData(db: Database): Promise<ReconcileRepor
   let chargesCorrected = 0;
   for (const charge of drifted) {
     const dueMinor = Math.round(Number(charge.amountDue) * 100);
-    // An over-allocation is capped at the amount billed rather than silently
-    // creating a negative balance; the surplus is reported for a human to look at.
+    // Cap allocation at billed amount to prevent negative balance.
     const allocatedMinor = Math.round(Number(charge.allocated) * 100);
     const paidMinor = Math.min(allocatedMinor, dueMinor);
 
@@ -128,8 +111,7 @@ export async function reconcileDerivedData(db: Database): Promise<ReconcileRepor
     details.push(`Recomputed amountPaid on ${chargesCorrected} fee charge(s) from allocations.`);
   }
 
-  /* --- 3. Stock ledger explains quantity on hand ------------------------ */
-
+  // Reconcile inventory quantity on hand with stock movements
   const stockDrift = await db
     .select({
       id: inventoryItems.id,
@@ -148,8 +130,7 @@ export async function reconcileDerivedData(db: Database): Promise<ReconcileRepor
     const difference = item.onHand - Number(item.ledger);
     return {
       inventoryItemId: item.id,
-      // An opening balance where the ledger has nothing to explain the stock;
-      // an explicit adjustment where the two simply disagree.
+      // Create opening balance or adjustment movement to balance ledger.
       movementType: Number(item.ledger) === 0 ? ("received" as const) : ("adjustment" as const),
       quantityDelta: difference,
       balanceAfter: item.onHand,

@@ -38,14 +38,10 @@ import { collectAllPages } from "@/lib/exportAll";
 import { describeDuration, durationFilterOptions } from "@/lib/describeDuration";
 import { trpc } from "@/lib/trpc";
 
-/**
- * The statuses a student on this register can hold. Graduated is deliberately
- * absent: graduates are read from their own page, and this filter would only
- * ever return an empty table.
- */
+// The statuses a student on this register can hold.
 const STATUS = ["active", "suspended", "completed", "withdrawn"] as const;
 
-/** Status tones: state, never reused as a chart series colour. */
+// Status tones.
 const STATUS_TONE: Record<string, string> = {
   active:
     "bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-500/15",
@@ -106,8 +102,7 @@ function StudentsContent() {
   const utils = trpc.useUtils();
   const courses = trpc.content.courses.useQuery();
 
-  // Shared by the table and by export, so a download covers exactly what the
-  // filters describe rather than the page on screen.
+  // Shared by the table and by export.
   const filters = {
     sortDir: "desc" as const,
     search: search || undefined,
@@ -128,16 +123,11 @@ function StudentsContent() {
       toast.success(`${result.studentNumber} removed from the register.`);
       query.refetch();
     },
-    // The dialog stays open on failure: the commonest refusal is an unpaid
-    // balance, and that is a message about this student, not a general error.
+    // The dialog stays open on failure.
     onError: error => toast.error(error.message),
   });
 
-  // Narrowing to one programme and asking for the unenrolled at once returns
-  // nothing, so the two controls stay mutually exclusive. Length belongs to
-  // the same group: a named programme already fixes its length, and a student
-  // with no enrolment has no length at all, so any pairing of the three is
-  // either a repeat or a guaranteed empty table.
+  // Narrowing to one programme and asking for the unenrolled at once returns nothing.
   const onCourseChange = (value: string) => {
     setCourse(value);
     if (value !== "all") {
@@ -238,8 +228,7 @@ function StudentsContent() {
                   variant="ghost"
                   size="sm"
                   className="gap-1.5"
-                  // The row itself opens the fee account, so neither button
-                  // may let its click through as well.
+                  // The row itself opens the fee account, so neither button may let its click through as well.
                   onClick={event => {
                     event.stopPropagation();
                     setEditing(row);
@@ -304,8 +293,7 @@ function StudentsContent() {
         page={page}
         onPageChange={setPage}
         rowKey={row => row.id}
-        // Only offered to someone who can actually read the account behind it,
-        // so the row does not lead to a page that refuses them.
+        // Only offered to someone who can actually read the account behind it.
         onRowClick={can("fees.read") ? row => router.push(`/students/${row.id}`) : undefined}
         exportFileName="students"
         fetchAllRows={() =>
@@ -426,8 +414,7 @@ function StudentsContent() {
         open={saveOpen}
         onOpenChange={open => {
           setSaveOpen(open);
-          // Cleared on close so the next "Add student" does not reopen the
-          // last edited row.
+          // Cleared on close so the next "Add student" does not reopen the last edited row.
           if (!open) setEditing(null);
         }}
         editing={editing}
@@ -469,8 +456,7 @@ function StudentsContent() {
             <AlertDialogAction
               disabled={archive.isPending}
               onClick={event => {
-                // Confirming keeps the dialog up until the server answers, so a
-                // refusal is read where it was asked for.
+                // Confirming keeps the dialog up until the server answers.
                 event.preventDefault();
                 if (removing) archive.mutate({ id: removing.id });
               }}

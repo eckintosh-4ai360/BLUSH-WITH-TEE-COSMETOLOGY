@@ -33,7 +33,7 @@ const METHODS = [
 
 type Method = (typeof METHODS)[number]["value"];
 
-/** The fields an edit fills back in. */
+// The fields an edit fills back in.
 export type EditableService = {
   id: number;
   serviceDate: Date | string;
@@ -47,7 +47,7 @@ export type EditableService = {
   note: string | null;
 };
 
-/** Today as YYYY-MM-DD in the recorder's own timezone, not UTC. */
+// Today as YYYY-MM-DD in the recorder's own timezone, not UTC.
 function today() {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
@@ -58,18 +58,11 @@ const asDateInput = (value: Date | string) => {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
 };
 
-/** Sentinel for "not in the catalogue", which is an ordinary case here. */
+// Sentinel for "not in the catalogue", which is an ordinary case here.
 const OTHER_SERVICE = "other";
 const NO_WORKER = "unlisted";
 
-/**
- * Records one service carried out.
- *
- * Both pickers fall back to free text on purpose. A salon does work that is
- * not on the price list and is done by people who do not all have dashboard
- * accounts, and a form that refuses those is a form the takings get kept
- * outside of - on paper, where nothing else can see them.
- */
+// Records one service carried out.
 export function SaveServiceDialog({
   open,
   onOpenChange,
@@ -95,8 +88,7 @@ export function SaveServiceDialog({
   const catalogue = trpc.services.catalogue.useQuery(undefined, { enabled: open });
   const workers = trpc.services.workers.useQuery(undefined, { enabled: open });
 
-  // Seeded when it opens rather than when it closes, so reopening on a
-  // different row never shows the previous one's figures for a frame.
+  // Seeded when it opens rather than when it closes.
   useEffect(() => {
     if (!open) return;
     setServiceDate(editing ? asDateInput(editing.serviceDate) : today());
@@ -133,7 +125,7 @@ export function SaveServiceDialog({
     return null;
   }, [serviceName, clientName, workerName, amount, parsedAmount, serviceDate]);
 
-  /** Picking from the catalogue fills the name and price rather than locking them. */
+  // Picking from the catalogue fills the name and price rather than locking them.
   const chooseService = (value: string) => {
     setServiceKey(value);
     if (value === OTHER_SERVICE) return;

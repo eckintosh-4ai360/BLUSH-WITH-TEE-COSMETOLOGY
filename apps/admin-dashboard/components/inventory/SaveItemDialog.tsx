@@ -46,15 +46,7 @@ export type SaveableItem = {
   isActive: boolean;
 };
 
-/**
- * Creates or edits a stock item.
- *
- * Quantity is only editable on create, and even then it is booked as an
- * opening-balance movement rather than written straight to the column (§48).
- * Once an item exists, the only way its balance changes is through a movement,
- * so the ledger always explains the number on screen — which is why the field
- * turns into a read-only figure when editing.
- */
+// Creates or edits a stock item.
 export function SaveItemDialog({
   open,
   onOpenChange,
@@ -100,8 +92,7 @@ export function SaveItemDialog({
 
   const categories = trpc.inventory.categories.useQuery(undefined, { enabled: open });
 
-  // Suppliers sit behind their own permission, so a storekeeper without it
-  // still gets the rest of the form rather than a failed request.
+  // Suppliers sit behind their own permission.
   const canReadSuppliers = can("suppliers.read");
   const canWriteSuppliers = can("suppliers.write");
   const suppliers = trpc.inventory.suppliers.useQuery(
@@ -151,8 +142,7 @@ export function SaveItemDialog({
     editing,
   ]);
 
-  // Sold below cost is legitimate (a clearance line) but almost always a typo,
-  // so it warns rather than blocks.
+  // Sold below cost is legitimate (a clearance line) but almost always a typo.
   const marginWarning =
     isSellable && parsedPrice > 0 && parsedCost > 0 && parsedPrice < parsedCost
       ? `Selling at ${formatMoney(parsedPrice)} is below the ${formatMoney(parsedCost)} it costs.`
@@ -390,8 +380,7 @@ export function SaveItemDialog({
                 sku: sku.trim(),
                 name: name.trim(),
                 description: description.trim() || undefined,
-                // The legacy free-text column is kept in step with the chosen
-                // category so older rows and new ones read the same.
+                // The legacy free-text column is kept in step with the chosen category so older rows.
                 category: chosenCategoryName || "other",
                 categoryId: Number(categoryId),
                 supplierId: supplierId === NONE ? undefined : Number(supplierId),
@@ -410,18 +399,12 @@ export function SaveItemDialog({
           </Button>
         </DialogFooter>
 
-        {/*
-          Both pickers used to be dead ends: a category could only be created by
-          a spreadsheet import, so a fresh install offered nothing to choose.
-          These render into their own portals, so nesting them here is only a
-          matter of where the state lives.
-        */}
+        {/* Both pickers used to be dead ends. */}
         <SaveCategoryDialog
           open={categoryDialogOpen}
           onOpenChange={setCategoryDialogOpen}
           onCreated={category => {
-            // Selected only once the list holds it, otherwise the trigger falls
-            // back to its placeholder until the refetch lands.
+            // Selected only once the list holds it, otherwise the trigger falls back to its placeholder.
             void categories.refetch().then(() => setCategoryId(String(category.id)));
           }}
         />

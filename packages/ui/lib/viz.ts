@@ -1,15 +1,6 @@
-/**
- * Data-visualisation tokens.
- *
- * The hex values live in `globals.css` so light and dark swap in one place;
- * everything here refers to them by role. Charts must never hard-code a hex.
- *
- * Both palettes were validated against their own surface for lightness band,
- * chroma floor, colour-vision-deficiency separation, normal-vision separation,
- * and contrast. Re-run that validation before changing any value.
- */
+// Data visualization tokens and palettes.
 
-/** Categorical slots, in fixed order. Assign by entity, never by rank. */
+// Categorical palette slots assigned by entity.
 export const SERIES = [
   "var(--viz-series-1)",
   "var(--viz-series-2)",
@@ -25,16 +16,16 @@ export const VIZ = {
   muted: "var(--viz-muted)",
 } as const;
 
-/** Bar and column geometry, fixed across every chart. */
+// Bar and column geometry tokens.
 export const MARKS = {
-  /** Never fill the band - the leftover is deliberate air. */
+  // Maximum fill ratio for chart bands.
   maxBarSize: 24,
-  /** Rounded data-end, square at the baseline. */
+  // Border radius for bar data ends.
   columnRadius: [4, 4, 0, 0] as [number, number, number, number],
   barRadius: [0, 4, 4, 0] as [number, number, number, number],
   lineWidth: 2,
   dotRadius: 4,
-  /** Surface gap between touching marks, and the ring around dots. */
+  // Spacing between adjacent chart bars.
   gap: 2,
   areaOpacity: 0.1,
 } as const;
@@ -46,7 +37,7 @@ const COMPACT = new Intl.NumberFormat("en-GH", {
 
 const PLAIN = new Intl.NumberFormat("en-GH");
 
-/** Axis ticks and stat-tile values: 1,284 / 12.9K / 4.2M. */
+// Formats metric values with unit suffixes.
 export function compactNumber(value: number): string {
   return Math.abs(value) >= 10_000 ? COMPACT.format(value) : PLAIN.format(value);
 }
@@ -58,7 +49,7 @@ export function formatMoney(value: number, currency = "GHS"): string {
   })}`;
 }
 
-/** Compact money for axis ticks, where two decimals would be noise. */
+// Formats compact currency values for chart axis ticks.
 export function compactMoney(value: number, currency = "GHS"): string {
   return `${currency} ${compactNumber(value)}`;
 }

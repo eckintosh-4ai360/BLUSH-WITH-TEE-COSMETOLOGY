@@ -1,20 +1,4 @@
-/**
- * CSV reading and template writing for bulk import.
- *
- * Hand-written rather than pulled from a library because the requirement is
- * small and fixed — RFC 4180 with a header row — and because the failure modes
- * that matter here are the ones a naive `split(",")` gets wrong on real
- * spreadsheet exports:
- *
- *   A quoted field containing a comma        "Aboso, Tarkwa"
- *   A quoted field containing a newline      "Line one\nLine two"
- *   An escaped quote inside a quoted field   "She said ""yes"""
- *   A byte-order mark Excel writes first     ﻿SKU,Name
- *   Windows line endings                     \r\n
- *
- * Each of those silently corrupts a row rather than failing loudly, which is
- * the worst way for an import to go wrong.
- */
+// CSV reading and template writing for bulk import.
 
 import {
   headerLookup,
@@ -23,12 +7,12 @@ import {
 } from "@blush/shared/imports";
 
 export type ParsedCsv = {
-  /** Headings exactly as they appeared, for reporting unknown columns. */
+  // Headings exactly as they appeared, for reporting unknown columns.
   headers: string[];
   rows: string[][];
 };
 
-/** Splits CSV text into rows of raw cells. Blank lines are dropped. */
+// Splits CSV text into rows of raw cells.
 export function parseCsv(text: string): ParsedCsv {
   const input = text.replace(/^﻿/, "");
   const rows: string[][] = [];
@@ -108,19 +92,13 @@ export function parseCsv(text: string): ParsedCsv {
 
 export type MappedRows = {
   rows: Array<Record<string, string>>;
-  /** Required columns the file does not have. */
+  // Required columns the file does not have.
   missingColumns: string[];
-  /** Headings present in the file that mean nothing to us. */
+  // Headings present in the file that mean nothing to us.
   unknownColumns: string[];
 };
 
-/**
- * Turns parsed cells into field objects using a column spec.
- *
- * A row shorter than the header is padded rather than rejected: spreadsheets
- * routinely omit trailing empty cells, and treating that as malformed would
- * reject files that are perfectly readable.
- */
+// Turns parsed cells into field objects using a column spec.
 export function mapRows(parsed: ParsedCsv, columns: ImportColumn[]): MappedRows {
   const lookup = headerLookup(columns);
 
@@ -154,20 +132,14 @@ function escapeCsv(value: string): string {
   return `"${value.replace(/"/g, '""')}"`;
 }
 
-/**
- * Builds the downloadable template: the headings, then one example row.
- *
- * The example is real data rather than placeholder text, so it can be edited
- * in place instead of deleted and retyped, and so the expected date and number
- * formats are visible rather than described.
- */
+// Builds the downloadable template.
 export function buildTemplateCsv(columns: ImportColumn[]): string {
   const headers = columns.map(column => escapeCsv(column.header)).join(",");
   const example = columns.map(column => escapeCsv(column.example)).join(",");
   return `${headers}\n${example}\n`;
 }
 
-/** Hands the browser a file. Excel needs the BOM to read UTF-8 correctly. */
+// Hands the browser a file.
 export function downloadTemplate(fileName: string, columns: ImportColumn[]) {
   const blob = new Blob(["﻿", buildTemplateCsv(columns)], {
     type: "text/csv;charset=utf-8;",

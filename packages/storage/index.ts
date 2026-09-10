@@ -1,17 +1,4 @@
-// Storage helpers backed by Cloudinary.
-//
-// Every asset is uploaded as an `authenticated` Cloudinary resource, so the
-// raw delivery URL is useless without a signature. Nothing hands a Cloudinary
-// URL straight to the browser: `storageGet` returns an app-relative
-// `/api/manus-storage/{key}` path, and that route handler (see ./proxyRoute)
-// applies the app's own access rules before redirecting to a signed URL. That
-// keeps admissions documents — transcripts, government IDs — behind the same
-// authorization as the rest of the API.
-//
-// A storage key is `{resourceType}/{publicId}`, e.g.
-// `image/blush-with-tee/media/product/1712-serum`. The resource type has to
-// travel with the key because Cloudinary needs it to build a delivery URL and
-// it is not recoverable from the public id alone.
+// Cloudinary storage helpers with authenticated access control.
 
 import { v2 as cloudinary, type UploadApiResponse } from "cloudinary";
 import { ENV } from "@blush/env";
@@ -52,11 +39,7 @@ function normalizeKey(relKey: string): string {
   return relKey.replace(/^\/+/, "");
 }
 
-/**
- * Turns a caller-supplied path into a Cloudinary public id: strips the file
- * extension (Cloudinary derives its own from the format), drops characters
- * Cloudinary treats specially, and scopes it under the configured folder.
- */
+// Converts caller relative path to unique Cloudinary public id.
 function buildPublicId(relKey: string): string {
   const cleaned = normalizeKey(relKey)
     .replace(/\.[^./]+$/, "")
@@ -70,13 +53,13 @@ function buildPublicId(relKey: string): string {
   return folder ? `${folder}/${cleaned}_${hash}` : `${cleaned}_${hash}`;
 }
 
-/** Cloudinary calls PDFs and office documents `image` and `raw` respectively. */
+// Maps file format to appropriate Cloudinary resource type.
 function toResourceType(value: string | undefined): StorageResourceType {
   if (value === "image" || value === "video" || value === "raw") return value;
   return "raw";
 }
 
-/** Splits `{resourceType}/{publicId}` back into its parts. */
+// Splits storage key into resource type and public id.
 export function parseStorageKey(key: string): {
   resourceType: StorageResourceType;
   publicId: string;
@@ -91,7 +74,7 @@ export function parseStorageKey(key: string): {
     }
   }
 
-  // Keys written before the resource type was encoded, and hand-entered keys.
+  // Fallback for legacy keys stored without resource prefix.
   return { resourceType: "image", publicId: normalized };
 }
 
@@ -103,8 +86,7 @@ export async function storagePut(
   const client = getCloudinary();
   const publicId = buildPublicId(relKey);
 
-  // Cloudinary's Node uploader takes a path, a remote URL, or a data URI; an
-  // in-memory buffer has to go up as the last of those.
+  // Convert buffer to data URI for upload.
   const payload = `data:${contentType};base64,${Buffer.from(data).toString("base64")}`;
 
   let uploaded: UploadApiResponse;
@@ -126,19 +108,13 @@ export async function storagePut(
   return { key, url: `/api/manus-storage/${key}` };
 }
 
-/**
- * Resolves the app-relative URL for a stored object. The returned path is
- * served by the storage proxy route, never by Cloudinary directly.
- */
+// Resolves relative storage proxy path for a key.
 export async function storageGet(relKey: string): Promise<{ key: string; url: string }> {
   const key = normalizeKey(relKey);
   return { key, url: `/api/manus-storage/${key}` };
 }
 
-/**
- * Builds a signed Cloudinary delivery URL. Only the storage proxy should call
- * this — handing the result to a browser bypasses the app's access rules.
- */
+// Generates time-limited signed delivery URL for authenticated access.
 export async function storageGetSignedUrl(relKey: string): Promise<string> {
   const client = getCloudinary();
   const { resourceType, publicId } = parseStorageKey(relKey);

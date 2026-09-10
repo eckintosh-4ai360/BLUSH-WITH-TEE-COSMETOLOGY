@@ -38,13 +38,7 @@ function today() {
   return new Date().toISOString().slice(0, 10);
 }
 
-/**
- * Bills a student for something.
- *
- * The fee catalogue is offered as a starting point rather than a constraint:
- * picking one copies its name and amount into the form, and both stay
- * editable, because a charge records what this student was actually billed.
- */
+// Bills a student for something.
 export function AddChargeDialog({
   open,
   onOpenChange,

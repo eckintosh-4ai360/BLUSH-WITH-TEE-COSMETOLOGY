@@ -9,9 +9,9 @@ import React, {
   useState,
 } from "react";
 
-/** What the user picked. "system" follows the operating system setting. */
+// Selected theme setting or system preference.
 export type Theme = "light" | "dark" | "system";
-/** What actually gets painted — "system" already resolved against the OS. */
+// Resolved theme applied to document.
 export type ResolvedTheme = "light" | "dark";
 
 const DEFAULT_STORAGE_KEY = "theme";
@@ -21,15 +21,10 @@ interface ThemeContextType {
   theme: Theme;
   resolvedTheme: ResolvedTheme;
   setTheme: (theme: Theme) => void;
-  /** Absent when the provider is not switchable, so a locked app cannot flip. */
+  // Theme setter callback for switchable themes.
   toggleTheme?: () => void;
   switchable: boolean;
-  /**
-   * False during the server render and the first client render, when the
-   * stored preference has not been read yet. Anything whose markup differs
-   * between themes must wait for this, or React will report a hydration
-   * mismatch and repaint.
-   */
+  // Flag indicating client mount completion.
   mounted: boolean;
 }
 
@@ -50,11 +45,11 @@ function resolve(theme: Theme): ResolvedTheme {
 
 interface ThemeProviderProps {
   children: React.ReactNode;
-  /** Used until a stored preference is found, and whenever `switchable` is false. */
+  // Default fallback theme.
   defaultTheme?: Theme;
-  /** Opt-in: without it the app is pinned to `defaultTheme` and nothing is persisted. */
+  // Enables user theme switching.
   switchable?: boolean;
-  /** Must match the key given to `ThemeScript`. */
+  // LocalStorage key for persisting theme.
   storageKey?: string;
 }
 
@@ -64,11 +59,7 @@ export function ThemeProvider({
   switchable = false,
   storageKey = DEFAULT_STORAGE_KEY,
 }: ThemeProviderProps) {
-  // Deliberately not read from localStorage here: the server has no access to
-  // it, so seeding state from storage would make the first client render
-  // disagree with the server's HTML. `ThemeScript` has already put the right
-  // class on <html> before paint, so this catching up a tick later is
-  // invisible.
+  // Read theme preference after initial mount to prevent hydration mismatch.
   const [theme, setThemeState] = useState<Theme>(defaultTheme);
   const [systemPreference, setSystemPreference] =
     useState<ResolvedTheme>("light");
@@ -89,8 +80,7 @@ export function ThemeProvider({
     setMounted(true);
   }, [switchable, storageKey]);
 
-  // Only "system" cares what the OS is doing, but the listener is cheap and
-  // keeping it always-on avoids a stale reading the moment someone picks it.
+  // Listen for operating system theme changes.
   useEffect(() => {
     if (typeof window === "undefined" || !window.matchMedia) return;
     const query = window.matchMedia(DARK_QUERY);
@@ -121,8 +111,7 @@ export function ThemeProvider({
   useEffect(() => {
     const root = document.documentElement;
     root.classList.toggle("dark", resolvedTheme === "dark");
-    // Tells the browser which way to paint the things CSS does not reach:
-    // native scrollbars, date pickers, form control chrome.
+    // Set color-scheme to theme native UI controls.
     root.style.colorScheme = resolvedTheme;
   }, [resolvedTheme]);
 
@@ -140,8 +129,7 @@ export function ThemeProvider({
   );
 
   const toggleTheme = useCallback(() => {
-    // From "system" this flips away from whatever the OS is giving right now,
-    // which is what someone reaching for a toggle means by "the other one".
+    // Toggle theme between light and dark modes.
     setTheme(resolvedTheme === "dark" ? "light" : "dark");
   }, [setTheme, resolvedTheme]);
 
@@ -178,17 +166,7 @@ export function useTheme() {
   return context;
 }
 
-/**
- * Applies the stored theme before the browser paints.
- *
- * Render this as the first child of <body> in the root layout. React leaves an
- * inline script where it is written, so it runs while the rest of the document
- * is still being parsed — early enough that the page never shows a white flash
- * on its way to dark.
- *
- * The `storageKey` and `defaultTheme` must match the ones given to
- * `ThemeProvider`, otherwise the pre-paint class and the React state disagree.
- */
+// Inline script preventing theme flash before initial render.
 export function ThemeScript({
   defaultTheme = "system",
   storageKey = DEFAULT_STORAGE_KEY,
@@ -204,8 +182,7 @@ export function ThemeScript({
 
   return (
     <script
-      // The script is built from literals and JSON-encoded props, so there is
-      // no user input to escape.
+      // Pre-rendered script injection with encoded props.
       dangerouslySetInnerHTML={{ __html: script }}
       suppressHydrationWarning
     />

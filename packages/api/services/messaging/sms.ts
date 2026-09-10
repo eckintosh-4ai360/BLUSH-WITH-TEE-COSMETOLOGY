@@ -2,18 +2,7 @@ import type { SmsConfig } from "./config";
 
 export type SendResult = { ok: true; detail?: string } | { ok: false; error: string };
 
-/**
- * Ghanaian numbers, in the form mNotify expects.
- *
- * The register holds numbers as people write them - "024 123 4567",
- * "+233 24 123 4567", "233241234567". The provider wants digits in
- * international form, so the local trunk zero is swapped for the country code
- * and everything else is thrown away.
- *
- * Returns null when what is left cannot be a phone number, which is how a bad
- * contact detail becomes a skipped delivery with a reason rather than a failed
- * request.
- */
+// Ghanaian numbers, in the form mNotify expects.
 export function normaliseMsisdn(raw: string | null | undefined): string | null {
   if (!raw) return null;
 
@@ -31,7 +20,7 @@ export function normaliseMsisdn(raw: string | null | undefined): string | null {
   return digits.length >= 11 && digits.length <= 15 ? digits : null;
 }
 
-/** What a text message costs is measured in segments, so length is worth knowing. */
+// What a text message costs is measured in segments, so length is worth knowing.
 export function smsSegments(message: string): number {
   return Math.max(1, Math.ceil(message.length / 160));
 }
@@ -42,21 +31,7 @@ export function describeSmsConfig(config: SmsConfig): string | null {
   return null;
 }
 
-/**
- * Sends one message through mNotify's quick SMS endpoint.
- *
- * The endpoint and request shape are the documented ones:
- * `POST {baseUrl}?key=API_KEY` with a JSON body carrying `recipient`,
- * `sender`, `message` and the scheduling pair.
- *
- * The response is read defensively on purpose. mNotify answers 200 with a
- * status body rather than using HTTP codes for application failures, and the
- * published code list is not something this can verify at build time - so
- * anything that does not clearly say success is treated as a failure and the
- * provider's own words are stored on the delivery row. A mismatch therefore
- * shows up as a readable error in the send log instead of a message that
- * silently never arrives.
- */
+// Sends one message through mNotify's quick SMS endpoint.
 export async function sendSms(
   config: SmsConfig,
   to: string,
@@ -92,8 +67,7 @@ export async function sendSms(
     try {
       parsed = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
     } catch {
-      // Left empty: the raw text is reported below, which is more useful than
-      // "invalid JSON" when a provider returns an HTML error page.
+      // Left empty.
     }
 
     if (!response.ok) {
@@ -120,7 +94,7 @@ export async function sendSms(
   }
 }
 
-/** A short, loggable version of whatever the provider said. */
+// A short, loggable version of whatever the provider said.
 function summarise(parsed: Record<string, unknown>, raw: string): string {
   const message = parsed.message ?? parsed.error ?? parsed.status;
   const text = typeof message === "string" && message ? message : raw;

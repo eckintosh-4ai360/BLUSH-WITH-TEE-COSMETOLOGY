@@ -7,11 +7,7 @@ import { enforceRateLimit } from "../services/rateLimit";
 import { availableTools } from "../services/assistant/registry";
 import { authedProcedure, publicProcedure, router, throttledPublicProcedure } from "../trpc";
 
-/**
- * A member of staff can ask more often than a passer-by, but not without
- * limit: every question costs a model call, and a stuck client should not be
- * able to spend the school's credit in a loop.
- */
+// A member of staff can ask more often than a passer.
 const staffLimit = { bucket: "assistant.ask", limit: 60, windowMs: 10 * 60_000 };
 const publicLimit = throttledPublicProcedure({
   bucket: "assistant.chat",
@@ -30,11 +26,7 @@ const askInput = z.object({
 });
 
 export const assistantRouter = router({
-  /**
-   * Whether the assistant can run, and what it can reach for this caller.
-   * Read before the panel renders, so an unconfigured deployment says so
-   * instead of failing on the first message.
-   */
+  // Whether the assistant can run, and what it can reach for this caller.
   status: authedProcedure.query(async ({ ctx }) => {
     if (!isAiConfigured()) {
       return { enabled: false as const, model: null, toolCount: 0 };
@@ -46,7 +38,7 @@ export const assistantRouter = router({
     return { enabled: true as const, model: activeModel(), toolCount: tools.length };
   }),
 
-  /** The staff assistant: reads whatever the caller is allowed to read. */
+  // The staff assistant.
   ask: authedProcedure
     .use(async ({ ctx, next }) => {
       enforceRateLimit(String(ctx.user.id), staffLimit);
@@ -70,11 +62,7 @@ export const assistantRouter = router({
       }
     }),
 
-  /**
-   * The website assistant. Unauthenticated, and given a catalogue that reaches
-   * only what is already published - so there is nothing here for a visitor to
-   * talk their way into.
-   */
+  // The website assistant.
   chat: publicLimit
     .input(askInput)
     .mutation(async ({ input }) => {
@@ -94,15 +82,11 @@ export const assistantRouter = router({
       }
     }),
 
-  /** Lets the website hide its chat launcher when no key is configured. */
+  // Lets the website hide its chat launcher when no key is configured.
   available: publicProcedure.query(() => ({ enabled: isAiConfigured() })),
 });
 
-/**
- * Provider failures are already written for a person to read, so they are
- * passed through rather than replaced with a generic message. Anything else is
- * logged and generalised, because it may carry query detail.
- */
+// Provider failures are already written for a person to read.
 function asTrpcError(error: unknown): TRPCError {
   if (error instanceof TRPCError) return error;
 

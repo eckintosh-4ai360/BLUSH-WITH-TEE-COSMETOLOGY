@@ -1,10 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-/* This stylesheet lives in the UI package, but each app imports it through the
-   workspace symlink in node_modules, which Tailwind's automatic source
-   detection skips. Naming the directories keeps the shared components' classes
-   in the generated CSS. */
+/* Explicit source directories to include UI package in Tailwind compilation */
 @source "./components";
 @source "./hooks";
 @source "./lib";
@@ -77,16 +74,14 @@
   --muted-foreground: #7d5975;
   --accent: #fe00b6;
   --accent-foreground: #ffffff;
-  /* Loading placeholders stay neutral: a pulsing brand-pink block reads as a
-     filled value rather than an absent one. */
+  /* Neutral tone for loading placeholder skeletons */
   --skeleton: #e7e5ea;
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
   --border: rgba(143, 13, 107, 0.14);
   --input: rgba(143, 13, 107, 0.18);
   --ring: #fe00b6;
-  /* The shell is dark in both modes: the navigation is the frame, and the
-     inset content panel reads as a lit surface sitting inside it. */
+  /* Dark container shell in both light and dark modes */
   --sidebar: #1b0214;
   --sidebar-foreground: #f0d5e8;
   --sidebar-accent: rgba(255, 255, 255, 0.08);
@@ -131,21 +126,7 @@
   --sidebar-ring: #fe00b6;
 }
 
-/**
- * Data-visualisation palette.
- *
- * Four categorical slots in a fixed order, assigned by entity and never
- * cycled. Both modes were validated (not eyeballed) against their own surface
- * for lightness band, chroma floor, colour-vision-deficiency separation,
- * normal-vision separation, and contrast:
- *
- *   light on #fdf8fc - worst adjacent CVD deltaE 17.3, normal 24.9, all >= 3:1
- *   dark  on #14010f - worst adjacent CVD deltaE 13.5, normal 20.4, all >= 3:1
- *
- * A fifth series is never a generated hue: fold the tail into "Other" or facet.
- * Nominal categories (products, expense headings) use slot 1 alone - a
- * value-ramp on unordered categories double-encodes bar length as colour.
- */
+/* Data-visualisation color palette tokens. */
 :root {
   --viz-series-1: #b3157f;
   --viz-series-2: #bc7d00;
@@ -206,19 +187,7 @@
 }
 
 @layer components {
-  /**
-   * Custom container utility that centers content and adds responsive padding.
-   *
-   * This overrides Tailwind's default container behavior to:
-   * - Auto-center content (mx-auto)
-   * - Add responsive horizontal padding
-   * - Set max-width for large screens
-   *
-   * Usage: <div className="container">...</div>
-   *
-   * For custom widths, use max-w-* utilities directly:
-   * <div className="max-w-6xl mx-auto px-4">...</div>
-   */
+  /* Custom container utility with auto-centering and responsive padding. */
   .container {
     width: 100%;
     margin-left: auto;
@@ -247,23 +216,7 @@
     }
   }
 
-  /**
-   * Admin dashboard palette.
-   *
-   * The back office runs on its own teal scheme rather than the site-wide
-   * magenta, so it re-points the semantic tokens for everything inside the
-   * shell. This lives in CSS rather than as an inline style object on the
-   * shell element for one reason: inline custom properties win over every
-   * selector, so a `.dark` rule could never override them. Declared here, the
-   * dark block below simply takes precedence and the pre-paint theme script
-   * is enough to get the right palette on screen with no flash and nothing
-   * for React to correct after hydration.
-   *
-   * The mobile navigation is a Radix sheet portalled onto `body`, outside the
-   * shell entirely, so it is named alongside it. Without that it would fall
-   * through to the site-wide magenta and open a plum drawer next to a teal
-   * dashboard.
-   */
+  /* Admin dashboard teal color scheme palette overrides. */
   .admin-dashboard-shell,
   [data-slot="sidebar"][data-mobile="true"] {
     --background: #f3fbfd;
@@ -291,22 +244,7 @@
     --sidebar-ring: #22b8bd;
   }
 
-  /**
-   * The same scheme after dark: the hues are held and the lightness is
-   * inverted, so the dashboard still reads as the teal one and only the
-   * ground changes. Surfaces stay translucent because they sit on the shell's
-   * gradient and the blur is doing real work; popovers are the exception and
-   * are opaque, since they float over arbitrary content.
-   *
-   * Primary flips to a brighter teal with a near-black label. Bright ink on a
-   * mid teal fill loses too much contrast on a dark ground, and the button is
-   * the one place the palette has to carry text.
-   *
-   * Every text pair here was measured against the surface it actually lands
-   * on, translucency composited over the shell first, and clears WCAG AA:
-   * worst case is muted-foreground on a card at 7.3:1, and primary-foreground
-   * on primary at 8.6:1.
-   */
+  /* Dark theme color scheme overrides for admin dashboard. */
   .dark .admin-dashboard-shell,
   .dark [data-slot="sidebar"][data-mobile="true"] {
     --background: #0b1e26;
@@ -367,35 +305,7 @@
     backdrop-filter: blur(24px);
   }
 
-  /**
-   * Sidebar scrollbar.
-   *
-   * The navigation only scrolls once it outgrows the viewport, so this is the
-   * one piece of chrome the browser draws inside the glass panel. A default
-   * grey OS scrollbar sits on top of the blur looking like a seam, so it is
-   * replaced with the panel's own teal at low opacity: visible enough to say
-   * there is more below, quiet enough not to compete with the nav items.
-   *
-   * `scrollbar-gutter: stable` reserves the track whether or not the bar is
-   * showing, so items do not shift sideways by a few pixels the moment a new
-   * section makes the list overflow.
-   *
-   * Two syntaxes on purpose. `scrollbar-width`/`scrollbar-color` is the
-   * standard one Firefox implements; the `::-webkit-scrollbar` block is what
-   * Chrome, Edge and Safari read. Neither alone covers the browsers this is
-   * used in.
-   *
-   * Scoped to the slot rather than to `.admin-dashboard-shell`, because the
-   * mobile navigation renders through a portal on `body` and would otherwise
-   * keep the default scrollbar. The sidebar is only used by the dashboard, so
-   * the narrower scope bought nothing.
-   *
-   * The teal is written out rather than taken from `var(--primary)`, and that
-   * is deliberate. The dashboard sets its palette as inline custom properties
-   * on the shell element; the portalled mobile sidebar sits outside it, where
-   * `--primary` still resolves to the site-wide magenta. A token here would
-   * give the two sidebars different coloured scrollbars.
-   */
+  /* Custom tinted scrollbar styling for navigation sidebars. */
   [data-slot="sidebar-content"] {
     scrollbar-width: thin;
     scrollbar-color: rgba(34, 174, 182, 0.32) transparent;
@@ -429,8 +339,7 @@
     scrollbar-color: rgba(34, 174, 182, 0.55) transparent;
   }
 
-  /* Collapsed to icons the content no longer scrolls, so the reserved gutter
-     would only narrow the rail. */
+  /* Reset scrollbar gutter when sidebar is collapsed */
   [data-collapsible="icon"] [data-slot="sidebar-content"] {
     scrollbar-gutter: auto;
   }
@@ -445,21 +354,7 @@
     backdrop-filter: blur(22px);
   }
 
-  /**
-   * The admission form preview: a sheet of paper, in both themes.
-   *
-   * This is a what-you-see-is-what-you-print view of an A4 document that comes
-   * out of a printer on white paper. Rendering it dark would make the preview
-   * lie about the thing it is previewing, so it stays a white page sitting on
-   * the dialog's own surface - the arrangement every PDF viewer settles on,
-   * dark chrome around a light page.
-   *
-   * The tokens are re-pointed rather than the colours being written on each
-   * element, because the sheet contains real components - a badge, the
-   * endorsement input, the endorse button - and those read the palette. An
-   * element's own custom properties win for its own subtree whatever `.dark`
-   * put on the document, so this needs no dark counterpart to hold.
-   */
+  /* Printable admission form document preview tokens. */
   .admission-sheet {
     /* Native controls inside the sheet paint light too. */
     color-scheme: light;
@@ -553,8 +448,7 @@
       0 24px 70px rgba(0, 0, 0, 0.3);
   }
 
-  /* Lighter teal on the dark shell: the light-mode value disappears against
-     the near-black sidebar. */
+  /* High-contrast teal for dark sidebar */
   .dark [data-slot="sidebar-content"] {
     scrollbar-color: rgba(130, 216, 225, 0.28) transparent;
   }
@@ -583,9 +477,7 @@
       0 18px 45px rgba(0, 0, 0, 0.24);
   }
 
-  /* The status cards keep their amber and rose hue after dark, dropped to a
-     tint the dark panel can carry — a light-mode card here is a bright slab
-     that reads as more urgent than the panels around it. */
+  /* Status card color adjustments for dark mode */
   .dark .admin-glass-card-warning {
     border-color: rgba(239, 184, 100, 0.34);
     background: linear-gradient(

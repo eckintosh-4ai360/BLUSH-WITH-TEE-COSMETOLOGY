@@ -43,9 +43,9 @@ type ReportDefinition = {
   label: string;
   summary: string;
   group: string;
-  /** Every one is needed, matching what the procedure itself demands. */
+  // Every one is needed, matching what the procedure itself demands.
   permissions: PermissionKey[];
-  /** Reports whose figures do not depend on a window. */
+  // Reports whose figures do not depend on a window.
   ignoresRange?: boolean;
 };
 
@@ -109,13 +109,7 @@ const REPORTS: ReportDefinition[] = [
   },
 ];
 
-/**
- * Screens that are already their own exportable feed.
- *
- * Listed rather than rebuilt: each of these pages pages, filters and exports
- * on the server already, and a second copy here would be a second thing to
- * keep correct.
- */
+// Screens that are already their own exportable feed.
 const ACTIVITY_FEEDS: Array<{
   label: string;
   path: string;
@@ -210,8 +204,7 @@ function ReportsContent() {
   const { can } = usePermissions();
   const [rangeKey, setRangeKey] = useState<RangeKey>("last_12");
 
-  // A report the caller cannot run is not offered: the procedure would refuse
-  // it anyway, and a menu of dead ends is worse than a short menu.
+  // A report the caller cannot run is not offered.
   const available = useMemo(
     () => REPORTS.filter(report => report.permissions.every(can)),
     [can],

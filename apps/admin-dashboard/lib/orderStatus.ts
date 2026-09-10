@@ -1,8 +1,4 @@
-/**
- * Presentation for the order lifecycle. The rules themselves live in
- * `@blush/api` (services/orderFlow); this file only decides how each stage
- * looks and which button offers it.
- */
+// Presentation for the order lifecycle.
 
 export type FulfillmentStatus =
   | "new"
@@ -13,7 +9,7 @@ export type FulfillmentStatus =
   | "delivered"
   | "cancelled";
 
-/** Status tones: state, never reused as a chart series colour. */
+// Status tones.
 export const FULFILLMENT_TONE: Record<string, string> = {
   new: "bg-muted text-muted-foreground hover:bg-muted",
   confirmed: "bg-sky-500/15 text-sky-800 dark:text-sky-300 hover:bg-sky-500/15",
@@ -24,10 +20,7 @@ export const FULFILLMENT_TONE: Record<string, string> = {
   cancelled: "bg-rose-500/15 text-rose-800 dark:text-rose-300 hover:bg-rose-500/15",
 };
 
-/**
- * Mirrors the server-side state machine so the UI only offers moves that will
- * actually be accepted. The server re-checks every transition regardless.
- */
+// Mirrors the server-side state machine so the UI only offers moves that will actually be.
 export const NEXT_STATUSES: Record<FulfillmentStatus, FulfillmentStatus[]> = {
   new: ["confirmed", "cancelled"],
   confirmed: ["processing", "cancelled"],

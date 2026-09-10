@@ -1,23 +1,14 @@
-/**
- * Column definitions for the bulk-import spreadsheets.
- *
- * One definition per column, used three times: to write the downloadable
- * template, to map a parsed CSV row onto a field, and to tell the person
- * importing what a column expects. They are here rather than in either app
- * because the template a user downloads and the payload the server validates
- * have to describe the same columns — when those drift, the failure is a file
- * that looks right and imports nothing.
- */
+// Column schemas and normalization helpers for bulk CSV imports.
 
 export type ImportColumn = {
-  /** Field name on the row object sent to the API. */
+  // Target property name on imported record.
   key: string;
-  /** Column heading in the CSV. Matched case- and space-insensitively. */
+  // Expected column title in the CSV header.
   header: string;
   required: boolean;
-  /** What the column accepts, shown beside the template and in the dialog. */
+  // Input guidelines displayed in the import modal.
   hint: string;
-  /** Filled into the example row of the downloaded template. */
+  // Sample value populated into the downloadable CSV template.
   example: string;
 };
 
@@ -167,10 +158,7 @@ export const PRODUCT_IMPORT_COLUMNS: ImportColumn[] = [
   },
 ];
 
-/**
- * Normalises a heading for matching, so "Full Name", "full name" and
- * "full_name" all find the same column. Spreadsheet users retype headings.
- */
+// Normalizes CSV header text for case and punctuation insensitive matching.
 export function normaliseHeader(value: string): string {
   return value
     .replace(/^﻿/, "")
@@ -179,10 +167,10 @@ export function normaliseHeader(value: string): string {
     .replace(/[\s_-]+/g, "");
 }
 
-/** Maps normalised headings to field keys for one column set. */
+// Builds lookup map from normalized header names to column keys.
 export function headerLookup(columns: ImportColumn[]): Map<string, string> {
   return new Map(columns.map(column => [normaliseHeader(column.header), column.key]));
 }
 
-/** Largest import accepted in one go, so a mistyped paste cannot become a job. */
+// Maximum allowed rows per single bulk import operation.
 export const MAX_IMPORT_ROWS = 500;

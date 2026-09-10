@@ -47,11 +47,7 @@ describe("portal role guards", () => {
   });
 });
 
-/**
- * These assert the shape of the guard rather than the grant: a signed-out
- * caller is refused before the procedure does any work at all, so no
- * permission-gated endpoint can leak data to an anonymous request.
- */
+// These assert the shape of the guard rather than the grant.
 describe("permission-gated procedures reject anonymous callers", () => {
   const anonymous = () => adminAppRouter.createCaller(contextFor(null));
 

@@ -53,14 +53,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { describeDuration } from "@/lib/describeDuration";
 import { trpc } from "@/lib/trpc";
 
-/**
- * The prospectus, and the one place it is edited.
- *
- * What is set here is what the public site advertises, what the application
- * form quotes, and what the admissions desk picks from when recording a
- * walk-in. All three read the same `courses` rows, so a price corrected here is
- * the price the next applicant signs for.
- */
+// The prospectus, and the one place it is edited.
 export default function AdminProgrammesPage() {
   return (
     <DashboardLayout>
@@ -463,8 +456,7 @@ function ProgrammesContent() {
             <AlertDialogAction
               disabled={removeProgramme.isPending}
               onClick={event => {
-                // Confirming holds the dialog open until the server answers, so
-                // a refusal is read where it was asked for.
+                // Confirming holds the dialog open until the server answers.
                 event.preventDefault();
                 if (removing) removeProgramme.mutate({ id: removing.id });
               }}

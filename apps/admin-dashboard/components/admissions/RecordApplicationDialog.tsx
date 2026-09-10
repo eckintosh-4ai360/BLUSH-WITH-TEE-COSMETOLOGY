@@ -27,12 +27,7 @@ import { ageFromBirthDate } from "@/lib/ageFromBirthDate";
 import { describeDuration } from "@/lib/describeDuration";
 import { trpc } from "@/lib/trpc";
 
-/**
- * An admission form already on file, opened for correction.
- *
- * Only the fields this form can edit. The reference and status come along so
- * the dialog can say which form is being changed, but are not written back.
- */
+// An admission form already on file, opened for correction.
 export type EditableApplication = {
   id: number;
   reference: string;
@@ -63,28 +58,18 @@ export type EditableApplication = {
   statement?: string | null;
 };
 
-/** A stored date, as the `yyyy-mm-dd` an `<input type="date">` expects. */
+// A stored date, as the yyyy-mm-dd an <input type="date"> expects.
 function toDateInput(value: Date | string | null | undefined): string {
   if (!value) return "";
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return "";
-  // Read in local time rather than through toISOString, which shifts to UTC
-  // and can hand back the day before the one on the form.
+  // Read in local time rather than through toISOString.
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${date.getFullYear()}-${month}-${day}`;
 }
 
-/**
- * Takes down an official admission form at the desk, or corrects one on file.
- *
- * Faithfully captures all fields from the official physical admission form,
- * ensuring complete alignment between walk-in/desk applications and online submissions.
- *
- * The same form does both jobs. An edit screen that drifts from the one the
- * desk records on is how a field ends up capturable but not correctable, and
- * this form is long enough that the drift would not be noticed for a while.
- */
+// Takes down an official admission form at the desk, or corrects one on file.
 export function RecordApplicationDialog({
   open,
   onOpenChange,
@@ -95,7 +80,7 @@ export function RecordApplicationDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onRecorded: (reference: string) => void;
-  /** The form being corrected, or null to take down a new one. */
+  // The form being corrected, or null to take down a new one.
   editing?: EditableApplication | null;
   onSaved?: (reference: string) => void;
 }) {
@@ -130,17 +115,7 @@ export function RecordApplicationDialog({
   const [statement, setStatement] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  /**
-   * The age field follows the date of birth rather than being typed twice.
-   *
-   * The paper form asks for both, and a desk copying it out has no reason to
-   * work the subtraction out by hand - nor to be trusted with it, since an age
-   * that disagrees with the date above it is the kind of thing nobody notices
-   * until the certificate is printed. While a date is present the field is
-   * derived and locked; clearing the date hands it back, because an applicant
-   * who knows they are 24 but not the day they were born still has to be
-   * written down.
-   */
+  // The age field follows the date of birth rather than being typed twice.
   const derivedAge = useMemo(() => ageFromBirthDate(birthDate), [birthDate]);
   const ageIsDerived = derivedAge !== null;
 
@@ -151,9 +126,7 @@ export function RecordApplicationDialog({
     else if (ageIsDerived) setAge("");
   }
 
-  // Loads the form being corrected, or clears it down for a new one. Keyed on
-  // the record as well as on `open` so switching straight from one row's
-  // pencil to another's does not leave the first applicant's details behind.
+  // Loads the form being corrected, or clears it down for a new one.
   useEffect(() => {
     setFullName(editing?.fullName ?? "");
     setEmail(editing?.email ?? "");
@@ -162,9 +135,7 @@ export function RecordApplicationDialog({
     const loadedBirthDate = toDateInput(editing?.birthDate);
     setBirthDate(loadedBirthDate);
     setHometown(editing?.hometown ?? "");
-    // The date wins over the stored age where there is one, so a form filed
-    // before the two were tied together does not reopen showing an age that
-    // contradicts the date above it - and locked, at that.
+    // The date wins over the stored age where there is one.
     const loadedAge = ageFromBirthDate(loadedBirthDate);
     setAge(loadedAge !== null ? String(loadedAge) : editing?.age != null ? String(editing.age) : "");
     setGender(editing?.gender || "Female");
@@ -263,9 +234,7 @@ export function RecordApplicationDialog({
     };
 
     if (editing) {
-      // The signature and the terms box belong to the form the applicant put
-      // their name to. Correcting a misspelt town does not re-sign it, so
-      // neither is sent back.
+      // The signature and the terms box belong to the form the applicant put their name to.
       await update.mutateAsync({ ...form, applicationId: editing.id });
       return;
     }
@@ -299,7 +268,7 @@ export function RecordApplicationDialog({
               </p>
             ) : null}
 
-            {/* Section 1: Personal Information */}
+            {/* Section 1: Personal Information. */}
             <div className="rounded-xl border border-border/70 bg-card p-4 space-y-4">
               <h3 className="font-semibold text-sm uppercase tracking-wider text-primary">
                 1. Personal Information
@@ -441,7 +410,7 @@ export function RecordApplicationDialog({
               </div>
             </div>
 
-            {/* Section 2: Emergency Contact & Social Media */}
+            {/* Section 2: Emergency Contact & Social Media. */}
             <div className="rounded-xl border border-border/70 bg-card p-4 space-y-4">
               <h3 className="font-semibold text-sm uppercase tracking-wider text-primary">
                 2. Emergency Contact & Social Handles
@@ -502,7 +471,7 @@ export function RecordApplicationDialog({
               </div>
             </div>
 
-            {/* Section 3: Programme Selection & Payment Plan */}
+            {/* Section 3: Programme Selection & Payment Plan. */}
             <div className="rounded-xl border border-border/70 bg-card p-4 space-y-4">
               <h3 className="font-semibold text-sm uppercase tracking-wider text-primary">
                 3. Programme Selection & Payment Plan
@@ -624,7 +593,7 @@ export function RecordApplicationDialog({
               </div>
             </div>
 
-            {/* Section 4: References / Parent / Guardian */}
+            {/* Section 4: References / Parent / Guardian. */}
             <div className="rounded-xl border border-border/70 bg-card p-4 space-y-4">
               <h3 className="font-semibold text-sm uppercase tracking-wider text-primary">
                 4. References / Parent / Guardian
@@ -663,7 +632,7 @@ export function RecordApplicationDialog({
               </div>
             </div>
 
-            {/* Section 5: Notes & Additional Background */}
+            {/* Section 5: Notes & Additional Background. */}
             <div className="space-y-2">
               <Label htmlFor="app-statement">Applicant Notes / Background</Label>
               <Textarea

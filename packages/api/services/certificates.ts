@@ -6,18 +6,7 @@ import type { Database, DbExecutor } from "../dbOrThrow";
 import { isUniqueViolation } from "./dbErrors";
 import { gradeForPercent, type GradeBand } from "./grading";
 
-/**
- * Certificate numbering and verification tokens.
- *
- * Two separate identifiers on purpose:
- *
- *   certificateNumber is printed on the certificate and quoted by people. It
- *   is sequential and readable, which also means it is guessable.
- *
- *   verificationToken is what the QR code and verification URL carry. It is
- *   random, so knowing one certificate number tells an attacker nothing about
- *   anybody else's record.
- */
+// Certificate numbering and verification tokens.
 
 export type CertificateSettings = { prefix: string; signatureName: string; signatureTitle: string };
 
@@ -38,18 +27,12 @@ export async function certificateSettings(db: DbExecutor): Promise<CertificateSe
   return { ...DEFAULT_SETTINGS, ...stored };
 }
 
-/** Unguessable token behind the public verification URL. */
+// Unguessable token behind the public verification URL.
 export function newVerificationToken(): string {
   return randomBytes(24).toString("base64url");
 }
 
-/**
- * Next number in this year's sequence, e.g. `COS-2026-00124`.
- *
- * Read inside the issuing transaction; the unique constraint on the column is
- * what actually guarantees no two certificates share a number, and the caller
- * retries if two issues race.
- */
+// Next number in this year's sequence, e.
 export async function nextCertificateNumber(db: DbExecutor, prefix: string): Promise<string> {
   const year = new Date().getFullYear();
   const pattern = `${prefix}-${year}-%`;
@@ -76,13 +59,7 @@ export type IssueCertificateInput = {
   issuedByUserId?: number | null;
 };
 
-/**
- * Issues one certificate, retrying if another issue took the number first.
- *
- * The retry loop exists because the number is derived from a read: two
- * concurrent issues can both compute the same next value, and the unique
- * constraint rejects the loser rather than letting a duplicate through (§64).
- */
+// Issues one certificate, retrying if another issue took the number first.
 export async function issueCertificate(
   db: Database,
   input: IssueCertificateInput,
@@ -110,10 +87,7 @@ export async function issueCertificate(
 
       if (row?.id) return { id: row.id, certificateNumber, verificationToken };
     } catch (error) {
-      // Someone else took this number; recompute and try again. Read through
-      // the wrapper drizzle puts around driver errors - checking the outer
-      // object alone never matched, so the retry this loop exists for was
-      // rethrowing instead.
+      // Someone else took this number; recompute and try again.
       if (!isUniqueViolation(error)) throw error;
     }
   }
@@ -124,13 +98,7 @@ export async function issueCertificate(
   });
 }
 
-/**
- * Grade for a completed course, from the weighted mean of its assessments.
- *
- * The band lookup is shared with the per-assessment marking in
- * `services/grading.ts`, so a certificate and the result sheet it was worked
- * out from cannot disagree about what a percentage is worth.
- */
+// Grade for a completed course, from the weighted mean of its assessments.
 export function deriveGrade(
   results: Array<{ score: string | number; totalScore: number; weight?: string | number }>,
   bands: GradeBand[],
@@ -153,7 +121,7 @@ export function deriveGrade(
   return { percent, grade: gradeForPercent(percent, bands) };
 }
 
-/** Certificate count by status, used on the dashboard and reports. */
+// Certificate count by status, used on the dashboard and reports.
 export async function certificateCounts(db: DbExecutor) {
   const rows = await db
     .select({ status: certificates.status, total: sql<number>`count(*)::int` })

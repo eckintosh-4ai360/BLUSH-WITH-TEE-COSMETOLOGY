@@ -11,17 +11,9 @@ import { confirmManualPayment, getGateway } from "../services/gateway";
 import { fromMinor, money, toAmountString, toMinor } from "../services/money";
 import { router, studentProcedure } from "../trpc";
 
-/**
- * The online fee payment workflow from §26:
- *
- *   login -> outstanding balance -> amount -> gateway -> SERVER VERIFICATION
- *   -> payment record -> balance updated -> receipt
- *
- * The balance is never touched by `initiate`. Only `verify`, after the server
- * has asked the provider what happened, can move money.
- */
+// The online fee payment workflow.
 export const paymentsRouter = router({
-  /** What the student owes, and therefore the most they may pay. */
+  // What the student owes, and therefore the most they may pay.
   balance: studentProcedure.query(async ({ ctx }) => {
     const db = await dbOrThrow();
 
@@ -45,18 +37,12 @@ export const paymentsRouter = router({
     };
   }),
 
-  /**
-   * Opens a charge with the provider. This writes an intent only - no payment,
-   * no revenue, and no change to any balance.
-   */
+  // Opens a charge with the provider.
   initiate: studentProcedure
     .input(
       z.object({
         amount: z.number().positive().max(1_000_000),
-        /**
-         * Client-supplied key that makes a retried submit reuse the same
-         * intent instead of opening a second charge.
-         */
+        // Client-supplied key that makes a retried submit reuse the same intent instead of opening.
         idempotencyKey: z.string().min(8).max(96),
         callbackUrl: z.string().url().max(500).optional(),
       }),
@@ -157,11 +143,7 @@ export const paymentsRouter = router({
       };
     }),
 
-  /**
-   * Called when the student returns from the gateway. The reference is all the
-   * client supplies; everything that decides the outcome is read from the
-   * provider by the server.
-   */
+  // Called when the student returns from the gateway.
   verify: studentProcedure
     .input(
       z.object({
@@ -207,7 +189,7 @@ export const paymentsRouter = router({
       return { ...result, summary };
     }),
 
-  /** Payment attempts for the signed-in student, newest first. */
+  // Payment attempts for the signed-in student, newest first.
   history: studentProcedure.query(async ({ ctx }) => {
     const db = await dbOrThrow();
 
@@ -228,11 +210,7 @@ export const paymentsRouter = router({
     return rows.map(row => ({ ...row, amount: money(row.amount) }));
   }),
 
-  /**
-   * Development helper that stands in for the provider confirming a charge.
-   * Refuses to run in production, so the only way to succeed there is a real
-   * verified gateway response.
-   */
+  // Development helper that stands in for the provider confirming a charge.
   simulateProviderSuccess: studentProcedure
     .input(z.object({ reference: z.string().min(6).max(64) }))
     .mutation(async ({ input }) => {
@@ -259,16 +237,7 @@ export const paymentsRouter = router({
     }),
 });
 
-/**
- * Handles one provider webhook delivery.
- *
- * Called from the HTTP route handler, which is where the raw body lives - the
- * signature has to be checked against the exact bytes the provider signed, so
- * this cannot be a tRPC procedure over a parsed payload.
- *
- * Deduplicated on (provider, event id) by a unique index, so a provider
- * retrying the same event cannot book a second payment (§48).
- */
+// Handles one provider webhook delivery.
 export async function handleGatewayWebhook(input: {
   provider: string;
   eventId: string;

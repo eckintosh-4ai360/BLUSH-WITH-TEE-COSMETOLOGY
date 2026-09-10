@@ -1,13 +1,6 @@
 import type { NextConfig } from "next";
 
-/**
- * Response headers applied to every route.
- *
- * `frame-ancestors` is set through CSP rather than a full content policy: Next
- * emits inline bootstrap scripts, so a script-src policy needs a nonce pipeline
- * to be anything but decorative. Clickjacking, sniffing and referrer leakage
- * are worth closing now regardless.
- */
+// Response headers applied to every route.
 const SECURITY_HEADERS = [
   { key: "X-Frame-Options", value: "DENY" },
   { key: "Content-Security-Policy", value: "frame-ancestors 'self'" },

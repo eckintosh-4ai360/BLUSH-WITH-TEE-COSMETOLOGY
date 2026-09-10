@@ -20,8 +20,7 @@ let _db: Database | null = null;
 let _pool: Pool | null = null;
 
 function createDb(connectionString: string) {
-  // Neon terminates TLS with a publicly trusted certificate, so the chain is
-  // verified in full rather than trusting whatever the connection string says.
+  // Verify full TLS certificate chain for database connection pool.
   _pool = new Pool({
     connectionString,
     ssl: { rejectUnauthorized: true },
@@ -129,14 +128,7 @@ export async function closeDb(): Promise<void> {
   }
 }
 
-/**
- * The syllabus of the three main programmes, as the school advertises it.
- *
- * Kept as rows rather than folded into `description`, so the office can edit a
- * single line from the Programmes screen and both the public site and the
- * application form show the change. Migration 0007 installs the same list into
- * databases seeded before this existed.
- */
+// Foundational syllabus outline for main cosmetology programmes.
 const FOUNDATION_OUTLINES: Record<string, string[]> = {
   "COSM-BASIC": [
     "Makeup",

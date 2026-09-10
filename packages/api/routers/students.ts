@@ -53,17 +53,17 @@ const STUDENT_STATUS = [
   "withdrawn",
 ] as const;
 
-/** Whether a student holds any enrolment at all - the "not yet enrolled" cohort. */
+// Whether a student holds any enrolment at all - the "not yet enrolled" cohort.
 const ENROLMENT_FILTER = ["enrolled", "unenrolled"] as const;
 
 export const studentsRouter = router({
-  /** The student register, paginated, searched and filtered server-side (§43). */
+  // The student register, paginated, searched and filtered server-side.
   list: permissionProcedure("students.read")
     .input(
       listInputSchema.extend({
         status: z.enum(STUDENT_STATUS).optional(),
         courseId: z.number().int().positive().optional(),
-        /** Programme length in weeks, as the courses themselves record it. */
+        // Programme length in weeks, as the courses themselves record it.
         durationWeeks: z.number().int().positive().optional(),
         enrolment: z.enum(ENROLMENT_FILTER).optional(),
       })
@@ -72,9 +72,7 @@ export const studentsRouter = router({
       const db = await dbOrThrow();
       const { limit, offset } = paginationBounds(input);
 
-      // Programme and enrolment filters ask a question about a student's
-      // enrolments, not about a joined row - EXISTS keeps one row per student
-      // so the page count stays honest however many programmes they hold.
+      // Programme and enrolment filters ask a question about a student's enrolments, not about.
       const enrolmentOf = (extra?: SQL) =>
         db
           .select({ one: sql`1` })
@@ -83,18 +81,14 @@ export const studentsRouter = router({
 
       const where = and(
         isNull(studentProfiles.deletedAt),
-        // Graduates keep their record but leave this register - they are read
-        // from `graduates` instead. Asking for them by name in the status
-        // filter still works, so nobody is ever hidden from a direct question.
+        // Graduates keep their record but leave this register.
         input.status
           ? eq(studentProfiles.status, input.status)
           : ne(studentProfiles.status, "graduated"),
         input.courseId
           ? exists(enrolmentOf(eq(enrollments.courseId, input.courseId)))
           : undefined,
-        // Length is a property of the programme, not the enrolment, so this
-        // one has to reach through to `courses`. Still an EXISTS: a student on
-        // two six-month programmes is one row in the register, not two.
+        // Length is a property of the programme, not the enrolment, so this one has to reach.
         input.durationWeeks
           ? exists(
               db
@@ -132,8 +126,7 @@ export const studentsRouter = router({
         db.select({ total: count() }).from(studentProfiles).where(where),
       ]);
 
-      // Enrolments are fetched for the page only, so a large register costs the
-      // same as a small one.
+      // Enrolments are fetched for the page only.
       const ids = students.map(student => student.id);
       const programmes = ids.length
         ? await db
@@ -147,11 +140,7 @@ export const studentsRouter = router({
             })
             .from(enrollments)
             .innerJoin(courses, eq(enrollments.courseId, courses.id))
-            // A withdrawn enrolment is history, not a programme the student is
-            // on. Left in, it renders identically to a live one - same title,
-            // same progress bar - so a student taken off a course and put back
-            // on it appears to be doing it twice. Completed ones stay: those
-            // are an achievement the row should show.
+            // A withdrawn enrolment is history, not a programme the student is on.
             .where(
               and(
                 inArray(enrollments.studentId, ids),
@@ -173,19 +162,7 @@ export const studentsRouter = router({
       );
     }),
 
-  /**
-   * Adds a student directly, without an application.
-   *
-   * Approving an application is still the main route in (§21) and produces the
-   * same record. This exists for the students who never went through the form:
-   * a walk-in enrolled at the desk, or a register being typed up from paper.
-   *
-   * Two things it does that a bare insert would not. It goes through
-   * `resolvePerson`, so somebody already known to the school as a customer
-   * becomes the same person rather than a second one (§34). And it links an
-   * existing portal account with the same email and grants it the student
-   * role, so the student can sign in without anybody wiring it up afterwards.
-   */
+  // Adds a student directly, without an application.
   create: permissionProcedure("students.write")
     .input(
       z.object({
@@ -199,7 +176,7 @@ export const studentsRouter = router({
         address: z.string().trim().max(1500).optional(),
         emergencyContactName: z.string().trim().max(160).optional(),
         emergencyContactPhone: z.string().trim().max(40).optional(),
-        /** Enrols on a programme straight away. Optional. */
+        // Enrols on a programme straight away.
         courseId: z.number().int().positive().optional(),
       }),
     )
@@ -264,8 +241,7 @@ export const studentsRouter = router({
           emergencyContactPhone: input.emergencyContactPhone ?? null,
         });
 
-        // Only links an account that already exists; it never creates one, so
-        // no password is invented on the student's behalf.
+        // Only links an account that already exists.
         const accountId = email ? await findStudentAccountForEmail(tx, email) : null;
 
         const studentNumber = input.studentNumber || buildReference("STU");
@@ -298,9 +274,7 @@ export const studentsRouter = router({
             courseId: input.courseId,
             status: "active",
           });
-          // Same as every other way onto a programme: the enrolment is what
-          // raises the fees, so a student added here starts with a real
-          // account rather than an empty one.
+          // Same as every other way onto a programme.
           await syncStudentCharges(tx, student.id, ctx.user.id);
         }
 
@@ -317,14 +291,7 @@ export const studentsRouter = router({
       });
     }),
 
-  /**
-   * One student's full record, profile and identity together.
-   *
-   * The register only carries what the table shows. Editing needs the rest -
-   * date of birth, address, next of kin - and those live on the shared `people`
-   * row rather than on the profile, so they are read back here rather than
-   * being dropped from the form because nobody fetched them.
-   */
+  // One student's full record, profile and identity together.
   get: permissionProcedure("students.read")
     .input(z.object({ id: z.number().int().positive() }))
     .query(async ({ input }) => {
@@ -357,20 +324,7 @@ export const studentsRouter = router({
       return row;
     }),
 
-  /**
-   * Corrects a student's details.
-   *
-   * A profile and the person behind it are two rows, and both have to move
-   * together or the register and the rest of the school disagree about who
-   * somebody is (§34). The person row is updated in place rather than being
-   * re-resolved from the new contact details: `resolvePerson` is a matcher, and
-   * on an edit it would happily attach this student to whoever already owns the
-   * corrected email instead of correcting their own record.
-   *
-   * That makes the email checks the important part of this procedure. Both the
-   * student register and the `people` table refuse duplicates, so a clash is
-   * caught here and explained rather than surfacing as a constraint violation.
-   */
+  // Corrects a student's details.
   update: permissionProcedure("students.write")
     .input(
       z.object({
@@ -441,10 +395,7 @@ export const studentsRouter = router({
         }
       }
 
-      // The same email can only belong to one live person, and that person may
-      // be known to the school in another capacity entirely - a customer, or a
-      // supplier contact. Merging two people is not something an edit should
-      // decide on its own, so it is refused with the reason.
+      // The same email can only belong to one live person.
       if (email && existing.personId) {
         const [personClash] = await db
           .select({ fullName: people.fullName })
@@ -465,8 +416,7 @@ export const studentsRouter = router({
         }
       }
 
-      // Only stamped on the way into "graduated", and cleared on the way back
-      // out, so the date always means the graduation currently on record.
+      // Only stamped on the way into "graduated".
       const graduatedAt =
         input.status === "graduated" ? (existing.graduatedAt ?? new Date()) : null;
 
@@ -493,8 +443,7 @@ export const studentsRouter = router({
         }
 
         if (existing.personId) {
-          // An emptied optional field means "remove this", not "leave it
-          // alone" - the form always sends every field it owns.
+          // An emptied optional field means "remove this", not "leave it alone" - the form always.
           await tx
             .update(people)
             .set({
@@ -537,15 +486,7 @@ export const studentsRouter = router({
       });
     }),
 
-  /**
-   * The graduates register.
-   *
-   * Everyone whose studies are finished, kept apart from the students still
-   * being taught. It is the same `studentProfiles` row throughout - graduating
-   * moves a student between the two lists rather than copying them into a
-   * second table, so their fees, results and certificates stay attached to the
-   * one record and nothing has to be reconciled afterwards.
-   */
+  // The graduates register.
   graduates: permissionProcedure("students.read")
     .input(
       listInputSchema.extend({
@@ -589,16 +530,14 @@ export const studentsRouter = router({
           .select()
           .from(studentProfiles)
           .where(where)
-          // A record graduated before this register existed can carry no date;
-          // it belongs at the end of the list rather than the top of it.
+          // A record graduated before this register existed can carry no date.
           .orderBy(sql`${studentProfiles.graduatedAt} desc nulls last`)
           .limit(limit)
           .offset(offset),
         db.select({ total: count() }).from(studentProfiles).where(where),
       ]);
 
-      // Programmes and awards are read for the page only, the same way the
-      // student register does it.
+      // Programmes and awards are read for the page only, the same way the student register does it.
       const ids = rows.map(row => row.id);
       const [programmes, awards] = ids.length
         ? await Promise.all([
@@ -641,26 +580,12 @@ export const studentsRouter = router({
       );
     }),
 
-  /**
-   * Graduates a student.
-   *
-   * Three things happen together, because leaving any of them out puts the
-   * records in a state somebody has to notice and repair by hand. The student
-   * moves to the graduates register; every programme they were still on is
-   * closed as completed, which is also what makes them eligible for a
-   * certificate (§37); and they are told.
-   *
-   * Two refusals. Somebody who was never enrolled has nothing to graduate
-   * from - that is a data-entry mistake rather than a graduation. And a
-   * student who still owes money is refused for the same reason removing them
-   * is: writing off a debt is a finance decision, and it should not happen as
-   * a side effect of a ceremony.
-   */
+  // Graduates a student.
   graduate: permissionProcedure("certificates.write")
     .input(
       z.object({
         id: z.number().int().positive(),
-        /** The ceremony date, when it was not today. */
+        // The ceremony date, when it was not today.
         graduatedAt: z.coerce.date().optional(),
       }),
     )
@@ -724,9 +649,7 @@ export const studentsRouter = router({
         });
       }
 
-      // Paused counts as open here: graduation closes the student's file, and
-      // a programme left half-finished behind them would keep them counted
-      // among the people still being taught.
+      // Paused counts as open here.
       const open = enrolments.filter(
         enrolment => enrolment.status === "active" || enrolment.status === "paused",
       );
@@ -790,20 +713,12 @@ export const studentsRouter = router({
         };
       });
 
-      // After the commit: the congratulations must describe a graduation that
-      // is actually on file.
+      // After the commit.
       flushInBackground(db);
       return result;
     }),
 
-  /**
-   * Puts a graduate back on the student register.
-   *
-   * The undo for a graduation recorded against the wrong person. Completed
-   * enrolments are left completed - a graduate who genuinely returns to study
-   * is a new enrolment rather than an old one reopened, and it carries its own
-   * fees.
-   */
+  // Puts a graduate back on the student register.
   reinstate: permissionProcedure("certificates.write")
     .input(z.object({ id: z.number().int().positive() }))
     .mutation(async ({ input, ctx }) => {
@@ -846,20 +761,7 @@ export const studentsRouter = router({
       });
     }),
 
-  /**
-   * Removes a student from the register.
-   *
-   * Soft, and deliberately so. Fee charges, adjustments, payment plans and
-   * enrolments all cascade off this row, and payments merely point at it - a
-   * real DELETE would take a student's entire fee history with them, or orphan
-   * the money that was actually received. Setting `deletedAt` takes them out of
-   * every list, count and export, all of which already filter on it, while
-   * leaving the books intact.
-   *
-   * A student who still owes money is refused: writing off a debt is a finance
-   * decision, and it should not happen as a side effect of tidying the
-   * register.
-   */
+  // Removes a student from the register.
   archive: permissionProcedure("students.delete")
     .input(z.object({ id: z.number().int().positive() }))
     .mutation(async ({ input, ctx }) => {
@@ -883,10 +785,7 @@ export const studentsRouter = router({
         });
       }
 
-      // Closed with the student rather than left behind. An enrolment outlives
-      // the soft delete otherwise, and a live enrolment goes on blocking its
-      // programme from ever being removed - by a student nothing on screen can
-      // show you any more.
+      // Closed with the student rather than left behind.
       const open = await db
         .select({ id: enrollments.id })
         .from(enrollments)
@@ -939,13 +838,7 @@ export const studentsRouter = router({
 });
 
 
-/**
- * What a student still owes, across every fee charge on their account.
- *
- * Billed and paid are summed separately and reduced to money the same way the
- * fees-owed report does it, so no two places disagree about whether a student
- * is clear. Both graduating and removing a student ask this question.
- */
+// What a student still owes, across every fee charge on their account.
 async function outstandingBalance(
   db: Awaited<ReturnType<typeof dbOrThrow>>,
   studentId: number,

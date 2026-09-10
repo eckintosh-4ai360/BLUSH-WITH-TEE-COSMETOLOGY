@@ -1,21 +1,13 @@
-/**
- * CSV and PDF writers shared by every table that exports.
- *
- * These started inside DataTable. They live here because the reports screen
- * needs the same two files from data that never goes through DataTable —
- * summary reports are a handful of computed rows, not a paginated feed — and
- * an export that formats differently depending on which screen produced it is
- * a bug waiting to be reported as one.
- */
+// CSV and PDF writers shared by every table that exports.
 
 export type ExportColumn<T> = {
   key: string;
   header: string;
-  /** Plain value for the file; defaults to the value at `key`. */
+  // Plain value for the file; defaults to the value at key.
   value?: (row: T) => string | number | null | undefined;
 };
 
-/** A line printed above the table, e.g. the filters a report was run with. */
+// A line printed above the table, e.
 export type ExportMeta = { label: string; value: string };
 
 function cellValue<T>(row: T, column: ExportColumn<T>): string {
@@ -29,14 +21,7 @@ function stamp() {
   return new Date().toISOString().slice(0, 10);
 }
 
-/**
- * Quotes every field and defuses formula characters.
- *
- * A cell beginning `=`, `+`, `-` or `@` is executed by Excel and Sheets when
- * the file is opened, so an exported value like `=1+1` — or something worse
- * that a customer typed into a name field — is prefixed with an apostrophe and
- * opens as text (§65).
- */
+// Quotes every field and defuses formula characters.
 function escapeCsv(input: unknown): string {
   const raw = input === null || input === undefined ? "" : String(input);
   const guarded = /^[=+\-@\t\r]/.test(raw) ? `'${raw}` : raw;
@@ -66,13 +51,7 @@ export function downloadCsv<T>(
   URL.revokeObjectURL(url);
 }
 
-/**
- * Landscape PDF with a title block naming what was run, by whom and when
- * (§42).
- *
- * jsPDF is imported on demand so screens that never export one do not carry
- * it, and so the reports page stays quick to open.
- */
+// Landscape PDF with a title block naming what was run, by whom and when.
 export async function downloadPdf<T>(
   fileName: string,
   title: string,

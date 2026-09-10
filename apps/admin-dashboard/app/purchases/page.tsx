@@ -59,8 +59,7 @@ function PurchaseOrdersContent() {
 
   const utils = trpc.useUtils();
 
-  // Shared by the table and by export, so a download covers exactly what the
-  // filters describe rather than the page on screen.
+  // Shared by the table and by export.
   const filters = {
     sortDir: "desc" as const,
     search: search || undefined,

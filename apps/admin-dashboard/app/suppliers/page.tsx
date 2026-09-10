@@ -49,8 +49,7 @@ function SuppliersContent() {
 
   const utils = trpc.useUtils();
 
-  // Shared by the table and by export, so a download covers exactly what the
-  // filters describe rather than the page on screen.
+  // Shared by the table and by export.
   const filters = { sortDir: "asc" as const, search: search || undefined };
 
   const query = trpc.inventory.suppliers.useQuery({ ...filters, page, pageSize: 25 });
@@ -115,8 +114,7 @@ function SuppliersContent() {
                 variant="ghost"
                 size="sm"
                 className="gap-1.5"
-                // The row itself opens the detail page, so the button must not
-                // let that click through as well.
+                // The row itself opens the detail page.
                 onClick={event => {
                   event.stopPropagation();
                   setEditing(row);

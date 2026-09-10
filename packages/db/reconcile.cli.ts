@@ -1,4 +1,4 @@
-/** CLI wrapper for `reconcileDerivedData`. Run with: pnpm db:reconcile */
+// CLI script to reconcile derived database records.
 
 import "dotenv/config";
 import { closeDb, getDb } from "./index";

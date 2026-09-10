@@ -15,7 +15,7 @@ import { Input } from "@blush/ui/components/ui/input";
 import { Label } from "@blush/ui/components/ui/label";
 import { trpc } from "@/lib/trpc";
 
-/** Only the identity and the programmes are needed to ask the question. */
+// Only the identity and the programmes are needed to ask the question.
 export type GraduatingStudent = {
   id: number;
   fullName: string;
@@ -27,14 +27,7 @@ function today() {
   return new Date().toISOString().slice(0, 10);
 }
 
-/**
- * Graduates one student.
- *
- * Graduation is not a status somebody picks off a dropdown: it closes the
- * programmes they were still on and moves them off the student register, so it
- * asks once, says what will happen, and carries the ceremony date - which is
- * often not the day the office got round to recording it.
- */
+// Graduates one student.
 export function GraduateStudentDialog({
   open,
   onOpenChange,
@@ -60,9 +53,7 @@ export function GraduateStudentDialog({
       onOpenChange(false);
       onGraduated(result);
     },
-    // The dialog stays open on failure: the commonest refusals - an unpaid
-    // balance, or nobody ever enrolled - are messages about this student that
-    // need reading where they were asked for.
+    // The dialog stays open on failure.
     onError: mutationError => setError(mutationError.message),
   });
 

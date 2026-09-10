@@ -2,9 +2,7 @@ import { useRef } from "react";
 
 type noop = (...args: any[]) => any;
 
-/**
- * usePersistFn instead of useCallback to reduce cognitive load
- */
+// Hook returning a persistent callback reference across renders.
 export function usePersistFn<T extends noop>(fn: T) {
   const fnRef = useRef<T>(fn);
   fnRef.current = fn;

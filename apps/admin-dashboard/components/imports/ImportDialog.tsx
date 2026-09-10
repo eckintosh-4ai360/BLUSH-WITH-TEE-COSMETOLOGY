@@ -62,15 +62,7 @@ const ACTION_STYLE: Record<RowOutcome["action"], { icon: typeof PlusCircle; tone
   error: { icon: AlertTriangle, tone: "text-destructive" },
 };
 
-/**
- * Import a spreadsheet, in three steps: choose a file, read what will happen,
- * then commit.
- *
- * The preview is not a courtesy — it runs the identical server-side validation
- * the commit runs, with `dryRun` set, so what it lists is what will happen
- * rather than a client-side guess at it. Nothing is written until the second
- * button is pressed.
- */
+// Import a spreadsheet, in three steps: choose a file, read what will happen, then commit.
 export function ImportDialog({
   open,
   onOpenChange,
@@ -90,7 +82,7 @@ export function ImportDialog({
   description: string;
   columns: ImportColumn[];
   templateName: string;
-  /** Plural, lower case, e.g. "students". */
+  // Plural, lower case, e.
   noun: string;
   runImport: (args: {
     rows: Array<Record<string, string>>;
@@ -124,8 +116,7 @@ export function ImportDialog({
 
   useEffect(() => {
     reset();
-    // Reset on open as well as close: the caller may reopen straight after a
-    // run, and the previous file's outcomes must not be mistaken for this one's.
+    // Reset on open as well as close.
   }, [open]);
 
   const required = useMemo(() => columns.filter(column => column.required), [columns]);
@@ -165,8 +156,7 @@ export function ImportDialog({
         return;
       }
 
-      // Not fatal: an extra column is usually a working note, and refusing the
-      // file over it would be unhelpful. Worth saying so it is not silent.
+      // Not fatal: an extra column is usually a working note.
       if (mapped.unknownColumns.length) {
         setWarnings([
           `Ignoring ${mapped.unknownColumns.length === 1 ? "a column" : "columns"} not in the template: ${mapped.unknownColumns.join(", ")}.`,

@@ -24,7 +24,7 @@ describe("role definitions", () => {
   });
 
   it("keeps salary visibility away from roles that should not see it", () => {
-    // §32: pay is not exposed to users without explicit permission.
+    //: pay is not exposed to users without explicit permission.
     for (const role of ["administrator", "instructor", "storekeeper", "ecommerce_manager"] as const) {
       expect(permissionsForRole(role)).not.toContain("staff.salary.read" as PermissionKey);
     }
@@ -49,16 +49,13 @@ describe("role definitions", () => {
   });
 
   it("no longer offers the retired student role", () => {
-    // The front desk is `secretary` now. `student` survives in the database
-    // enum only because Postgres cannot drop a value from one without
-    // recreating the type; it must not be assignable.
+    // The front desk is secretary now.
     expect(ROLE_KEYS).not.toContain("student" as never);
     expect(ROLE_KEYS).toContain("secretary");
   });
 
   it("grants nothing for a role that no longer has a definition", () => {
-    // A retired role can still be sitting on somebody's account. Expanding it
-    // must yield no privileges rather than throwing on every request they make.
+    // A retired role can still be sitting on somebody's account.
     expect(permissionsForRole("student" as never)).toEqual([]);
     expect(permissionsForRoles(["student" as never]).size).toBe(0);
   });

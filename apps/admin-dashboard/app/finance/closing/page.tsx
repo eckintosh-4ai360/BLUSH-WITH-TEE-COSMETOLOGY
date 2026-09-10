@@ -32,7 +32,7 @@ import { PermissionGate } from "@/components/PermissionGate";
 import { usePermissions } from "@/hooks/usePermissions";
 import { trpc } from "@/lib/trpc";
 
-/** Today in the school's own terms, for the date input. */
+// Today in the school's own terms, for the date input.
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -86,8 +86,7 @@ function ClosingContent() {
     onError: error => toast.error(error.message),
   });
 
-  // Shown live as the operator types, so the variance is visible before they
-  // commit to it rather than only afterwards.
+  // Shown live as the operator types.
   const expected = day.data?.isClosed
     ? (day.data.closing?.expectedCash ?? 0)
     : (day.data?.live.expectedCash ?? 0);
@@ -166,7 +165,7 @@ function ClosingContent() {
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-3">
-        {/* Summary */}
+        {/* Summary. */}
         <section className="admin-glass-card rounded-[1.45rem] border p-5 sm:p-6 lg:col-span-2">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
@@ -223,8 +222,7 @@ function ClosingContent() {
             />
           </dl>
 
-          {/* The till holds cash and nothing else, so this is what the count is
-              measured against - not the day's full takings. */}
+          {/* The till holds cash and nothing else. */}
           <div className="mt-5 rounded-xl bg-foreground px-5 py-4 text-background">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="text-sm font-semibold uppercase tracking-wide">
@@ -240,7 +238,7 @@ function ClosingContent() {
           </div>
         </section>
 
-        {/* Reconciliation */}
+        {/* Reconciliation. */}
         <section className="admin-glass-card rounded-[1.45rem] border p-5 sm:p-6">
           <div className="flex items-center gap-2">
             <Wallet className="size-4 text-primary" />
@@ -350,8 +348,7 @@ function ClosingContent() {
                   disabled={
                     close.isPending ||
                     !hasCount ||
-                    // An unexplained variance is the one thing worth blocking:
-                    // it is the whole reason the note field exists.
+                    // An unexplained variance is the one thing worth blocking.
                     (variancePreview !== 0 && !notes.trim())
                   }
                   onClick={() =>
@@ -379,7 +376,7 @@ function ClosingContent() {
         </section>
       </div>
 
-      {/* Variance trend */}
+      {/* Variance trend. */}
       {variance.data && variance.data.daysClosed > 0 ? (
         <section className="admin-glass-card grid gap-4 rounded-[1.45rem] border p-5 sm:grid-cols-4 sm:p-6">
           <Stat label="Days closed (30d)" value={String(variance.data.daysClosed)} />
@@ -393,7 +390,7 @@ function ClosingContent() {
         </section>
       ) : null}
 
-      {/* Archive */}
+      {/* Archive. */}
       <section className="admin-glass-card rounded-[1.45rem] border p-5 sm:p-6">
         <div className="flex items-center gap-2">
           <History className="size-4 text-primary" />
@@ -506,13 +503,7 @@ function Row({
   );
 }
 
-/**
- * The variance, said in words as well as figures.
- *
- * "-50.00" alone makes somebody work out which way round it is. Short means
- * money is missing from the drawer; over means there is more than the books
- * account for, which is just as much worth explaining.
- */
+// The variance, said in words as well as figures.
 function VarianceLabel({ value, compact }: { value: number; compact?: boolean }) {
   if (value === 0) {
     return (

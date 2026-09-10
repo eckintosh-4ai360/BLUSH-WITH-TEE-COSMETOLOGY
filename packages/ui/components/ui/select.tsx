@@ -24,15 +24,7 @@ function SelectValue({
   return <SelectPrimitive.Value data-slot="select-value" {...props} />;
 }
 
-/**
- * Fills its container rather than hugging its text.
- *
- * A trigger sized to its content overflows the moment a long option is picked
- * - a programme name and its price will not fit half a two-column form row -
- * and because it sits in a `minmax(0, 1fr)` column the box spills past the
- * card instead of the layout reflowing. Filter selects that want a fixed
- * width pass their own `w-*`, which wins here.
- */
+// Select trigger expanding to full container width.
 function SelectTrigger({
   className,
   size = "default",

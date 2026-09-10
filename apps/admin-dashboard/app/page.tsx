@@ -52,12 +52,12 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { QuickActions } from "@/components/QuickActions";
 import { trpc } from "@/lib/trpc";
 
-/** Trims "Aug 2026" to "Aug" so a twelve-month axis does not collide. */
+// Trims "Aug 2026" to "Aug" so a twelve-month axis does not collide.
 const shortMonth = (label: string) => label.split(" ")[0] ?? label;
 
 const countFormat = (value: number) => compactNumber(value);
 
-/** Matches how the profit-and-loss report prints the same figure. */
+// Matches how the profit-and-loss report prints the same figure.
 const percent = (value: number) => `${value.toFixed(1)}%`;
 
 export default function AdminOverviewPage() {
@@ -404,9 +404,9 @@ export default function AdminOverviewPage() {
           </StatGroup>
         ) : null}
 
-        {/* ---------------------------------------------------------------- */}
-        {/* Analytics                                                        */}
-        {/* ---------------------------------------------------------------- */}
+        {}
+        {/* Analytics. */}
+        {}
 
         <div className="grid gap-4 xl:grid-cols-2">
           {charts.data?.revenue ? (
@@ -614,9 +614,9 @@ export default function AdminOverviewPage() {
           ) : null}
         </div>
 
-        {/* ---------------------------------------------------------------- */}
-        {/* Recent activity                                                  */}
-        {/* ---------------------------------------------------------------- */}
+        {}
+        {/* Recent activity. */}
+        {}
 
         <div className="grid gap-4 xl:grid-cols-2">
           <ActivityPanel
@@ -766,7 +766,7 @@ function ActivityPanel({
   );
 }
 
-/** Two letters is enough to tell one row from the next at a glance. */
+// Two letters is enough to tell one row from the next at a glance.
 function initialsOf(value: string) {
   const parts = value.trim().split(/\s+/).filter(Boolean);
   if (!parts.length) return "?";

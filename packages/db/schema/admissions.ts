@@ -15,12 +15,7 @@ import { applicationDocumentType, applicationStatus } from "./enums";
 import { courses, intakes } from "./academics";
 import { people, users } from "./identity";
 
-/**
- * An application is a point-in-time snapshot of what the applicant declared.
- * The contact columns are deliberately denormalised copies: `personId` links
- * to the canonical person, but the snapshot must not change when that person
- * later edits their profile.
- */
+// Application submission record with historical contact snapshot.
 export const applications = pgTable(
   "applications",
   {
@@ -50,15 +45,7 @@ export const applications = pgTable(
       .references(() => courses.id, { onDelete: "restrict" }),
     intakeId: integer("intakeId").references(() => intakes.id, { onDelete: "set null" }),
     paymentPlan: varchar("paymentPlan", { length: 80 }),
-    /**
-     * The fees quoted when this application was signed.
-     *
-     * Copied rather than read back through `courseId`, for the same reason the
-     * contact columns are copies: the office reprints this form months later,
-     * and a programme whose price has since been revised must not rewrite what
-     * the applicant agreed to. Null on rows filed before the quote was
-     * recorded, which fall back to the programme's current price.
-     */
+    // Quoted fees captured at application submission.
     tuition: numeric("tuition", { precision: 10, scale: 2 }),
     productFee: numeric("productFee", { precision: 10, scale: 2 }),
     duration: varchar("duration", { length: 80 }),
@@ -102,7 +89,7 @@ export const applicationDocuments = pgTable(
       .notNull()
       .references(() => applications.id, { onDelete: "cascade" }),
     documentType: applicationDocumentType("documentType").notNull(),
-    /** Private storage key. Never a public URL - documents are proxied. */
+    // Storage key for proxied application document.
     storageKey: varchar("storageKey", { length: 512 }).notNull(),
     fileName: varchar("fileName", { length: 255 }).notNull(),
     mimeType: varchar("mimeType", { length: 120 }).notNull(),

@@ -2,20 +2,10 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { handleGatewayWebhook } from "@blush/api/payments-webhook";
 
 export const runtime = "nodejs";
-// The signature covers the exact bytes the provider sent, so this route must
-// never be cached or statically optimised.
+// Never cache route because signature covers raw payload bytes.
 export const dynamic = "force-dynamic";
 
-/**
- * Paystack webhook endpoint.
- *
- * Two things make this safe to expose publicly:
- *
- *   1. The HMAC is computed over the raw request body with the secret key, so
- *      only the provider can produce a request this route will act on.
- *   2. Even then, the body is not believed. The handler re-verifies the charge
- *      with the provider before any money is recorded (§49).
- */
+// Paystack webhook endpoint with HMAC verification and provider re-check.
 export async function POST(request: Request): Promise<Response> {
   const secret = process.env.PAYSTACK_SECRET_KEY ?? "";
   if (!secret) {
@@ -27,7 +17,7 @@ export async function POST(request: Request): Promise<Response> {
   const signature = request.headers.get("x-paystack-signature") ?? "";
 
   if (!isValidSignature(raw, signature, secret)) {
-    // Deliberately terse: an attacker learns nothing about why it failed.
+    // Return generic error for invalid signature.
     return Response.json({ error: "Invalid signature." }, { status: 401 });
   }
 
@@ -59,11 +49,10 @@ export async function POST(request: Request): Promise<Response> {
       payload: body,
     });
 
-    // Always 200 on a handled event, including duplicates: a non-2xx would
-    // make the provider retry something that is already done.
+    // Acknowledge handled events to prevent provider retries.
     return Response.json({ status: result.status });
   } catch (error) {
-    // The event is stored with its error, so a 500 asks the provider to retry.
+    // Return 500 so provider retries on processing failure.
     console.error("[webhook] paystack processing failed:", error);
     return Response.json({ error: "Processing failed." }, { status: 500 });
   }
@@ -76,7 +65,7 @@ function isValidSignature(raw: string, signature: string, secret: string): boole
   const provided = Buffer.from(signature, "utf8");
   const computed = Buffer.from(expected, "utf8");
 
-  // Length check first: timingSafeEqual throws on a length mismatch.
+  // Length check prevents timingSafeEqual mismatch throw.
   if (provided.length !== computed.length) return false;
   return timingSafeEqual(provided, computed);
 }

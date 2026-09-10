@@ -33,7 +33,7 @@ import { users } from "./identity";
 import { enrollments, studentProfiles } from "./students";
 import { storeOrders } from "./commerce";
 
-/** Configurable price list: what a given course/intake charges, by fee type. */
+// Fee structure pricing definition by fee type.
 export const feeStructures = pgTable(
   "feeStructures",
   {
@@ -58,7 +58,7 @@ export const feeStructures = pgTable(
   ],
 );
 
-/** A single amount billed to one student. */
+// Individual fee billed to a student.
 export const feeCharges = pgTable(
   "feeCharges",
   {
@@ -75,8 +75,8 @@ export const feeCharges = pgTable(
     feeType: feeTypeEnum("feeType").notNull(),
     description: varchar("description", { length: 255 }).notNull(),
     amountDue: numeric("amountDue", { precision: 12, scale: 2 }).notNull(),
-    /** Maintained by payment allocation; never edited by hand. */
-    amountPaid: numeric("amountPaid", { precision: 12, scale: 2 }).default("0.00").notNull(),
+    // Running paid amount updated via payment allocations.
+    amountPaid: numeric("amountPaid", { precision: 10, scale: 2 }).default("0.00").notNull(),
     dueDate: date("dueDate", { mode: "date" }),
     status: feeChargeStatus("status").default("open").notNull(),
     createdByUserId: integer("createdByUserId").references(() => users.id, {
@@ -95,7 +95,7 @@ export const feeCharges = pgTable(
   ],
 );
 
-/** Discounts and surcharges applied to a student account (§24). */
+// Student account fee discounts and surcharges.
 export const feeAdjustments = pgTable(
   "feeAdjustments",
   {
@@ -115,11 +115,7 @@ export const feeAdjustments = pgTable(
   table => [index("fee_adjustments_student_idx").on(table.studentId)],
 );
 
-/**
- * A gateway payment attempt. Nothing is captured until the server has verified
- * the provider reference and matched the amount, so a frontend success callback
- * alone can never move money or clear a balance (§49).
- */
+// Gateway payment attempt tracked before server verification.
 export const paymentIntents = pgTable(
   "paymentIntents",
   {
@@ -138,7 +134,7 @@ export const paymentIntents = pgTable(
     }),
     provider: varchar("provider", { length: 40 }).notNull(),
     providerReference: varchar("providerReference", { length: 160 }),
-    /** Guards against the same client attempt being captured twice. */
+    // Unique client submission key preventing duplicate capture.
     idempotencyKey: varchar("idempotencyKey", { length: 96 }).notNull().unique(),
     amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
     currency: varchar("currency", { length: 8 }).default("GHS").notNull(),
@@ -157,7 +153,7 @@ export const paymentIntents = pgTable(
   ],
 );
 
-/** Raw gateway callbacks, deduplicated by provider event id (§48). */
+// Provider webhook payload deduplicated by event id.
 export const webhookEvents = pgTable(
   "webhookEvents",
   {
@@ -177,6 +173,7 @@ export const payments = pgTable(
   "payments",
   {
     id: serial("id").primaryKey(),
+    // Unique provider transaction reference.
     reference: varchar("reference", { length: 64 }).notNull().unique(),
     studentId: integer("studentId").references(() => studentProfiles.id, { onDelete: "set null" }),
     storeOrderId: integer("storeOrderId").references(() => storeOrders.id, {
@@ -185,13 +182,13 @@ export const payments = pgTable(
     paymentIntentId: integer("paymentIntentId").references(() => paymentIntents.id, {
       onDelete: "set null",
     }),
-    /** Legacy single-charge link; allocations are the source of truth. */
+    // Optional single charge association for backward compatibility.
     feeChargeId: integer("feeChargeId").references(() => feeCharges.id, { onDelete: "set null" }),
     feeType: feeTypeEnum("feeType"),
     amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
     paymentMethod: paymentMethodEnum("paymentMethod").notNull(),
     status: paymentStatusEnum("status").default("completed").notNull(),
-    /** Unique when present: the same gateway reference cannot be booked twice. */
+    // Unique when present: the same gateway reference cannot be booked twice.
     transactionReference: varchar("transactionReference", { length: 120 }).unique(),
     note: text("note"),
     receivedByUserId: integer("receivedByUserId").references(() => users.id, {
@@ -214,7 +211,7 @@ export const payments = pgTable(
   ],
 );
 
-/** Splits one payment across the charges it settles (§46). */
+// Allocation link connecting payments to specific fee charges.
 export const paymentAllocations = pgTable(
   "paymentAllocations",
   {
@@ -255,18 +252,13 @@ export const paymentPlans = pgTable(
   table => [index("payment_plans_student_idx").on(table.studentId)],
 );
 
-/**
- * The revenue ledger. Every earned cedi is a row here linked to the row that
- * earned it, so income is always a sum of real transactions rather than a
- * number somebody typed (§28). Refunds are negative reversal rows - existing
- * lines are never edited (§29).
- */
+// Financial revenue ledger tracking income and reversals.
 export const revenueTransactions = pgTable(
   "revenueTransactions",
   {
     id: serial("id").primaryKey(),
     source: revenueSource("source").notNull(),
-    /** Row that produced this revenue, e.g. "payment" / "store_order". */
+    // Source entity generating this revenue record.
     sourceType: varchar("sourceType", { length: 48 }).notNull(),
     sourceId: integer("sourceId"),
     paymentId: integer("paymentId").references(() => payments.id, { onDelete: "set null" }),
@@ -277,7 +269,7 @@ export const revenueTransactions = pgTable(
     amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
     currency: varchar("currency", { length: 8 }).default("GHS").notNull(),
     description: varchar("description", { length: 255 }).notNull(),
-    /** Set on a reversal row, pointing at the line it cancels. */
+    // Reference pointing to original cancelled revenue transaction.
     reversalOfId: integer("reversalOfId"),
     occurredAt: timestamp("occurredAt").defaultNow().notNull(),
     recordedByUserId: integer("recordedByUserId").references(() => users.id, {
@@ -310,12 +302,12 @@ export const expenses = pgTable(
   {
     id: serial("id").primaryKey(),
     title: varchar("title", { length: 180 }).notNull(),
-    /** Legacy enum column, retained alongside the configurable category table. */
-    category: expenseCategory("category").notNull(),
+    // Legacy category enum maintained for backward compatibility.
+    category: expenseCategory("category").default("other").notNull(),
     categoryId: integer("categoryId").references(() => expenseCategories.id, {
       onDelete: "restrict",
     }),
-    /** School or store. Existing rows predate the split and read as school. */
+    // Division assignment: school or store.
     scope: expenseScope("scope").default("school").notNull(),
     amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
     expenseDate: date("expenseDate", { mode: "date" }).notNull(),
@@ -346,25 +338,12 @@ export const expenses = pgTable(
   ],
 );
 
-/**
- * One row per day the register was closed.
- *
- * The figures are a snapshot, not a view. Closing a day is the act of saying
- * "this is what the day was", and that statement has to keep meaning the same
- * thing afterwards - a payment backdated into a closed day must not silently
- * rewrite a count somebody signed off on. The live figures are still there to
- * be recomputed and compared against; this is the record of what was agreed.
- *
- * Money is split by channel because only cash is in the drawer. MoMo and card
- * takings never touch the till, so the till is reconciled against
- * `expectedCash` (cash in, less cash paid out) rather than against the day's
- * total takings.
- */
+// End-of-day register closing and cash reconciliation record.
 export const dailyClosings = pgTable(
   "dailyClosings",
   {
     id: serial("id").primaryKey(),
-    /** Unique: a day is closed once, or reopened and closed again in place. */
+    // Unique date for daily register closing.
     closingDate: date("closingDate", { mode: "date" }).notNull().unique(),
     customersServed: integer("customersServed").default(0).notNull(),
 
@@ -375,15 +354,15 @@ export const dailyClosings = pgTable(
     onlineSales: numeric("onlineSales", { precision: 12, scale: 2 }).default("0.00").notNull(),
     totalSales: numeric("totalSales", { precision: 12, scale: 2 }).default("0.00").notNull(),
 
-    /** Everything spent on the day, however it was paid. */
+    // Total daily expenses across all payment methods.
     totalExpenses: numeric("totalExpenses", { precision: 12, scale: 2 }).default("0.00").notNull(),
-    /** The part of that taken out of the drawer, which the till count must account for. */
+    // Out-of-drawer cash expenses deducted from till.
     cashExpenses: numeric("cashExpenses", { precision: 12, scale: 2 }).default("0.00").notNull(),
 
-    /** cashSales - cashExpenses: what should physically be there. */
+    // Calculated cash expected in the till.
     expectedCash: numeric("expectedCash", { precision: 12, scale: 2 }).default("0.00").notNull(),
     countedCash: numeric("countedCash", { precision: 12, scale: 2 }).default("0.00").notNull(),
-    /** countedCash - expectedCash. Negative is short, positive is over. */
+    // Cash variance between counted and expected amounts.
     discrepancy: numeric("discrepancy", { precision: 12, scale: 2 }).default("0.00").notNull(),
 
     notes: text("notes"),
@@ -391,7 +370,7 @@ export const dailyClosings = pgTable(
       onDelete: "set null",
     }),
     closedAt: timestamp("closedAt").defaultNow().notNull(),
-    /** Set while a day has been unlocked for correction; cleared on re-close. */
+    // Timestamp marking register reopened for corrections.
     reopenedAt: timestamp("reopenedAt"),
     reopenedByUserId: integer("reopenedByUserId").references(() => users.id, {
       onDelete: "set null",

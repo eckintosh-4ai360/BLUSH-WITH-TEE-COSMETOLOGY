@@ -44,8 +44,7 @@ describe("auth.logout", () => {
     expect(cookieCalls[0]?.name).toBe(COOKIE_NAME);
     expect(cookieCalls[0]?.value).toBe("");
 
-    // maxAge 0 is what actually removes it; the rest must match the cookie as
-    // it was set, or the browser keeps the original instead of replacing it.
+    // MaxAge 0 is what actually removes it.
     expect(cookieCalls[0]?.options).toMatchObject({
       maxAge: 0,
       httpOnly: true,
@@ -72,8 +71,7 @@ describe("session cookie options", () => {
   });
 
   it("drops secure on plain http so localhost can sign in", () => {
-    // A Secure cookie is discarded by the browser over http, which would make
-    // development sign-in fail silently.
+    // A Secure cookie is discarded by the browser over http.
     expect(getSessionCookieOptions(new Request("http://localhost:3000/")).secure).toBe(false);
   });
 

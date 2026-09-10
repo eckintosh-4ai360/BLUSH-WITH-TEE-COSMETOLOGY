@@ -1,11 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { describeDuration, durationFilterOptions } from "./describeDuration";
 
-/**
- * These are the three programmes the school actually sells, and the words on
- * its price list. A length that reads back as "12 months" where the brochure
- * says "one year" is the failure worth guarding.
- */
+// These are the three programmes the school actually sells, and the words on its price list.
 describe("describeDuration", () => {
   it("says three months for the basic course", () => {
     expect(describeDuration(12)).toBe("3 months");

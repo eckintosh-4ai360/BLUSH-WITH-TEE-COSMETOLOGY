@@ -12,27 +12,18 @@ import {
 import { permissions, rolePermissions, roles, userRoles, users } from "@blush/db/schema";
 import type { Database } from "../dbOrThrow";
 
-/**
- * Fallback mapping for accounts that predate granular roles. The coarse
- * `users.role` column still decides which portal a session may enter, so an
- * existing admin keeps working before anyone assigns them a role row.
- */
+// Fallback mapping for accounts that predate granular roles.
 const LEGACY_ROLE_MAP: Record<string, RoleKey | null> = {
   admin: "super_admin",
   staff: "instructor",
-  // A student portal account carries no back-office role. The role it used to
-  // map to has been retired in favour of `secretary`, and it granted nothing
-  // in any case - portal access comes from `users.role`, not from here.
+  // A student portal account carries no back-office role.
   student: null,
   user: "customer",
 };
 
 let seedPromise: Promise<void> | null = null;
 
-/**
- * Writes the role and permission catalogue into the database. Idempotent, and
- * memoised per process so concurrent requests do not race each other.
- */
+// Writes the role and permission catalogue into the database.
 export async function ensureAccessControlSeeded(db: Database): Promise<void> {
   if (!seedPromise) {
     seedPromise = seedAccessControl(db).catch(error => {
@@ -90,16 +81,7 @@ async function seedAccessControl(db: Database): Promise<void> {
   }
 }
 
-/**
- * Removes roles that are no longer defined.
- *
- * The catalogue insert never deletes, so a retired role would linger in the
- * table and keep appearing in the admin UI as something assignable. One that
- * somebody still holds is left alone deliberately: silently stripping a live
- * grant is a worse outcome than showing a stale name, and `permissionsForRole`
- * already resolves an unknown key to no privileges. Reassign the holders and
- * the row goes on the next boot.
- */
+// Removes roles that are no longer defined.
 async function retireUndefinedRoles(db: Database): Promise<void> {
   const defined = new Set<string>(ROLE_KEYS);
 
@@ -134,11 +116,7 @@ export type AccessContext = {
   assert: (permission: PermissionKey) => void;
 };
 
-/**
- * Resolves everything a signed-in account is allowed to do. Grants come from
- * the database so an owner can retune a role without a deploy; the static
- * catalogue is only the seed and the fallback.
- */
+// Resolves everything a signed-in account is allowed to do.
 export async function resolveAccess(
   db: Database,
   user: { id: number; role: string },
@@ -170,8 +148,7 @@ export async function resolveAccess(
 
     for (const row of rows) granted.add(row.key as PermissionKey);
 
-    // If the catalogue has not been persisted yet, fall back to the static map
-    // so authorisation never fails open or shut on a cold database.
+    // If the catalogue has not been persisted yet, fall back to the static map so authorisation.
     if (!rows.length) {
       for (const roleKey of roleKeys) {
         for (const permission of permissionsForRole(roleKey)) granted.add(permission);
@@ -198,7 +175,7 @@ export async function resolveAccess(
   };
 }
 
-/** Grants a role to a user, creating the role row if the catalogue is stale. */
+// Grants a role to a user, creating the role row if the catalogue is stale.
 export async function assignRole(
   db: Database,
   input: { userId: number; role: RoleKey; assignedByUserId?: number },
@@ -232,7 +209,7 @@ export async function revokeRole(
     .where(and(eq(userRoles.userId, input.userId), eq(userRoles.roleId, role.id)));
 }
 
-/** Which portal a granular role should be able to reach. */
+// Which portal a granular role should be able to reach.
 export function portalRoleFor(role: RoleKey): "user" | "student" | "staff" | "admin" {
   switch (role) {
     case "super_admin":
@@ -242,8 +219,7 @@ export function portalRoleFor(role: RoleKey): "user" | "student" | "staff" | "ad
     case "accountant":
     case "storekeeper":
     case "ecommerce_manager":
-    // The desk works inside the dashboard, so a secretary is staff. What they
-    // can actually do there is decided by their permissions, not by this.
+    // The desk works inside the dashboard, so a secretary is staff.
     case "secretary":
       return "staff";
     default:

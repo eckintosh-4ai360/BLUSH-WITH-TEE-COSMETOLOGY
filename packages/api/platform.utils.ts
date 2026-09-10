@@ -1,11 +1,6 @@
 import { customAlphabet } from "nanoid";
 
-/**
- * Uppercase letters and digits with the lookalikes removed (no I, O, 0, 1).
- * References get read down a phone line and copied off printed receipts, so
- * they must not contain the hyphen used as the delimiter or characters a
- * person can transcribe two ways.
- */
+// Uppercase letters and digits with the lookalikes removed (no I, O, 0, 1).
 const referenceSuffix = customAlphabet("ABCDEFGHJKLMNPQRSTUVWXYZ23456789", 6);
 
 export {
@@ -32,7 +27,7 @@ export const acceptedDocumentMimeTypes = [
 
 export type AcceptedDocumentMimeType = (typeof acceptedDocumentMimeTypes)[number];
 
-/** Magic-number prefixes, checked so a renamed executable cannot pose as an image. */
+// Magic-number prefixes, checked so a renamed executable cannot pose as an image.
 const MIME_SIGNATURES: Record<AcceptedDocumentMimeType, (buffer: Buffer) => boolean> = {
   "application/pdf": buffer => buffer.subarray(0, 4).toString("latin1") === "%PDF",
   "image/jpeg": buffer => buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff,
@@ -45,21 +40,15 @@ const MIME_SIGNATURES: Record<AcceptedDocumentMimeType, (buffer: Buffer) => bool
 
 export const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
 
-/**
- * Length ceiling for the base64 field itself, with slack for a `data:` prefix
- * and padding. Checked before decoding: `Buffer.from` on an unbounded string
- * allocates the whole thing first, and the upload endpoints are reachable
- * without a session, so the byte-count check alone came too late to stop
- * somebody exhausting memory with a single request.
- */
+// Length ceiling for the base64 field itself, with slack for a data: prefix and padding.
 export const MAX_UPLOAD_BASE64_LENGTH = Math.ceil(MAX_UPLOAD_BYTES / 3) * 4 + 256;
 
-/** Human-readable reference, e.g. `PAY-2026-A7B2C4`. */
+// Human-readable reference, e.
 export function buildReference(prefix: string) {
   return `${prefix}-${new Date().getFullYear()}-${referenceSuffix()}`;
 }
 
-/** Sequential, human-quotable document number, e.g. `COS-2026-00124`. */
+// Sequential, human-quotable document number, e.
 export function buildSequentialNumber(prefix: string, sequence: number, width = 5) {
   return `${prefix}-${new Date().getFullYear()}-${String(sequence).padStart(width, "0")}`;
 }
@@ -73,7 +62,7 @@ export function safeFileName(fileName: string) {
   );
 }
 
-/** URL-safe slug for SEO-friendly course, product and post addresses (§55). */
+// URL-safe slug for SEO-friendly course, product and post addresses.
 export function slugify(value: string) {
   return (
     value
@@ -86,11 +75,7 @@ export function slugify(value: string) {
   );
 }
 
-/**
- * Validates an uploaded document by declared type, size, and actual file
- * signature (§58). A caller cannot smuggle content past this by lying about
- * the MIME type.
- */
+// Validates an uploaded document by declared type, size, and actual file signature.
 export function validateDocumentUpload(mimeType: string, base64Data: string) {
   if (!acceptedDocumentMimeTypes.includes(mimeType as AcceptedDocumentMimeType)) {
     throw new Error("Only PDF, JPEG, PNG, and WEBP documents are accepted.");

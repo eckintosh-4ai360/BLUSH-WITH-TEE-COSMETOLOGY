@@ -1,10 +1,4 @@
-/**
- * The date window a report is run for.
- *
- * Presets rather than two date pickers by default, because the windows people
- * actually ask for are the same handful every time, and "this month" typed as
- * two dates is a chance to get one of them wrong.
- */
+// The date window a report is run for.
 
 export type RangeKey =
   | "this_month"
@@ -27,13 +21,7 @@ export const RANGE_OPTIONS: Array<{ key: RangeKey; label: string }> = [
 
 export type ResolvedRange = { dateFrom?: Date; dateTo?: Date; label: string };
 
-/**
- * Turns a preset into concrete bounds.
- *
- * `dateTo` is the last millisecond of the final day, not midnight at its
- * start — a report run for "this month" on the 20th must include everything
- * recorded on the 20th, and an exclusive midnight bound silently drops it.
- */
+// Turns a preset into concrete bounds.
 export function resolveRange(key: RangeKey, now = new Date()): ResolvedRange {
   const label = RANGE_OPTIONS.find(option => option.key === key)?.label ?? "All time";
   const startOfMonth = (offset: number) =>
@@ -76,7 +64,7 @@ export function resolveRange(key: RangeKey, now = new Date()): ResolvedRange {
   }
 }
 
-/** How the window is described on the exported file. */
+// How the window is described on the exported file.
 export function describeRange(range: ResolvedRange): string {
   if (!range.dateFrom && !range.dateTo) return "All time";
   const format = (value: Date) => value.toLocaleDateString("en-GB");

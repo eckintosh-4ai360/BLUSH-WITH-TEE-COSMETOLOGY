@@ -30,9 +30,7 @@ import { toast } from "@blush/ui/components/ui/sonner";
 import { formatMoney } from "@blush/ui/lib/viz";
 import { trpc } from "@/lib/trpc";
 
-/* ------------------------------------------------------------------ */
-/* Types                                                               */
-/* ------------------------------------------------------------------ */
+// Types.
 
 export type EditableAdjustment = {
   id: number;
@@ -52,17 +50,13 @@ export type EditableCharge = {
   status: string;
 };
 
-/* ------------------------------------------------------------------ */
-/* Helpers                                                             */
-/* ------------------------------------------------------------------ */
+// Helpers.
 
 function formatDate(value: Date | string | null | undefined) {
   return value ? new Date(value).toLocaleDateString("en-GB") : "—";
 }
 
-/* ------------------------------------------------------------------ */
-/* Inline row editors                                                  */
-/* ------------------------------------------------------------------ */
+// Inline row editors.
 
 function AdjustmentRow({
   adjustment,
@@ -183,7 +177,7 @@ function AdjustmentRow({
       </TableCell>
       <TableCell className="text-right">
         <div className="flex justify-end gap-1">
-          {/* Edit button */}
+          {/* Edit button. */}
           <Button
             size="icon"
             variant="ghost"
@@ -199,7 +193,7 @@ function AdjustmentRow({
             <Pencil className="h-3.5 w-3.5" />
           </Button>
 
-          {/* Delete — requires a second click to confirm */}
+          {/* Delete — requires a second click to confirm. */}
           {confirmDelete ? (
             <>
               <Button
@@ -390,22 +384,7 @@ function ChargeRow({
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Main dialog                                                         */
-/* ------------------------------------------------------------------ */
-
-/**
- * Admin-only dialog that lets an administrator correct billing records
- * directly, rather than piling on more adjustment rows.
- *
- * Adjustments tab — edit the amount/reason on any existing discount or
- * surcharge, or delete a row that was entered by mistake.
- *
- * Charges tab — fix the billed amount and/or description on any fee charge.
- *
- * Every save is handled by an adminProcedure endpoint and written to the
- * audit log with old and new values.
- */
+// Main dialog Admin-only dialog that lets an administrator correct billing records.
 export function EditAccountDialog({
   open,
   onOpenChange,
@@ -447,9 +426,9 @@ export function EditAccountDialog({
             </TabsTrigger>
           </TabsList>
 
-          {/* -------------------------------------------------------- */}
-          {/* Adjustments tab                                          */}
-          {/* -------------------------------------------------------- */}
+          {}
+          {/* Adjustments tab. */}
+          {}
           <TabsContent value="adjustments" className="mt-4">
             {!adjustments.length ? (
               <p className="py-8 text-center text-sm text-muted-foreground">
@@ -488,9 +467,9 @@ export function EditAccountDialog({
             )}
           </TabsContent>
 
-          {/* -------------------------------------------------------- */}
-          {/* Charges tab                                              */}
-          {/* -------------------------------------------------------- */}
+          {}
+          {/* Charges tab. */}
+          {}
           <TabsContent value="charges" className="mt-4">
             {!charges.length ? (
               <p className="py-8 text-center text-sm text-muted-foreground">

@@ -35,13 +35,7 @@ export default function FeeStructuresPage() {
   );
 }
 
-/**
- * The fee catalogue.
- *
- * Deliberately not a DataTable: this is a configuration screen with one row
- * per programme and fee type, not a report. Paging and export would be noise
- * on a list that fits on a screen.
- */
+// The fee catalogue.
 function FeeStructuresContent() {
   const { can } = usePermissions();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -51,12 +45,7 @@ function FeeStructuresContent() {
   const rows = query.data ?? [];
   const writable = can("fees.write");
 
-  /**
-   * Adding a fee here does not bill anybody on its own, and should not: a
-   * price list is edited, corrected and thought about, and re-billing the
-   * school on every keystroke would be indefensible. This is the deliberate
-   * step that carries the current list onto the students already enrolled.
-   */
+  // Adding a fee here does not bill anybody on its own.
   const applyToStudents = trpc.finance.applyFeeStructures.useMutation({
     onSuccess: result => {
       const billed = result.raised + result.repaired;

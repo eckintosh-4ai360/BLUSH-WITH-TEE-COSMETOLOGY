@@ -23,15 +23,13 @@ describe("spotting the movement that takes an item low", () => {
   });
 
   it("never fires on stock coming in", () => {
-    // Receiving a delivery is the opposite of a shortage, even while the
-    // balance is still under the reorder level.
+    // Receiving a delivery is the opposite of a shortage, even while the balance is still under.
     expect(crossesReorderLevel({ quantityOnHand: 1, reorderLevel: 5 }, 4)).toBe(false);
     expect(crossesReorderLevel({ quantityOnHand: 4, reorderLevel: 5 }, 9)).toBe(false);
   });
 
   it("treats an item with no reorder level as low only once it runs out", () => {
-    // reorderLevel defaults to zero, and most items never have one set. They
-    // must not alert on every sale.
+    // ReorderLevel defaults to zero, and most items never have one set.
     expect(crossesReorderLevel({ quantityOnHand: 9, reorderLevel: 0 }, 8)).toBe(false);
     expect(crossesReorderLevel({ quantityOnHand: 1, reorderLevel: 0 }, 0)).toBe(true);
   });
@@ -43,8 +41,7 @@ describe("deciding whether to spend a text message", () => {
   });
 
   it("says nothing when everything low has already been reported", () => {
-    // The shelf is still empty, but the owner already knows. Every further
-    // sale of that item must not send another text.
+    // The shelf is still empty, but the owner already knows.
     const state: AlertState = { lastSentAt: minutesBefore(600), itemIds: [7] };
     expect(shouldAlert(state, [7], now).send).toBe(false);
   });
@@ -54,8 +51,7 @@ describe("deciding whether to spend a text message", () => {
     const decision = shouldAlert(state, [7, 9], now);
 
     expect(decision.send).toBe(false);
-    // Item 9 is still counted as new, so the next alert leads with it. Nothing
-    // marks it as told except an alert that actually went out.
+    // Item 9 is still counted as new, so the next alert leads with it.
     expect(decision.newlyLow).toEqual([9]);
   });
 
@@ -66,7 +62,6 @@ describe("deciding whether to spend a text message", () => {
 
   it("treats an item that was restocked and has fallen again as news", () => {
     // It was reported in March, restocked in April, and is empty again today.
-    // That is a second shortage, not the first one still running.
     const state: AlertState = { lastSentAt: minutesBefore(10_000), itemIds: [7] };
     expect(shouldAlert(state, [], now).send).toBe(false);
     expect(shouldAlert({ ...state, itemIds: [] }, [7], now)).toMatchObject({ send: true });
@@ -95,8 +90,7 @@ describe("wording", () => {
   });
 
   it("keeps a link relative rather than inventing an origin", () => {
-    // No ADMIN_URL in the test environment. A relative path is still readable
-    // in an email; a made-up host would not be.
+    // No ADMIN_URL in the test environment.
     expect(absoluteAdminUrl("/inventory?filter=low")).toBe("/inventory?filter=low");
   });
 });

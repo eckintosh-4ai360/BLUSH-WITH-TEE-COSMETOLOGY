@@ -4,19 +4,11 @@ import type { Audience } from "./registry";
 export type Caller = {
   name: string | null;
   roles: RoleKey[];
-  /** Names of the tools this caller may use, listed so the model knows its reach. */
+  // Names of the tools this caller may use, listed so the model knows its reach.
   toolNames: string[];
 };
 
-/**
- * How the assistant is told to behave.
- *
- * Two rules carry most of the weight. The first is that figures come from
- * tools and nowhere else - a plausible invented number is worse than an
- * admission of ignorance, because it will be acted on. The second is that
- * ordinary conversation is still welcome: somebody who opens with a greeting
- * should get a greeting back, not a refusal and a list of capabilities.
- */
+// How the assistant is told to behave.
 export function systemPrompt(audience: Audience, caller: Caller, now: Date): string {
   return audience === "staff" ? staffPrompt(caller, now) : publicPrompt(now);
 }

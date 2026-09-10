@@ -1,9 +1,6 @@
 import { z } from "zod";
 
-/**
- * Shared list-query contract (§43). Every admin table paginates, filters and
- * sorts on the server - the client never receives an unbounded result set.
- */
+// Shared list-query contract.
 export const listInputSchema = z.object({
   page: z.number().int().min(1).default(1),
   pageSize: z.number().int().min(1).max(100).default(25),
@@ -41,15 +38,12 @@ export function paginate<T>(
   return { rows, page, pageSize, total, totalPages, hasMore: page < totalPages };
 }
 
-/**
- * Escapes a user search term for a SQL LIKE pattern so `%` and `_` typed by a
- * user match literally instead of turning into wildcards.
- */
+// Escapes a user search term for a SQL LIKE pattern so %.
 export function likePattern(term: string): string {
   return `%${term.replace(/[\\%_]/g, character => `\\${character}`)}%`;
 }
 
-/** Resolves a client-supplied sort key against an allow-list of columns. */
+// Resolves a client-supplied sort key against an allow-list of columns.
 export function resolveSort<T extends Record<string, unknown>>(
   columns: T,
   sortBy: string | undefined,

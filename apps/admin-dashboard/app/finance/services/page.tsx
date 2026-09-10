@@ -243,11 +243,7 @@ function DailyServicesContent() {
         }
       />
 
-      {/*
-        Totals for the filter, not for the page. "What did we take today" is the
-        question this screen exists to answer, and a total over the twenty-five
-        rows on screen would answer a different one.
-      */}
+      {/* Totals for the filter, not for the page. */}
       {query.data && query.data.total > 0 ? (
         <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border/60 bg-muted/30 px-4 py-3 text-sm">
           <span className="font-medium text-foreground">

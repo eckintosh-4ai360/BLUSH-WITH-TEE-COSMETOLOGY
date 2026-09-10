@@ -122,8 +122,7 @@ function GraduatesContent() {
     {
       key: "certificates",
       header: "Certificate",
-      // A graduate without an award yet is the thing worth seeing here: it is
-      // the queue of certificates still to issue.
+      // A graduate without an award yet is the thing worth seeing here.
       cell: row =>
         row.certificates.length ? (
           <span className="space-y-1">
@@ -198,8 +197,7 @@ function GraduatesContent() {
         page={page}
         onPageChange={setPage}
         rowKey={row => row.id}
-        // The fee account outlives graduation, so it is still where the row
-        // leads - for anyone allowed to read it.
+        // The fee account outlives graduation.
         onRowClick={
           can("fees.read") ? row => router.push(`/students/${row.id}`) : undefined
         }

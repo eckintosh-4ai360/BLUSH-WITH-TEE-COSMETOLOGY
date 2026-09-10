@@ -23,12 +23,7 @@ type RefundablePayment = {
   refundedAmount: number;
 };
 
-/**
- * Records a refund against a payment.
- *
- * The original payment is left untouched: the server writes a reversing
- * revenue line, so the history of what was received stays intact (§29).
- */
+// Records a refund against a payment.
 export function RefundPaymentDialog({
   payment,
   onOpenChange,

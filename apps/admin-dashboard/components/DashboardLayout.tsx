@@ -57,14 +57,10 @@ export default function DashboardLayout({
 }) {
   const { loading, user } = useAuth();
 
-  // Started up here so it leaves in the same batch as `auth.me`. Mounted
-  // below the auth check instead, it would not begin until that call came
-  // back, and the page's own queries would not begin until it did - three
-  // round trips of skeleton before the first row is asked for.
+  // Started up here so it leaves in the same batch as auth.
   usePermissions();
 
-  // A signed-out visitor is sent to the sign-in page rather than shown a dead
-  // end, and comes back to the page they were trying to reach.
+  // A signed-out visitor is sent to the sign-in page rather than shown a dead end.
   useEffect(() => {
     if (!loading && !user) startLogin();
   }, [loading, user]);
@@ -72,9 +68,7 @@ export default function DashboardLayout({
   if (loading || !user) return <DashboardLayoutSkeleton />;
 
   return (
-    // The shell owns the viewport and the content panel scrolls inside it, so
-    // the panel keeps its rounded corners against the navigation frame however
-    // far the page runs.
+    // The shell owns the viewport and the content panel scrolls inside it.
     <SidebarProvider className="admin-dashboard-shell h-svh overflow-hidden">
       <DashboardShell>{children}</DashboardShell>
     </SidebarProvider>
@@ -94,10 +88,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
     Administration: true,
   });
 
-  /**
-   * Only sections with at least one permitted item are rendered, so the
-   * navigation reflects the role rather than showing dead ends.
-   */
+  // Only sections with at least one permitted item are rendered.
   const sections = useMemo(
     () =>
       NAV_SECTIONS.map(section => ({
@@ -107,8 +98,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
     [canAny]
   );
 
-  // Keep the destination visible when navigation comes from search, a
-  // notification, or a bookmarked URL rather than from the sidebar itself.
+  // Keep the destination visible when navigation comes from search, a notification, or.
   useEffect(() => {
     const activeSection = sections.find(
       section =>
@@ -179,11 +169,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
             </div>
           ) : (
             sections.map((section, index) => {
-              // shrink-0 matters: SidebarContent is a flex-1 column, so once
-              // the navigation is taller than the viewport the groups would
-              // otherwise be squashed shorter than their own fixed-height
-              // buttons — and the next section label would be drawn over the
-              // overflow. The container already scrolls; let it.
+              // Shrink-0 matters.
               const menu = (
                 <SidebarMenu className="gap-0 border-sidebar-border/50 group-data-[collapsible=icon]:border-0">
                   {section.items.map(item => {
@@ -306,8 +292,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
         </SidebarFooter>
       </Sidebar>
 
-      {/* overflow-hidden is what actually holds the corner radius: every child,
-          the header included, is clipped to the panel's rounded shape. */}
+      {/* Overflow-hidden is what actually holds the corner radius. */}
       <SidebarInset className="admin-content-panel min-h-0 overflow-hidden bg-transparent lg:peer-data-[variant=inset]:rounded-[1.5rem] lg:peer-data-[variant=inset]:shadow-[0_24px_70px_rgba(88,140,151,0.18)] dark:lg:peer-data-[variant=inset]:shadow-[0_24px_70px_rgba(0,0,0,0.45)]">
         <header className="flex h-16 shrink-0 items-center gap-3 border-b border-white/60 bg-white/35 px-3 backdrop-blur-xl sm:px-5 dark:border-white/8 dark:bg-white/4">
           <SidebarTrigger className="h-9 w-9 shrink-0 rounded-lg lg:hidden" />
@@ -339,8 +324,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
             </div>
           ) : null}
 
-          {/* SidebarInset is already the page's <main>, so this is a plain
-              wrapper; the header above names the view for screen readers. */}
+          {/* SidebarInset is already the page's <main>. */}
           <div className="p-4 sm:p-6">{children}</div>
         </div>
       </SidebarInset>

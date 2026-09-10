@@ -9,8 +9,7 @@ describe("trading day boundaries", () => {
   });
 
   it("puts a payment taken a second before midnight in the right day", () => {
-    // The bound is half-open, so 23:59:59 belongs to the day and 00:00:00 to
-    // the next one. A payment must land in exactly one closing.
+    // The bound is half-open, so 23:59:59 belongs to the day and 00:00:00 to the next one.
     const { start, end } = dayBounds(new Date("2026-08-28T00:00:00.000Z"));
     const lastMoment = new Date("2026-08-28T23:59:59.999Z");
     const firstMomentOfNextDay = new Date("2026-08-29T00:00:00.000Z");
@@ -64,14 +63,12 @@ describe("what should be in the drawer", () => {
   });
 
   it("ignores the channels that never reach the till", () => {
-    // The whole point: a day of nothing but card sales expects an empty till,
-    // not a till holding the card takings.
+    // The whole point.
     expect(expectedCashMinor(0, 0)).toBe(0);
   });
 
   it("can go negative when more was paid out than taken in", () => {
-    // A real situation - paying a supplier from a float on a quiet day. It
-    // must not be clamped to zero, or the count will look like a surplus.
+    // A real situation - paying a supplier from a float on a quiet day.
     expect(expectedCashMinor(1_000, 5_000)).toBe(-4_000);
   });
 });
@@ -86,14 +83,12 @@ describe("variance", () => {
   });
 
   it("calls an unexplained extra note over", () => {
-    // Over is not "fine". A till that is repeatedly over is as much a sign of
-    // something wrong as one that is repeatedly short.
+    // Over is not "fine".
     expect(variance(40_000, 38_000)).toEqual({ minor: 2_000, direction: "over" });
   });
 
   it("stays exact across a long day of small amounts", () => {
-    // 0.1 + 0.2 !== 0.3 in floats; in pesewas it is exact, which is why the
-    // arithmetic is done in minor units.
+    // 0.
     const expectedMinor = Array.from({ length: 300 }, () => 10).reduce((a, b) => a + b, 0);
     expect(variance(expectedMinor, expectedMinor).direction).toBe("balanced");
   });

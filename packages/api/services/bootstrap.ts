@@ -145,10 +145,7 @@ const DEFAULT_SETTINGS: Array<{
     value: { prefix: "COS", signatureName: "Principal", signatureTitle: "Principal" },
     description: "Certificate numbering and signature block.",
   },
-  // Messaging is seeded empty and switched off. Credentials are typed in on
-  // the settings page, and nothing is sent to anybody until somebody turns it
-  // on deliberately - a half-configured install must not start emailing
-  // students the moment it boots.
+  // Messaging is seeded empty and switched off.
   {
     key: "messaging.sms",
     category: "messaging",
@@ -185,11 +182,7 @@ const DEFAULT_SETTINGS: Array<{
 
 let bootstrapPromise: Promise<void> | null = null;
 
-/**
- * One-time platform data that must exist for the system to behave correctly:
- * the configurable expense categories, default settings, and a revenue ledger
- * that already accounts for any payments taken before the ledger existed.
- */
+// One-time platform data that must exist for the system to behave correctly.
 export async function ensurePlatformBootstrapped(db: Database): Promise<void> {
   if (!bootstrapPromise) {
     bootstrapPromise = runBootstrap(db).catch(error => {
@@ -222,7 +215,7 @@ async function runBootstrap(db: Database): Promise<void> {
   await backfillRevenueLedger(db);
 }
 
-/** Points legacy expense rows at the matching configurable category. */
+// Points legacy expense rows at the matching configurable category.
 async function linkExpenseCategories(db: Database): Promise<void> {
   const categories = await db
     .select({ id: expenseCategories.id, key: expenseCategories.key })
@@ -236,11 +229,7 @@ async function linkExpenseCategories(db: Database): Promise<void> {
   }
 }
 
-/**
- * Writes a revenue line for every completed payment that predates the ledger,
- * so income reported on the dashboard equals money actually received (§28).
- * Idempotent: a payment that already has a line is skipped.
- */
+// Writes a revenue line for every completed payment that predates the ledger.
 async function backfillRevenueLedger(db: Database): Promise<number> {
   const missing = await db
     .select({
@@ -279,5 +268,5 @@ async function backfillRevenueLedger(db: Database): Promise<number> {
   return missing.length;
 }
 
-/** Exposed for the seeding script and tests. */
+// Exposed for the seeding script and tests.
 export const bootstrapFixtures = { EXPENSE_CATEGORY_SEED, DEFAULT_SETTINGS };

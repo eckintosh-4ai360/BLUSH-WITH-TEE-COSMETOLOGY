@@ -38,9 +38,7 @@ import { authedProcedure, permissionProcedure, router } from "../trpc";
 const ROLE_KEY_ENUM = z.enum(ROLE_KEYS as [string, ...string[]]);
 
 export const platformRouter = router({
-  /* ---------------------------------------------------------------------- */
-  /* Audit log (§44)                                                        */
-  /* ---------------------------------------------------------------------- */
+  // Audit log.
 
   auditLog: permissionProcedure("audit.read")
     .input(
@@ -83,7 +81,7 @@ export const platformRouter = router({
       return paginate(rows, Number(total?.total ?? 0), input);
     }),
 
-  /** Distinct entities and actions, used to populate the audit filters. */
+  // Distinct entities and actions, used to populate the audit filters.
   auditFacets: permissionProcedure("audit.read").query(async () => {
     const db = await dbOrThrow();
 
@@ -98,9 +96,7 @@ export const platformRouter = router({
     };
   }),
 
-  /* ---------------------------------------------------------------------- */
-  /* Roles and permissions (§33)                                            */
-  /* ---------------------------------------------------------------------- */
+  // Roles and permissions.
 
   roles: permissionProcedure("roles.read").query(async () => {
     const db = await dbOrThrow();
@@ -130,7 +126,7 @@ export const platformRouter = router({
     }));
   }),
 
-  /** The permission catalogue, grouped by module, for the roles screen. */
+  // The permission catalogue, grouped by module, for the roles screen.
   permissionCatalogue: permissionProcedure("roles.read").query(() => {
     const grouped = new Map<string, Array<{ key: string; description: string }>>();
 
@@ -144,7 +140,7 @@ export const platformRouter = router({
     return Array.from(grouped, ([moduleName, entries]) => ({ module: moduleName, entries }));
   }),
 
-  /** Accounts with a back-office role, for the staff access screen. */
+  // Accounts with a back-office role, for the staff access screen.
   accounts: permissionProcedure("roles.read")
     .input(listInputSchema)
     .query(async ({ input }) => {
@@ -192,12 +188,7 @@ export const platformRouter = router({
       );
     }),
 
-  /**
-   * Creates a sign-in account (§45).
-   *
-   * The password is hashed before it is stored. Users can directly sign in
-   * with the password set here without being forced to change it.
-   */
+  // Creates a sign-in account.
   createUser: permissionProcedure("roles.write")
     .input(
       z.object({
@@ -227,9 +218,7 @@ export const platformRouter = router({
         assignedByUserId: ctx.user.id,
       });
 
-      // A student is usually admitted before anyone sets up their sign-in, so
-      // the record is already waiting when the account is made. Claim it here
-      // rather than leaving the new account looking at an empty portal.
+      // A student is usually admitted before anyone sets up their sign.
       await linkStudentAccount(db, { id: created.userId, email: input.email });
 
       await recordAudit(db, ctx.actor, {
@@ -244,7 +233,7 @@ export const platformRouter = router({
       return { id: created.userId };
     }),
 
-  /** Sets a new password for another account. */
+  // Sets a new password for another account.
   resetUserPassword: permissionProcedure("roles.write")
     .input(
       z.object({
@@ -279,7 +268,7 @@ export const platformRouter = router({
       return { success: true };
     }),
 
-  /** Deactivates or restores an account. Sessions are re-checked per request. */
+  // Deactivates or restores an account.
   setUserActive: permissionProcedure("roles.write")
     .input(z.object({ userId: z.number().int().positive(), isActive: z.boolean() }))
     .mutation(async ({ input, ctx }) => {
@@ -376,18 +365,7 @@ export const platformRouter = router({
       return { success: true };
     }),
 
-  /* ---------------------------------------------------------------------- */
-  /* System settings (§60)                                                  */
-  /* ---------------------------------------------------------------------- */
-
-  /**
-   * The letterhead: school identity and receipt wording.
-   *
-   * Open to any signed-in account rather than gated on `settings.read`,
-   * because everyone who prints a receipt, statement or invoice needs it and
-   * none of it is confidential — it is the address already printed on the door.
-   * Editing these still requires `settings.write`.
-   */
+  // System settings The letterhead: school identity and receipt wording.
   documentHeader: authedProcedure.query(async () => {
     const db = await dbOrThrow();
     const rows = await db
@@ -414,16 +392,7 @@ export const platformRouter = router({
     };
   }),
 
-  /**
-   * Every setting the generic editor is allowed to touch.
-   *
-   * Messaging is excluded on purpose. Those rows hold an API key and an app
-   * password, and the generic editor round-trips whatever it was given - it
-   * would show the secret to anyone with `settings.read`, and saving an
-   * unrelated field on the same card would write the masked value back over a
-   * working credential. They have their own procedures, which never return a
-   * secret at all.
-   */
+  // Every setting the generic editor is allowed to touch.
   settings: permissionProcedure("settings.read").query(async () => {
     const db = await dbOrThrow();
     const rows = await db

@@ -32,12 +32,7 @@ export type AdjustableCharge = {
   balance: number;
 };
 
-/**
- * Applies a discount or a surcharge.
- *
- * Recorded as its own row rather than edited into the charge (§29), so the
- * original bill and the reason it changed both survive in the audit trail.
- */
+// Applies a discount or a surcharge.
 export function AdjustAccountDialog({
   open,
   onOpenChange,

@@ -1,24 +1,8 @@
 import { randomBytes, scrypt, timingSafeEqual, type ScryptOptions } from "node:crypto";
 
-/**
- * Password hashing.
- *
- * scrypt from Node's own crypto, so there is no native dependency to build and
- * nothing to keep patched. It is memory-hard, which is what makes a stolen
- * table expensive to attack with GPUs.
- *
- * The stored format carries its own parameters:
- *
- *   scrypt$N$r$p$<salt base64url>$<hash base64url>
- *
- * so the cost can be raised later without invalidating existing hashes - an
- * old digest still verifies against the parameters it was written with.
- */
+// Memory-hard password hashing using Node crypto scrypt.
 
-/**
- * Promisified scrypt. Written out rather than `promisify`d because the overload
- * that takes options does not survive the generic wrapper.
- */
+// Async wrapper around scrypt with custom memory and cost options.
 function scryptAsync(
   password: string,
   salt: Buffer,
@@ -35,20 +19,10 @@ function scryptAsync(
 
 const PARAMS = { N: 16384, r: 8, p: 1, keyLength: 64 } as const;
 
-/**
- * One character. A password still has to exist - there is no such thing as an
- * account secured by the empty string, and `hashPassword` refuses it anyway -
- * but nothing beyond that is imposed. Whoever runs the school decides what a
- * password for it looks like.
- */
+// Minimum allowed password length.
 export const MIN_PASSWORD_LENGTH = 1;
 
-/**
- * Not a strength rule, and not negotiable: scrypt's cost scales with the input,
- * so an arbitrarily long password is a way to make the server do arbitrarily
- * much work. This is the guard on that, which is why it survives when the rest
- * of the rules do not.
- */
+// Upper limit to prevent DoS attacks through excessive scrypt computation.
 export const MAX_PASSWORD_LENGTH = 200;
 
 export async function hashPassword(password: string): Promise<string> {
@@ -59,7 +33,7 @@ export async function hashPassword(password: string): Promise<string> {
     N: PARAMS.N,
     r: PARAMS.r,
     p: PARAMS.p,
-    // scrypt needs roughly 128 * N * r bytes; Node's default cap is lower.
+    // Allocate required memory for scrypt computation.
     maxmem: 256 * PARAMS.N * PARAMS.r,
   })) as Buffer;
 
@@ -73,13 +47,7 @@ export async function hashPassword(password: string): Promise<string> {
   ].join("$");
 }
 
-/**
- * Checks a password against a stored digest.
- *
- * Returns false rather than throwing for every failure mode - a malformed
- * digest, a missing hash, the wrong password - so a caller cannot accidentally
- * tell the difference between "no such account" and "wrong password".
- */
+// Verifies password against stored digest using constant-time comparison.
 export async function verifyPassword(
   password: string,
   storedHash: string | null | undefined,
@@ -121,23 +89,7 @@ export async function verifyPassword(
 export type PasswordProblem = { ok: false; message: string };
 export type PasswordOk = { ok: true };
 
-/**
- * Password rules, of which there are now essentially none.
- *
- * This used to require eight characters, refuse anything containing the
- * account's own email address, and reject a list of obvious choices. All of
- * that is gone by request: the people setting these up are administrators
- * handing a colleague a temporary password across a desk, usually one flagged
- * for change on first sign-in, and a form that argues with them about it was
- * costing more than it was buying.
- *
- * What is left is the pair of limits that are not about strength at all - a
- * password has to be something, and it has to be short enough that hashing it
- * is not itself an attack. Everything else is the school's call.
- *
- * The account context is still accepted so callers need not change, and so
- * that reinstating a rule about it later is a change in one place.
- */
+// Validates password boundaries without restricting character complexity.
 export function checkPasswordStrength(
   password: string,
   context: { email?: string | null; name?: string | null } = {},
@@ -157,7 +109,7 @@ function assertHashable(password: string): void {
     throw new Error("A password is required.");
   }
   if (password.length > MAX_PASSWORD_LENGTH) {
-    // Long inputs are refused before hashing: scrypt cost scales with them.
+    // Reject inputs exceeding max length to prevent CPU exhaustion.
     throw new Error("Password is too long.");
   }
 }

@@ -2,14 +2,7 @@
 
 import { Fragment, useMemo } from "react";
 
-/**
- * Renders the small slice of markdown the assistant actually produces:
- * paragraphs, bullet and numbered lists, tables, and inline bold and code.
- *
- * A markdown library would be a heavier dependency than the job needs, and
- * this one is deliberately narrow - anything it does not recognise is shown
- * as the plain text it is, which is the right failure for a chat reply.
- */
+// Renders the small slice of markdown the assistant actually produces.
 export function AssistantMarkdown({ text }: { text: string }) {
   const blocks = useMemo(() => parseBlocks(text), [text]);
 
@@ -82,7 +75,7 @@ export function AssistantMarkdown({ text }: { text: string }) {
   );
 }
 
-/** Bold and inline code, which is as far as the inline grammar goes. */
+// Bold and inline code, which is as far as the inline grammar goes.
 function Inline({ text }: { text: string }) {
   const parts = useMemo(() => text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g).filter(Boolean), [text]);
 

@@ -23,20 +23,13 @@ import { Switch } from "@blush/ui/components/ui/switch";
 import { Textarea } from "@blush/ui/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
 
-/** Matches the server's mask; an untouched field sends this straight back. */
+// Matches the server's mask; an untouched field sends this straight back.
 const SECRET_MASK = "********";
 
 type ChannelRule = { email: boolean; sms: boolean };
 type Template = { subject: string; email: string; sms: string };
 
-/**
- * Messaging setup: the credentials, what gets sent, and in what words.
- *
- * Kept apart from the generic settings editor because these rows hold
- * secrets. Nothing here ever receives the real API key or app password - the
- * server sends a mask, and a field left untouched sends the mask back, which
- * the server reads as "leave it alone".
- */
+// Messaging setup.
 export function MessagingSettings({ readOnly }: { readOnly: boolean }) {
   const config = trpc.messaging.config.useQuery();
 
@@ -128,7 +121,7 @@ function ConfiguredBadge({ set, fromEnv }: { set: boolean; fromEnv: boolean }) {
   );
 }
 
-/** Sends one message to an address the operator types, and shows the answer. */
+// Sends one message to an address the operator types, and shows the answer.
 function TestSend({ channel, disabled }: { channel: "email" | "sms"; disabled: boolean }) {
   const [to, setTo] = useState("");
   const [result, setResult] = useState<{ ok: boolean; detail: string } | null>(null);
@@ -463,8 +456,7 @@ function EmailCard({
             autoComplete="off"
             onChange={event => {
               set("fromAddress", event.target.value);
-              // The Gmail username is the address; filled in so nobody has to
-              // type it twice, and still editable for other providers.
+              // The Gmail username is the address.
               if (!form.user || form.user === form.fromAddress) {
                 set("user", event.target.value);
               }
@@ -755,7 +747,7 @@ const STATUS_TONE: Record<string, string> = {
   skipped: "bg-muted text-muted-foreground hover:bg-muted",
 };
 
-/** The send log: what went out, what did not, and why not. */
+// The send log.
 function DeliveryLog({ readOnly }: { readOnly: boolean }) {
   const deliveries = trpc.messaging.deliveries.useQuery();
 

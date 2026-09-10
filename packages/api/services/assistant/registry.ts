@@ -7,7 +7,7 @@ import { commerceTools, inventoryTools, peopleTools } from "./tools/operations";
 import { overviewTools } from "./tools/overview";
 import { publicTools } from "./tools/publicSite";
 
-/** Which surface the assistant is answering on. */
+// Which surface the assistant is answering on.
 export type Audience = "staff" | "public";
 
 const STAFF_TOOLS: AssistantTool<never>[] = [
@@ -23,20 +23,10 @@ const STAFF_TOOLS: AssistantTool<never>[] = [
 
 const PUBLIC_TOOLS = publicTools as unknown as AssistantTool<never>[];
 
-/**
- * A tool result over this many characters is truncated before it reaches the
- * model. A single query cannot then crowd the conversation out of the context
- * window, and the limits on each tool keep every honest answer well inside it.
- */
+// A tool result over this many characters is truncated before it reaches the model.
 const MAX_RESULT_CHARS = 12_000;
 
-/**
- * The tools this caller may actually use.
- *
- * Permission filtering happens here rather than in the prompt, so a model that
- * hallucinates a tool name gets an error instead of an answer: what the
- * assistant can see is exactly what the person asking can see.
- */
+// The tools this caller may actually use.
 export function availableTools(audience: Audience, ctx: ToolContext): AssistantTool<never>[] {
   if (audience === "public") return PUBLIC_TOOLS;
 
@@ -48,18 +38,10 @@ export function availableTools(audience: Audience, ctx: ToolContext): AssistantT
   );
 }
 
-/**
- * Keys that describe a bound rather than a choice.
- *
- * The catalogue is resent in full on every turn, so its size is paid for
- * repeatedly - and on a metered plan that is the difference between answering
- * and being throttled. These tell the model nothing it needs: `zod` validates
- * the same bounds when the call comes back, and clamping an over-large limit
- * is better handled there than explained here.
- */
+// Keys that describe a bound rather than a choice.
 const UNINFORMATIVE_KEYS = ["default", "minimum", "maximum", "minLength", "maxLength", "exclusiveMinimum", "exclusiveMaximum"];
 
-/** Renders the catalogue in the shape the model expects, as tersely as it can. */
+// Renders the catalogue in the shape the model expects, as tersely as it can.
 export function toolSchemas(tools: AssistantTool<never>[]): ToolSchema[] {
   return tools.map(tool => {
     const schema = z.toJSONSchema(tool.input, { io: "input" }) as Record<string, unknown>;
@@ -92,14 +74,7 @@ function trim(definition: Record<string, unknown>): Record<string, unknown> {
   return trimmed;
 }
 
-/**
- * Runs one tool call and returns what should be shown to the model.
- *
- * Every failure comes back as an ordinary result rather than an exception: a
- * bad argument or an unknown name is something the model can correct on its
- * next turn, and killing the whole conversation over it would leave the person
- * asking with nothing.
- */
+// Runs one tool call and returns what should be shown to the model.
 export async function runTool(
   name: string,
   args: Record<string, unknown>,
@@ -119,8 +94,7 @@ export async function runTool(
     };
   }
 
-  // Checked again at the point of use. The list was filtered already, but this
-  // is the line that actually holds if that filtering is ever changed.
+  // Checked again at the point of use.
   if (tool.permissions.length && !ctx.access?.canAny(...tool.permissions)) {
     return {
       name,

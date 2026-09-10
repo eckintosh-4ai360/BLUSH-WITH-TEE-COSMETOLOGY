@@ -26,13 +26,7 @@ import { trpc } from "@/lib/trpc";
 
 const METHODS = ["cash", "mobile_money", "bank", "card", "online"] as const;
 
-/**
- * Records a payment against a student account.
- *
- * The form only gathers input; the server does the allocation, the ledger
- * entry, and the balance update in one transaction. Validation errors from
- * the API are shown inline rather than swallowed (§53).
- */
+// Records a payment against a student account.
 export function RecordPaymentDialog({
   open,
   onOpenChange,
@@ -44,7 +38,7 @@ export function RecordPaymentDialog({
   onOpenChange: (open: boolean) => void;
   onRecorded: () => void;
   studentId?: number;
-  /** Carried over from an amount already typed on the row that opened this. */
+  // Carried over from an amount already typed on the row that opened this.
   presetAmount?: string;
 }) {
   const [studentQuery, setStudentQuery] = useState("");
@@ -55,14 +49,11 @@ export function RecordPaymentDialog({
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  // Reset on every open/close, not just on close: the caller usually supplies
-  // `studentId` at the same moment it flips `open`, so seeding the state on
-  // mount alone would leave the form stuck on "Choose a student".
+  // Reset on every open/close, not just on close: the caller usually supplies studentId.
   useEffect(() => {
     setStudentQuery("");
     setStudentId(fixedStudentId ?? null);
-    // Whatever was typed on the register row carries in, so the figure is not
-    // entered twice - and the dialog is still where it is confirmed.
+    // Whatever was typed on the register row carries.
     setAmount(presetAmount?.trim() ?? "");
     setMethod("cash");
     setTransactionReference("");

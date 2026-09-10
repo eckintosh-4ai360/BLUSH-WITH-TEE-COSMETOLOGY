@@ -24,12 +24,7 @@ import { trpc } from "@/lib/trpc";
 
 const METHODS = ["cash", "mobile_money", "bank", "card", "online"] as const;
 
-/**
- * Captures an offline payment against a store order.
- *
- * Confirming payment is what deducts stock, so the copy says so plainly - the
- * operator should know this is the moment inventory moves.
- */
+// Captures an offline payment against a store order.
 export function RecordOrderPaymentDialog({
   open,
   onOpenChange,

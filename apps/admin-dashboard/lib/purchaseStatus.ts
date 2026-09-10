@@ -1,7 +1,4 @@
-/**
- * Purchase order states, shared by the list, the detail page and the supplier
- * history so one order never reads as two different things.
- */
+// Purchase order states, shared by the list, the detail page.
 
 export const PO_STATUSES = [
   "draft",
@@ -21,7 +18,7 @@ export const PO_STATUS_LABEL: Record<string, string> = {
   cancelled: "Cancelled",
 };
 
-/** State tones, never reused as a chart series colour. */
+// State tones, never reused as a chart series colour.
 export const PO_STATUS_TONE: Record<string, string> = {
   draft: "bg-slate-500/15 text-slate-800 dark:text-slate-300 hover:bg-slate-500/15",
   ordered: "bg-sky-500/15 text-sky-800 dark:text-sky-300 hover:bg-sky-500/15",
@@ -32,7 +29,7 @@ export const PO_STATUS_TONE: Record<string, string> = {
   cancelled: "bg-rose-500/15 text-rose-800 dark:text-rose-300 hover:bg-rose-500/15",
 };
 
-/** An order still has stock to take in until every line is fully received. */
+// An order still has stock to take in until every line is fully received.
 export function canReceive(status: string): boolean {
   return status !== "cancelled" && status !== "received";
 }

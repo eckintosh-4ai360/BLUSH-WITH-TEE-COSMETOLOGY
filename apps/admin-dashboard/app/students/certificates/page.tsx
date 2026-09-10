@@ -34,25 +34,18 @@ type CertificateRow = {
   status: string;
   completionDate: Date;
   issuedAt: Date;
-  /** How many scanned copies of the paper award are filed against this row. */
+  // How many scanned copies of the paper award are filed against this row.
   scanCount: number;
-  /** The newest scanned copy, which is what Print hands over. */
+  // The newest scanned copy, which is what Print hands over.
   scanUrl: string | null;
 };
 
-/**
- * Whether Print should hand over the scanned paper rather than generate one.
- *
- * A revoked award is the exception: the generated document is the only version
- * that carries the REVOKED stamp, and a clean scan of a withdrawn certificate
- * is exactly what that stamp exists to prevent. The scan stays reachable from
- * the Copies dialog, where it reads as a record rather than as a reissue.
- */
+// Whether Print should hand over the scanned paper rather than generate one.
 function printsScan(row: CertificateRow) {
   return Boolean(row.scanUrl) && row.status !== "revoked";
 }
 
-/** Where the public verification page lives, for the copyable link. */
+// Where the public verification page lives, for the copyable link.
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3001";
 
 export default function CertificatesPage() {
@@ -77,8 +70,7 @@ function CertificatesContent() {
 
   const utils = trpc.useUtils();
 
-  // Shared by the table and by export, so a download covers exactly what the
-  // filters describe rather than the page on screen.
+  // Shared by the table and by export.
   const filters = {
     sortDir: "desc" as const,
     search: search || undefined,
@@ -129,8 +121,7 @@ function CertificatesContent() {
     {
       key: "scanCount",
       header: "Copies",
-      // Doubles as the way in: the count says whether the office copy is on
-      // file, and clicking it opens the copy itself.
+      // Doubles as the way in.
       cell: row => (
         <Button
           variant="ghost"
@@ -158,10 +149,7 @@ function CertificatesContent() {
             variant="ghost"
             size="sm"
             className="gap-1.5"
-            // The generated document is a stand-in for the award. Once the
-            // signed paper is on file, that is the certificate, so it is what
-            // Print opens - except for a revoked one, where the generated copy
-            // is the only version carrying the REVOKED stamp.
+            // The generated document is a stand-in for the award.
             disabled={!printsScan(row) && !documents.ready}
             title={
               printsScan(row)

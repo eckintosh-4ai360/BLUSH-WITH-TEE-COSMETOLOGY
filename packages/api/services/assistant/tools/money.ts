@@ -113,8 +113,7 @@ export const financeTools = [
       limit: z.number().int().min(1).max(40).default(15),
     }),
     async run(args, ctx) {
-      // Outstanding is billed minus paid on the charge itself, which is the
-      // figure the fees screen shows and is maintained by allocation.
+      // Outstanding is billed minus paid on the charge itself.
       const rows = await ctx.db
         .select({
           studentNumber: studentProfiles.studentNumber,
