@@ -15,6 +15,7 @@ import {
   ChartColumnBig,
   PackageSearch,
   ReceiptText,
+  School,
   ScrollText,
   Settings,
   ShieldCheck,
@@ -39,6 +40,7 @@ export type NavItem = {
 
 export type NavSection = {
   label: string;
+  icon?: LucideIcon;
   items: NavItem[];
 };
 
@@ -70,6 +72,7 @@ export const NAV_SECTIONS: NavSection[] = [
   },
   {
     label: "School",
+    icon: School,
     items: [
       {
         label: "Admissions",
@@ -77,7 +80,12 @@ export const NAV_SECTIONS: NavSection[] = [
         icon: ClipboardList,
         permissions: ["admissions.read"],
       },
-      { label: "Students", path: "/students", icon: Users, permissions: ["students.read"] },
+      {
+        label: "Students",
+        path: "/students",
+        icon: Users,
+        permissions: ["students.read"],
+      },
       {
         label: "Graduates",
         path: "/students/graduates",
@@ -108,30 +116,89 @@ export const NAV_SECTIONS: NavSection[] = [
         icon: BadgeCheck,
         permissions: ["certificates.read"],
       },
-    ],
-  },
-  {
-    label: "Finance",
-    items: [
-      { label: "Overview", path: "/finance", icon: TrendingUp, permissions: ["finance.read"] },
       {
         label: "Fee structure",
         path: "/finance/structures",
         icon: ReceiptText,
         permissions: ["fees.read"],
       },
-      { label: "Fee register", path: "/finance/fees", icon: Wallet, permissions: ["fees.read"] },
+      {
+        label: "Fee register",
+        path: "/finance/fees",
+        icon: Wallet,
+        permissions: ["fees.read"],
+      },
       {
         label: "Payments",
         path: "/finance/payments",
         icon: CreditCard,
         permissions: ["payments.read"],
       },
+    ],
+  },
+  {
+    label: "Salon",
+    icon: Sparkles,
+    items: [
       {
         label: "Daily services",
         path: "/finance/services",
         icon: Sparkles,
         permissions: ["services.read"],
+      },
+      {
+        label: "Clinic bookings",
+        path: "/operations",
+        icon: CalendarClock,
+        permissions: ["appointments.read"],
+      },
+    ],
+  },
+  {
+    label: "Shop",
+    icon: ShoppingBag,
+    items: [
+      {
+        label: "Orders",
+        path: "/orders",
+        icon: ShoppingBag,
+        permissions: ["orders.read"],
+      },
+      {
+        label: "Stock",
+        path: "/inventory",
+        icon: Boxes,
+        permissions: ["inventory.read"],
+      },
+      {
+        label: "Stock movements",
+        path: "/inventory/movements",
+        icon: PackageSearch,
+        permissions: ["inventory.read"],
+      },
+      {
+        label: "Suppliers",
+        path: "/suppliers",
+        icon: Truck,
+        permissions: ["suppliers.read"],
+      },
+      {
+        label: "Purchase orders",
+        path: "/purchases",
+        icon: ClipboardCheck,
+        permissions: ["purchases.read"],
+      },
+    ],
+  },
+  {
+    label: "Administration",
+    icon: Settings,
+    items: [
+      {
+        label: "Finance overview",
+        path: "/finance",
+        icon: TrendingUp,
+        permissions: ["finance.read"],
       },
       {
         label: "Expenses",
@@ -145,38 +212,17 @@ export const NAV_SECTIONS: NavSection[] = [
         icon: LockKeyhole,
         permissions: ["closing.read"],
       },
-    ],
-  },
-  {
-    label: "Commerce",
-    items: [
-      { label: "Orders", path: "/orders", icon: ShoppingBag, permissions: ["orders.read"] },
-      { label: "Stock", path: "/inventory", icon: Boxes, permissions: ["inventory.read"] },
       {
-        label: "Stock movements",
-        path: "/inventory/movements",
-        icon: PackageSearch,
-        permissions: ["inventory.read"],
+        label: "Staff",
+        path: "/staff",
+        icon: UserCog,
+        permissions: ["staff.read"],
       },
-      { label: "Suppliers", path: "/suppliers", icon: Truck, permissions: ["suppliers.read"] },
       {
-        label: "Purchase orders",
-        path: "/purchases",
-        icon: ClipboardCheck,
-        permissions: ["purchases.read"],
-      },
-    ],
-  },
-  {
-    label: "Operations",
-    items: [
-      { label: "Staff", path: "/staff", icon: UserCog, permissions: ["staff.read"] },
-      { label: "Access", path: "/staff/roles", icon: ShieldCheck, permissions: ["roles.read"] },
-      {
-        label: "Clinic bookings",
-        path: "/operations",
-        icon: CalendarClock,
-        permissions: ["appointments.read"],
+        label: "Access",
+        path: "/staff/roles",
+        icon: ShieldCheck,
+        permissions: ["roles.read"],
       },
       {
         label: "Reports",
@@ -184,8 +230,18 @@ export const NAV_SECTIONS: NavSection[] = [
         icon: ChartColumnBig,
         permissions: ["reports.read"],
       },
-      { label: "Audit log", path: "/audit", icon: ScrollText, permissions: ["audit.read"] },
-      { label: "Settings", path: "/settings", icon: Settings, permissions: ["settings.read"] },
+      {
+        label: "Audit log",
+        path: "/audit",
+        icon: ScrollText,
+        permissions: ["audit.read"],
+      },
+      {
+        label: "Settings",
+        path: "/settings",
+        icon: Settings,
+        permissions: ["settings.read"],
+      },
     ],
   },
 ];

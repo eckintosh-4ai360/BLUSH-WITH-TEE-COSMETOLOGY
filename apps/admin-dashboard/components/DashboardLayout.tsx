@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  ChevronDown,
   KeyRound,
   LogOut,
   PanelLeft,
@@ -25,7 +26,6 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarInset,
   SidebarMenu,
@@ -35,6 +35,11 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@blush/ui/components/ui/sidebar";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@blush/ui/components/ui/collapsible";
 import { AssistantLauncher } from "./assistant/AssistantLauncher";
 import { GlobalSearch } from "./GlobalSearch";
 import { ThemeToggle } from "./ThemeToggle";
@@ -82,6 +87,12 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { toggleSidebar } = useSidebar();
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+    School: true,
+    Salon: true,
+    Shop: true,
+    Administration: true,
+  });
 
   /**
    * Only sections with at least one permitted item are rendered, so the
@@ -95,6 +106,23 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
       })).filter(section => section.items.length > 0),
     [canAny]
   );
+
+  // Keep the destination visible when navigation comes from search, a
+  // notification, or a bookmarked URL rather than from the sidebar itself.
+  useEffect(() => {
+    const activeSection = sections.find(
+      section =>
+        section.label && section.items.some(item => item.path === pathname)
+    );
+
+    if (activeSection?.label) {
+      setOpenSections(current =>
+        current[activeSection.label]
+          ? current
+          : { ...current, [activeSection.label]: true }
+      );
+    }
+  }, [pathname, sections]);
 
   const activeLabel = sections
     .flatMap(section => section.items)
@@ -150,22 +178,14 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
               </p>
             </div>
           ) : (
-            sections.map((section, index) => (
+            sections.map((section, index) => {
               // shrink-0 matters: SidebarContent is a flex-1 column, so once
               // the navigation is taller than the viewport the groups would
               // otherwise be squashed shorter than their own fixed-height
               // buttons — and the next section label would be drawn over the
               // overflow. The container already scrolls; let it.
-              <SidebarGroup
-                key={section.label || `root-${index}`}
-                className={`shrink-0 py-1 ${section.label ? "pt-3" : ""}`}
-              >
-                {section.label ? (
-                  <SidebarGroupLabel className="h-6 text-[10px] uppercase tracking-wider text-sidebar-foreground/55">
-                    {section.label}
-                  </SidebarGroupLabel>
-                ) : null}
-                <SidebarMenu className="gap-0.5">
+              const menu = (
+                <SidebarMenu className="gap-0 border-sidebar-border/50 group-data-[collapsible=icon]:border-0">
                   {section.items.map(item => {
                     const isActive = pathname === item.path;
                     return (
@@ -174,7 +194,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
                           isActive={isActive}
                           onClick={() => router.push(item.path)}
                           tooltip={item.label}
-                          className="h-10 rounded-xl px-3 font-medium text-sidebar-foreground/75 hover:bg-white/45 hover:text-sidebar-foreground data-[active=true]:bg-white/75 data-[active=true]:font-semibold data-[active=true]:text-[#263746] data-[active=true]:shadow-[0_12px_28px_rgba(71,124,138,0.16)] dark:hover:bg-white/10 dark:data-[active=true]:bg-white/12 dark:data-[active=true]:text-[#f2fbfc] dark:data-[active=true]:shadow-[0_12px_28px_rgba(0,0,0,0.35)]"
+                          className="h-8 rounded-lg px-2.5 text-[13px] font-medium text-sidebar-foreground/75 hover:bg-white/45 hover:text-sidebar-foreground data-[active=true]:bg-white/75 data-[active=true]:font-semibold data-[active=true]:text-[#263746] data-[active=true]:shadow-[0_8px_20px_rgba(71,124,138,0.14)] dark:hover:bg-white/10 dark:data-[active=true]:bg-white/12 dark:data-[active=true]:text-[#f2fbfc] dark:data-[active=true]:shadow-[0_8px_20px_rgba(0,0,0,0.3)]"
                         >
                           <item.icon
                             className={`size-4 ${isActive ? "text-[#22aeb6] dark:text-[#3fd0d8]" : ""}`}
@@ -185,8 +205,59 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
                     );
                   })}
                 </SidebarMenu>
-              </SidebarGroup>
-            ))
+              );
+
+              if (!section.label) {
+                return (
+                  <SidebarGroup
+                    key={`root-${index}`}
+                    className="shrink-0 p-1 pb-0"
+                  >
+                    {menu}
+                  </SidebarGroup>
+                );
+              }
+
+              const SectionIcon = section.icon;
+              const isOpen = openSections[section.label] ?? true;
+
+              return (
+                <Collapsible
+                  key={section.label}
+                  open={isOpen}
+                  onOpenChange={open =>
+                    setOpenSections(current => ({
+                      ...current,
+                      [section.label]: open,
+                    }))
+                  }
+                  className="shrink-0"
+                >
+                  <SidebarGroup className="shrink-0 p-1 pt-2">
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton
+                        type="button"
+                        tooltip={section.label}
+                        className="h-8 rounded-lg px-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-sidebar-foreground/60 hover:bg-white/45 hover:text-sidebar-foreground group-data-[collapsible=icon]:justify-center dark:hover:bg-white/10"
+                      >
+                        {SectionIcon ? (
+                          <SectionIcon className="size-4" />
+                        ) : null}
+                        <span className="group-data-[collapsible=icon]:hidden">
+                          {section.label}
+                        </span>
+                        <ChevronDown
+                          className={`ml-auto size-3.5 transition-transform group-data-[collapsible=icon]:hidden ${isOpen ? "rotate-180" : ""}`}
+                        />
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="border-l border-sidebar-border/50 pl-2 group-data-[collapsible=icon]:border-0 group-data-[collapsible=icon]:pl-0">
+                      {menu}
+                    </CollapsibleContent>
+                  </SidebarGroup>
+                </Collapsible>
+              );
+            })
           )}
         </SidebarContent>
 
