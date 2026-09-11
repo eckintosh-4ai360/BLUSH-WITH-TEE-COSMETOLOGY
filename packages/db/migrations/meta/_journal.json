@@ -120,6 +120,13 @@
       "when": 1788739200000,
       "tag": "0016_add_appointment_location",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1788825600000,
+      "tag": "0017_make_appointment_email_optional",
+      "breakpoints": true
     }
   ]
 }

@@ -33,6 +33,7 @@ export const clinicServices = pgTable(
     durationMinutes: integer("durationMinutes").notNull(),
     price: numeric("price", { precision: 10, scale: 2 }).notNull(),
     isActive: boolean("isActive").default(true).notNull(),
+    isBookable: boolean("isBookable").default(true).notNull(),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
   },
   table => [index("clinic_services_active_idx").on(table.isActive)]
@@ -50,7 +51,7 @@ export const appointments = pgTable(
       onDelete: "set null",
     }),
     customerName: varchar("customerName", { length: 160 }).notNull(),
-    customerEmail: varchar("customerEmail", { length: 320 }).notNull(),
+    customerEmail: varchar("customerEmail", { length: 320 }),
     customerPhone: varchar("customerPhone", { length: 40 }).notNull(),
     startsAt: timestamp("startsAt").notNull(),
     location: appointmentLocation("location").default("salon").notNull(),

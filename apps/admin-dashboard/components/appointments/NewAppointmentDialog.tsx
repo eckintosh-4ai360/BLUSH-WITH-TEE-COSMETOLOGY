@@ -20,6 +20,7 @@ type AppointmentStatus =
   | "cancelled"
   | "no_show";
 
+const OTHER_SERVICE = "other";
 const pad = (value: number) => String(value).padStart(2, "0");
 
 function toDateTimeLocal(date: Date) {
@@ -51,8 +52,8 @@ export function NewAppointmentDialog({
   });
 
   const [serviceId, setServiceId] = useState("");
+  const [customServiceName, setCustomServiceName] = useState("");
   const [customerName, setCustomerName] = useState("");
-  const [customerEmail, setCustomerEmail] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [startsAt, setStartsAt] = useState(() => toDateTimeLocal(initialDate));
   const [location, setLocation] = useState<AppointmentLocation>("salon");
@@ -64,8 +65,8 @@ export function NewAppointmentDialog({
   useEffect(() => {
     if (!open) return;
     setServiceId("");
+    setCustomServiceName("");
     setCustomerName("");
-    setCustomerEmail("");
     setCustomerPhone("");
     setStartsAt(toDateTimeLocal(initialDate));
     setLocation("salon");
@@ -83,12 +84,12 @@ export function NewAppointmentDialog({
       setError("Choose a service.");
       return;
     }
-    if (customerName.trim().length < 2) {
-      setError("Enter the customer's full name.");
+    if (serviceId === OTHER_SERVICE && customServiceName.trim().length < 2) {
+      setError("Enter the other service name.");
       return;
     }
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(customerEmail.trim())) {
-      setError("Enter a valid customer email address.");
+    if (customerName.trim().length < 2) {
+      setError("Enter the customer's full name.");
       return;
     }
     if (customerPhone.trim().length < 7) {
@@ -105,9 +106,10 @@ export function NewAppointmentDialog({
     }
 
     create.mutate({
-      serviceId: Number(serviceId),
+      serviceId: serviceId === OTHER_SERVICE ? undefined : Number(serviceId),
+      customServiceName:
+        serviceId === OTHER_SERVICE ? customServiceName.trim() : undefined,
       customerName: customerName.trim(),
-      customerEmail: customerEmail.trim(),
       customerPhone: customerPhone.trim(),
       startsAt: new Date(startsAt),
       location,
@@ -149,6 +151,7 @@ export function NewAppointmentDialog({
                     {service.name} · {service.durationMinutes} minutes
                   </option>
                 ))}
+                <option value={OTHER_SERVICE}>Other service...</option>
               </select>
             </label>
 
@@ -167,6 +170,22 @@ export function NewAppointmentDialog({
               </select>
             </label>
           </div>
+
+          {serviceId === OTHER_SERVICE ? (
+            <label className="grid gap-2 text-sm font-medium">
+              Other service name
+              <input
+                required
+                value={customServiceName}
+                onChange={event => setCustomServiceName(event.target.value)}
+                placeholder="Enter the service name"
+                className="soft-input"
+              />
+              <span className="text-xs font-normal text-muted-foreground">
+                This will be saved as an internal service for future records.
+              </span>
+            </label>
+          ) : null}
 
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="grid gap-2 text-sm font-medium">
@@ -193,19 +212,6 @@ export function NewAppointmentDialog({
               />
             </label>
           </div>
-
-          <label className="grid gap-2 text-sm font-medium">
-            Customer email
-            <input
-              required
-              type="email"
-              value={customerEmail}
-              onChange={event => setCustomerEmail(event.target.value)}
-              placeholder="ama@example.com"
-              className="soft-input"
-              autoComplete="email"
-            />
-          </label>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="grid gap-2 text-sm font-medium">

@@ -32,7 +32,7 @@ type AppointmentRow = {
     id: number;
     reference: string;
     customerName: string;
-    customerEmail: string;
+    customerEmail: string | null;
     customerPhone: string;
     startsAt: Date | string;
     location: AppointmentLocation;

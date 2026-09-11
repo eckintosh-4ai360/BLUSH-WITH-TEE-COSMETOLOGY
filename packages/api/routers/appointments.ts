@@ -19,7 +19,6 @@ export const appointmentsRouter = router({
         .object({
           serviceId: z.number().int().positive(),
           customerName: z.string().min(2).max(160),
-          customerEmail: z.string().email(),
           customerPhone: z.string().min(7).max(40),
           startsAt: z.coerce.date(),
           location: z.enum(["salon", "home"]).default("salon"),
@@ -44,7 +43,8 @@ export const appointmentsRouter = router({
         .where(
           and(
             eq(clinicServices.id, input.serviceId),
-            eq(clinicServices.isActive, true)
+            eq(clinicServices.isActive, true),
+            eq(clinicServices.isBookable, true)
           )
         )
         .limit(1);

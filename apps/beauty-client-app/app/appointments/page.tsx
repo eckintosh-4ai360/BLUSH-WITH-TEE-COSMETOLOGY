@@ -21,7 +21,6 @@ export default function AppointmentsPage() {
       const result = await book.mutateAsync({
         serviceId: Number(data.get("serviceId")),
         customerName: String(data.get("customerName")),
-        customerEmail: String(data.get("customerEmail")),
         customerPhone: String(data.get("customerPhone")),
         startsAt: new Date(String(data.get("startsAt"))),
         location: String(data.get("location")) as "salon" | "home",
@@ -167,17 +166,6 @@ export default function AppointmentsPage() {
                   />
                 </label>
               </div>
-
-              <label className="field-label">
-                Email Address
-                <input
-                  required
-                  type="email"
-                  name="customerEmail"
-                  placeholder="ama@example.com"
-                  className="soft-input"
-                />
-              </label>
 
               <label className="field-label">
                 Preferred Date and Time

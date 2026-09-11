@@ -43,7 +43,10 @@ export const contentRouter = router({
   }),
   clinicServices: publicProcedure.query(async () => {
     const db = await dbOrThrow();
-    return db.select().from(clinicServices).where(eq(clinicServices.isActive, true));
+    return db
+      .select()
+      .from(clinicServices)
+      .where(and(eq(clinicServices.isActive, true), eq(clinicServices.isBookable, true)));
   }),
   // Public: returns the school Terms & Conditions stored in system settings.
   terms: publicProcedure.query(async () => {

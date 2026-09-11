@@ -23,9 +23,9 @@ import { router, staffAccessProcedure, staffProcedure } from "../trpc";
 
 const staffAppointmentInput = z
   .object({
-    serviceId: z.number().int().positive(),
+    serviceId: z.number().int().positive().optional(),
+    customServiceName: z.string().trim().min(2).max(160).optional(),
     customerName: z.string().min(2).max(160),
-    customerEmail: z.string().email(),
     customerPhone: z.string().min(7).max(40),
     startsAt: z.coerce.date(),
     location: z.enum(["salon", "home"]).default("salon"),
@@ -36,6 +36,13 @@ const staffAppointmentInput = z
       .default("confirmed"),
   })
   .superRefine((input, ctx) => {
+    if (Boolean(input.serviceId) === Boolean(input.customServiceName)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["serviceId"],
+        message: "Choose a service or enter an other service name.",
+      });
+    }
     if (input.location === "home" && !input.locationDetails?.trim()) {
       ctx.addIssue({
         code: "custom",
@@ -303,41 +310,76 @@ export const staffRouter = router({
     .mutation(async ({ input, ctx }) => {
       ctx.access.assert("appointments.write");
 
-      const [service] = await ctx.db
-        .select()
-        .from(clinicServices)
-        .where(
-          and(
-            eq(clinicServices.id, input.serviceId),
-            eq(clinicServices.isActive, true),
-          ),
-        )
-        .limit(1);
-      if (!service) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "That service is no longer available.",
-        });
-      }
+      return ctx.db.transaction(async tx => {
+        let serviceId: number;
+        if (input.customServiceName) {
+          const customServiceName = input.customServiceName.trim();
+          const [existing] = await tx
+            .select({ id: clinicServices.id })
+            .from(clinicServices)
+            .where(
+              and(
+                eq(clinicServices.name, customServiceName),
+                eq(clinicServices.isActive, true),
+              ),
+            )
+            .limit(1);
 
-      const reference = buildReference("CLN");
-      const [created] = await ctx.db
-        .insert(appointments)
-        .values({
-          reference,
-          serviceId: input.serviceId,
-          customerName: input.customerName.trim(),
-          customerEmail: input.customerEmail.trim(),
-          customerPhone: input.customerPhone.trim(),
-          startsAt: input.startsAt,
-          location: input.location,
-          locationDetails: input.locationDetails?.trim() || null,
-          note: input.note?.trim() || null,
-          status: input.status,
-        })
-        .returning({ id: appointments.id });
+          if (existing) {
+            serviceId = existing.id;
+          } else {
+            const [createdService] = await tx
+              .insert(clinicServices)
+              .values({
+                name: customServiceName,
+                description: "Added from an appointment.",
+                durationMinutes: 60,
+                price: "0.00",
+                isActive: true,
+                isBookable: false,
+              })
+              .returning({ id: clinicServices.id });
+            serviceId = createdService.id;
+          }
+        } else {
+          const [service] = await tx
+            .select({ id: clinicServices.id })
+            .from(clinicServices)
+            .where(
+              and(
+                eq(clinicServices.id, input.serviceId!),
+                eq(clinicServices.isActive, true),
+                eq(clinicServices.isBookable, true),
+              ),
+            )
+            .limit(1);
+          if (!service) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "That service is no longer available.",
+            });
+          }
+          serviceId = service.id;
+        }
 
-      return { id: created?.id, reference, status: input.status };
+        const reference = buildReference("CLN");
+        const [created] = await tx
+          .insert(appointments)
+          .values({
+            reference,
+            serviceId,
+            customerName: input.customerName.trim(),
+            customerPhone: input.customerPhone.trim(),
+            startsAt: input.startsAt,
+            location: input.location,
+            locationDetails: input.locationDetails?.trim() || null,
+            note: input.note?.trim() || null,
+            status: input.status,
+          })
+          .returning({ id: appointments.id });
+
+        return { id: created?.id, reference, status: input.status };
+      });
     }),
   updateAppointment: staffProcedure
     .input(

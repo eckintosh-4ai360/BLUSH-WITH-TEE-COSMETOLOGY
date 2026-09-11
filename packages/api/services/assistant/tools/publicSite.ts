@@ -154,7 +154,12 @@ export const publicTools = [
             price: clinicServices.price,
           })
           .from(clinicServices)
-          .where(eq(clinicServices.isActive, true))
+          .where(
+            and(
+              eq(clinicServices.isActive, true),
+              eq(clinicServices.isBookable, true),
+            ),
+          )
           .orderBy(asc(clinicServices.name))
           .limit(args.limit),
         ctx.db
