@@ -3,7 +3,12 @@ import { pgEnum } from "drizzle-orm/pg-core";
 // Identity & access
 
 // Account type deciding allowed portal destination.
-export const userRole = pgEnum("user_role", ["user", "student", "staff", "admin"]);
+export const userRole = pgEnum("user_role", [
+  "user",
+  "student",
+  "staff",
+  "admin",
+]);
 
 export const roleKey = pgEnum("role_key", [
   "super_admin",
@@ -20,7 +25,11 @@ export const roleKey = pgEnum("role_key", [
 
 // Academics & admissions
 
-export const intakeStatus = pgEnum("intake_status", ["open", "closed", "completed"]);
+export const intakeStatus = pgEnum("intake_status", [
+  "open",
+  "closed",
+  "completed",
+]);
 
 export const applicationStatus = pgEnum("application_status", [
   "draft",
@@ -68,13 +77,25 @@ export const assessmentTypeEnum = pgEnum("assessment_type", [
   "exam",
 ]);
 
-export const classStatus = pgEnum("class_status", ["scheduled", "active", "completed", "cancelled"]);
+export const classStatus = pgEnum("class_status", [
+  "scheduled",
+  "active",
+  "completed",
+  "cancelled",
+]);
 
-export const certificateStatus = pgEnum("certificate_status", ["issued", "revoked"]);
+export const certificateStatus = pgEnum("certificate_status", [
+  "issued",
+  "revoked",
+]);
 
 // Staff
 
-export const staffStatus = pgEnum("staff_status", ["active", "inactive", "on_leave"]);
+export const staffStatus = pgEnum("staff_status", [
+  "active",
+  "inactive",
+  "on_leave",
+]);
 
 // Inventory & procurement
 
@@ -97,7 +118,11 @@ export const purchaseOrderStatus = pgEnum("purchase_order_status", [
 
 // Commerce
 
-export const cartStatus = pgEnum("cart_status", ["active", "converted", "abandoned"]);
+export const cartStatus = pgEnum("cart_status", [
+  "active",
+  "converted",
+  "abandoned",
+]);
 
 export const orderPaymentStatus = pgEnum("order_payment_status", [
   "pending",
@@ -116,7 +141,11 @@ export const orderFulfillmentStatus = pgEnum("order_fulfillment_status", [
   "cancelled",
 ]);
 
-export const customerStatus = pgEnum("customer_status", ["active", "inactive", "blocked"]);
+export const customerStatus = pgEnum("customer_status", [
+  "active",
+  "inactive",
+  "blocked",
+]);
 
 export const addressType = pgEnum("address_type", ["shipping", "billing"]);
 
@@ -140,7 +169,10 @@ export const feeChargeStatus = pgEnum("fee_charge_status", [
   "waived",
 ]);
 
-export const feeAdjustmentType = pgEnum("fee_adjustment_type", ["discount", "surcharge"]);
+export const feeAdjustmentType = pgEnum("fee_adjustment_type", [
+  "discount",
+  "surcharge",
+]);
 
 export const paymentMethodEnum = pgEnum("payment_method", [
   "cash",
@@ -206,7 +238,11 @@ export const expenseCategory = pgEnum("expense_category", [
 // Business division assignment for cost tracking.
 export const expenseScope = pgEnum("expense_scope", ["school", "store"]);
 
-export const approvalStatus = pgEnum("approval_status", ["pending", "approved", "rejected"]);
+export const approvalStatus = pgEnum("approval_status", [
+  "pending",
+  "approved",
+  "rejected",
+]);
 
 // Operations
 
@@ -216,6 +252,11 @@ export const appointmentStatus = pgEnum("appointment_status", [
   "completed",
   "cancelled",
   "no_show",
+]);
+
+export const appointmentLocation = pgEnum("appointment_location", [
+  "salon",
+  "home",
 ]);
 
 export const mediaPurpose = pgEnum("media_purpose", [
@@ -253,11 +294,20 @@ export const notificationType = pgEnum("notification_type", [
   "general",
 ]);
 
-export const deliveryStatus = pgEnum("delivery_status", ["queued", "sent", "failed", "skipped"]);
+export const deliveryStatus = pgEnum("delivery_status", [
+  "queued",
+  "sent",
+  "failed",
+  "skipped",
+]);
 
 // Content
 
-export const publishStatus = pgEnum("publish_status", ["draft", "published", "archived"]);
+export const publishStatus = pgEnum("publish_status", [
+  "draft",
+  "published",
+  "archived",
+]);
 
 export const galleryCategory = pgEnum("gallery_category", [
   "student_work",

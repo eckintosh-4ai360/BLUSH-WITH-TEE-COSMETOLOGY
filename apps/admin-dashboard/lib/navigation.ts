@@ -140,8 +140,8 @@ export const NAV_SECTIONS: NavSection[] = [
         permissions: ["services.read"],
       },
       {
-        label: "Clinic bookings",
-        path: "/operations",
+        label: "Appointments",
+        path: "/appointments",
         icon: CalendarClock,
         permissions: ["appointments.read"],
       },

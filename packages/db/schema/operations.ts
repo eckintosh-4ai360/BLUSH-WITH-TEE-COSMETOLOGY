@@ -14,6 +14,7 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 import {
+  appointmentLocation,
   appointmentStatus,
   deliveryStatus,
   mediaPurpose,
@@ -34,7 +35,7 @@ export const clinicServices = pgTable(
     isActive: boolean("isActive").default(true).notNull(),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
   },
-  table => [index("clinic_services_active_idx").on(table.isActive)],
+  table => [index("clinic_services_active_idx").on(table.isActive)]
 );
 
 export const appointments = pgTable(
@@ -45,16 +46,23 @@ export const appointments = pgTable(
     serviceId: integer("serviceId")
       .notNull()
       .references(() => clinicServices.id, { onDelete: "restrict" }),
-    personId: integer("personId").references(() => people.id, { onDelete: "set null" }),
+    personId: integer("personId").references(() => people.id, {
+      onDelete: "set null",
+    }),
     customerName: varchar("customerName", { length: 160 }).notNull(),
     customerEmail: varchar("customerEmail", { length: 320 }).notNull(),
     customerPhone: varchar("customerPhone", { length: 40 }).notNull(),
     startsAt: timestamp("startsAt").notNull(),
+    location: appointmentLocation("location").default("salon").notNull(),
+    locationDetails: text("locationDetails"),
     note: text("note"),
     status: appointmentStatus("status").default("requested").notNull(),
-    assignedStaffUserId: integer("assignedStaffUserId").references(() => users.id, {
-      onDelete: "set null",
-    }),
+    assignedStaffUserId: integer("assignedStaffUserId").references(
+      () => users.id,
+      {
+        onDelete: "set null",
+      }
+    ),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     updatedAt: timestamp("updatedAt")
       .defaultNow()
@@ -64,7 +72,7 @@ export const appointments = pgTable(
   table => [
     index("appointments_status_idx").on(table.status),
     index("appointments_starts_idx").on(table.startsAt),
-  ],
+  ]
 );
 
 // Record of services provided and paid for at the counter.
@@ -81,7 +89,9 @@ export const serviceSales = pgTable(
     clientName: varchar("clientName", { length: 160 }).notNull(),
     amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
     paymentMethod: paymentMethodEnum("paymentMethod").notNull(),
-    workerUserId: integer("workerUserId").references(() => users.id, { onDelete: "set null" }),
+    workerUserId: integer("workerUserId").references(() => users.id, {
+      onDelete: "set null",
+    }),
     workerName: varchar("workerName", { length: 160 }).notNull(),
     note: text("note"),
     // Associated revenue ledger transaction.
@@ -101,7 +111,7 @@ export const serviceSales = pgTable(
     index("service_sales_date_idx").on(table.serviceDate),
     index("service_sales_worker_idx").on(table.workerUserId),
     index("service_sales_deleted_idx").on(table.deletedAt),
-  ],
+  ]
 );
 
 export const serviceSalesRelations = relations(serviceSales, ({ one }) => ({
@@ -109,7 +119,10 @@ export const serviceSalesRelations = relations(serviceSales, ({ one }) => ({
     fields: [serviceSales.serviceId],
     references: [clinicServices.id],
   }),
-  worker: one(users, { fields: [serviceSales.workerUserId], references: [users.id] }),
+  worker: one(users, {
+    fields: [serviceSales.workerUserId],
+    references: [users.id],
+  }),
 }));
 
 export type ServiceSale = typeof serviceSales.$inferSelect;
@@ -118,7 +131,9 @@ export const mediaFiles = pgTable(
   "mediaFiles",
   {
     id: serial("id").primaryKey(),
-    ownerUserId: integer("ownerUserId").references(() => users.id, { onDelete: "set null" }),
+    ownerUserId: integer("ownerUserId").references(() => users.id, {
+      onDelete: "set null",
+    }),
     purpose: mediaPurpose("purpose").notNull(),
     storageKey: varchar("storageKey", { length: 512 }).notNull(),
     fileName: varchar("fileName", { length: 255 }).notNull(),
@@ -129,7 +144,7 @@ export const mediaFiles = pgTable(
     isPublic: boolean("isPublic").default(false).notNull(),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
   },
-  table => [index("media_files_purpose_idx").on(table.purpose)],
+  table => [index("media_files_purpose_idx").on(table.purpose)]
 );
 
 export const notifications = pgTable(
@@ -152,7 +167,7 @@ export const notifications = pgTable(
   table => [
     index("notifications_user_unread_idx").on(table.userId, table.readAt),
     index("notifications_created_idx").on(table.createdAt),
-  ],
+  ]
 );
 
 export const notificationPreferences = pgTable(
@@ -168,7 +183,9 @@ export const notificationPreferences = pgTable(
     sms: boolean("sms").default(false).notNull(),
     whatsapp: boolean("whatsapp").default(false).notNull(),
   },
-  table => [unique("notification_preference_unique").on(table.userId, table.type)],
+  table => [
+    unique("notification_preference_unique").on(table.userId, table.type),
+  ]
 );
 
 // Outbox delivery queue tracking outgoing messages across channels.
@@ -176,9 +193,12 @@ export const notificationDeliveries = pgTable(
   "notificationDeliveries",
   {
     id: serial("id").primaryKey(),
-    notificationId: integer("notificationId").references(() => notifications.id, {
-      onDelete: "cascade",
-    }),
+    notificationId: integer("notificationId").references(
+      () => notifications.id,
+      {
+        onDelete: "cascade",
+      }
+    ),
     // Notification type identifier for standalone messages.
     type: notificationType("type"),
     channel: notificationChannel("channel").notNull(),
@@ -198,8 +218,11 @@ export const notificationDeliveries = pgTable(
   table => [
     index("notification_deliveries_notification_idx").on(table.notificationId),
     // Index for processing queued deliveries by creation time.
-    index("notification_deliveries_pending_idx").on(table.status, table.createdAt),
-  ],
+    index("notification_deliveries_pending_idx").on(
+      table.status,
+      table.createdAt
+    ),
+  ]
 );
 
 // Immutable audit trail for administrative operations.
@@ -207,7 +230,9 @@ export const auditLogs = pgTable(
   "auditLogs",
   {
     id: serial("id").primaryKey(),
-    userId: integer("userId").references(() => users.id, { onDelete: "set null" }),
+    userId: integer("userId").references(() => users.id, {
+      onDelete: "set null",
+    }),
     userName: varchar("userName", { length: 160 }),
     action: varchar("action", { length: 80 }).notNull(),
     entity: varchar("entity", { length: 64 }).notNull(),
@@ -224,7 +249,7 @@ export const auditLogs = pgTable(
     index("audit_logs_entity_idx").on(table.entity, table.entityId),
     index("audit_logs_user_idx").on(table.userId),
     index("audit_logs_created_idx").on(table.createdAt),
-  ],
+  ]
 );
 
 export const systemSettings = pgTable(
@@ -243,7 +268,7 @@ export const systemSettings = pgTable(
       .notNull()
       .$onUpdate(() => new Date()),
   },
-  table => [index("system_settings_category_idx").on(table.category)],
+  table => [index("system_settings_category_idx").on(table.category)]
 );
 
 export const appointmentsRelations = relations(appointments, ({ one }) => ({
@@ -257,10 +282,16 @@ export const appointmentsRelations = relations(appointments, ({ one }) => ({
   }),
 }));
 
-export const notificationsRelations = relations(notifications, ({ one, many }) => ({
-  user: one(users, { fields: [notifications.userId], references: [users.id] }),
-  deliveries: many(notificationDeliveries),
-}));
+export const notificationsRelations = relations(
+  notifications,
+  ({ one, many }) => ({
+    user: one(users, {
+      fields: [notifications.userId],
+      references: [users.id],
+    }),
+    deliveries: many(notificationDeliveries),
+  })
+);
 
 export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
   user: one(users, { fields: [auditLogs.userId], references: [users.id] }),

@@ -113,6 +113,13 @@
       "when": 1788652800000,
       "tag": "0015_make_admission_email_optional",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1788739200000,
+      "tag": "0016_add_appointment_location",
+      "breakpoints": true
     }
   ]
 }
