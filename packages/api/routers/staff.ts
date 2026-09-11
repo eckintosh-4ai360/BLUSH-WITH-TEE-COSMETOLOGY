@@ -17,9 +17,33 @@ import {
   users,
 } from "@blush/db/schema";
 import { dbOrThrow } from "../dbOrThrow";
-import { inventoryBalanceAfter, money } from "../platform.utils";
+import { buildReference, inventoryBalanceAfter, money } from "../platform.utils";
 import { recordOneResult } from "./results";
-import { router, staffProcedure } from "../trpc";
+import { router, staffAccessProcedure, staffProcedure } from "../trpc";
+
+const staffAppointmentInput = z
+  .object({
+    serviceId: z.number().int().positive(),
+    customerName: z.string().min(2).max(160),
+    customerEmail: z.string().email(),
+    customerPhone: z.string().min(7).max(40),
+    startsAt: z.coerce.date(),
+    location: z.enum(["salon", "home"]).default("salon"),
+    locationDetails: z.string().max(500).optional(),
+    note: z.string().max(1200).optional(),
+    status: z
+      .enum(["requested", "confirmed", "completed", "cancelled", "no_show"])
+      .default("confirmed"),
+  })
+  .superRefine((input, ctx) => {
+    if (input.location === "home" && !input.locationDetails?.trim()) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["locationDetails"],
+        message: "A home-service address is required.",
+      });
+    }
+  });
 
 export const staffRouter = router({
   overview: staffProcedure.query(async () => {
@@ -274,6 +298,47 @@ export const staffRouter = router({
       .innerJoin(clinicServices, eq(appointments.serviceId, clinicServices.id))
       .orderBy(desc(appointments.startsAt));
   }),
+  createAppointment: staffAccessProcedure
+    .input(staffAppointmentInput)
+    .mutation(async ({ input, ctx }) => {
+      ctx.access.assert("appointments.write");
+
+      const [service] = await ctx.db
+        .select()
+        .from(clinicServices)
+        .where(
+          and(
+            eq(clinicServices.id, input.serviceId),
+            eq(clinicServices.isActive, true),
+          ),
+        )
+        .limit(1);
+      if (!service) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "That service is no longer available.",
+        });
+      }
+
+      const reference = buildReference("CLN");
+      const [created] = await ctx.db
+        .insert(appointments)
+        .values({
+          reference,
+          serviceId: input.serviceId,
+          customerName: input.customerName.trim(),
+          customerEmail: input.customerEmail.trim(),
+          customerPhone: input.customerPhone.trim(),
+          startsAt: input.startsAt,
+          location: input.location,
+          locationDetails: input.locationDetails?.trim() || null,
+          note: input.note?.trim() || null,
+          status: input.status,
+        })
+        .returning({ id: appointments.id });
+
+      return { id: created?.id, reference, status: input.status };
+    }),
   updateAppointment: staffProcedure
     .input(
       z.object({

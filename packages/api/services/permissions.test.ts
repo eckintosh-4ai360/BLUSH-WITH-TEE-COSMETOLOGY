@@ -48,6 +48,21 @@ describe("role definitions", () => {
     expect(instructor).toContain("results.write" as PermissionKey);
   });
 
+  it("lets every back-office role manage appointments", () => {
+    for (const role of [
+      "administrator",
+      "instructor",
+      "accountant",
+      "storekeeper",
+      "ecommerce_manager",
+      "secretary",
+    ] as const) {
+      const permissions = permissionsForRole(role);
+      expect(permissions).toContain("appointments.read" as PermissionKey);
+      expect(permissions).toContain("appointments.write" as PermissionKey);
+    }
+  });
+
   it("no longer offers the retired student role", () => {
     // The front desk is secretary now.
     expect(ROLE_KEYS).not.toContain("student" as never);

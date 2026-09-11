@@ -143,7 +143,13 @@ export const ROLE_DEFINITIONS: Record<
   instructor: {
     name: "Instructor",
     description: "Assigned classes and students, attendance, results and academic information.",
-    permissions: [...READ_ONLY_ACADEMIC, "notifications.read", "inventory.read"],
+    permissions: [
+      ...READ_ONLY_ACADEMIC,
+      "appointments.read",
+      "appointments.write",
+      "notifications.read",
+      "inventory.read",
+    ],
   },
   accountant: {
     name: "Accountant",
@@ -166,6 +172,8 @@ export const ROLE_DEFINITIONS: Record<
       "staff.salary.read",
       "purchases.read",
       "suppliers.read",
+      "appointments.read",
+      "appointments.write",
     ],
   },
   storekeeper: {
@@ -181,6 +189,8 @@ export const ROLE_DEFINITIONS: Record<
       "products.read",
       "reports.read",
       "notifications.read",
+      "appointments.read",
+      "appointments.write",
     ],
   },
   ecommerce_manager: {
@@ -198,6 +208,8 @@ export const ROLE_DEFINITIONS: Record<
       "reports.read",
       "notifications.read",
       "cms.read",
+      "appointments.read",
+      "appointments.write",
     ],
   },
   // Front desk role covering day-to-day operations, payments, and till closing.

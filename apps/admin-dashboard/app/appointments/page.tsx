@@ -6,13 +6,16 @@ import {
   Clock3,
   Home,
   MapPin,
+  Plus,
   RefreshCw,
   Scissors,
 } from "lucide-react";
 import { Calendar } from "@blush/ui/components/ui/calendar";
 import { Button } from "@blush/ui/components/ui/button";
 import DashboardLayout from "@/components/DashboardLayout";
+import { NewAppointmentDialog } from "@/components/appointments/NewAppointmentDialog";
 import { PermissionGate } from "@/components/PermissionGate";
+import { usePermissions } from "@/hooks/usePermissions";
 import { trpc } from "@/lib/trpc";
 
 type AppointmentLocation = "salon" | "home";
@@ -101,9 +104,11 @@ export default function AppointmentsPage() {
 }
 
 function AppointmentsCalendar() {
+  const { can } = usePermissions();
   const [month, setMonth] = useState(() => startOfMonth(new Date()));
   const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [locationFilter, setLocationFilter] = useState<LocationFilter>("all");
+  const [createOpen, setCreateOpen] = useState(false);
   const appointmentsQuery = trpc.staff.appointments.useQuery();
 
   const appointments = (appointmentsQuery.data ?? []) as AppointmentRow[];
@@ -160,6 +165,12 @@ function AppointmentsCalendar() {
     setSelectedDate(today);
   }
 
+  function handleAppointmentCreated(startsAt: Date) {
+    setMonth(startOfMonth(startsAt));
+    setSelectedDate(startsAt);
+    void appointmentsQuery.refetch();
+  }
+
   return (
     <div className="mx-auto max-w-[1400px] space-y-6 pb-10">
       <header className="admin-glass-card relative overflow-hidden rounded-[1.55rem] border p-6 sm:p-8">
@@ -181,6 +192,16 @@ function AppointmentsCalendar() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            {can("appointments.write") ? (
+              <Button
+                type="button"
+                className="rounded-full bg-[#22aeb6] text-white shadow-[0_10px_24px_rgba(34,174,182,0.2)] hover:bg-[#1b969d]"
+                onClick={() => setCreateOpen(true)}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                New appointment
+              </Button>
+            ) : null}
             <Button
               type="button"
               variant="outline"
@@ -345,6 +366,13 @@ function AppointmentsCalendar() {
           </div>
         </section>
       </div>
+
+      <NewAppointmentDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        initialDate={selectedDate}
+        onSaved={handleAppointmentCreated}
+      />
     </div>
   );
 }
