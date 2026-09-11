@@ -26,6 +26,7 @@ type AppointmentStatus =
   | "completed"
   | "cancelled"
   | "no_show";
+type HistoryStatusFilter = "all" | AppointmentStatus;
 
 type AppointmentRow = {
   appointment: {
@@ -48,6 +49,15 @@ const locationFilters: { value: LocationFilter; label: string }[] = [
   { value: "all", label: "All services" },
   { value: "salon", label: "Salon" },
   { value: "home", label: "Home service" },
+];
+
+const historyStatusFilters: { value: HistoryStatusFilter; label: string }[] = [
+  { value: "all", label: "All statuses" },
+  { value: "requested", label: "Requested" },
+  { value: "confirmed", label: "Confirmed" },
+  { value: "completed", label: "Completed" },
+  { value: "cancelled", label: "Cancelled" },
+  { value: "no_show", label: "No-show" },
 ];
 
 const startOfMonth = (date: Date) =>
@@ -367,6 +377,11 @@ function AppointmentsCalendar() {
         </section>
       </div>
 
+      <AppointmentHistoryTable
+        appointments={appointments}
+        isLoading={appointmentsQuery.isLoading}
+      />
+
       <NewAppointmentDialog
         open={createOpen}
         onOpenChange={setCreateOpen}
@@ -374,6 +389,210 @@ function AppointmentsCalendar() {
         onSaved={handleAppointmentCreated}
       />
     </div>
+  );
+}
+
+function AppointmentHistoryTable({
+  appointments,
+  isLoading,
+}: {
+  appointments: AppointmentRow[];
+  isLoading: boolean;
+}) {
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [statusFilter, setStatusFilter] = useState<HistoryStatusFilter>("all");
+
+  const invalidDateRange = Boolean(fromDate && toDate && fromDate > toDate);
+  const filteredAppointments = useMemo(() => {
+    if (invalidDateRange) return [];
+
+    const from = fromDate ? new Date(`${fromDate}T00:00:00`) : null;
+    const to = toDate ? new Date(`${toDate}T23:59:59.999`) : null;
+
+    return appointments
+      .filter(row => {
+        const date = appointmentDate(row);
+        const matchesDate = (!from || date >= from) && (!to || date <= to);
+        const matchesStatus =
+          statusFilter === "all" || row.appointment.status === statusFilter;
+        return matchesDate && matchesStatus;
+      })
+      .sort(
+        (left, right) =>
+          appointmentDate(right).getTime() - appointmentDate(left).getTime()
+      );
+  }, [appointments, fromDate, invalidDateRange, statusFilter, toDate]);
+
+  const hasFilters = Boolean(fromDate || toDate || statusFilter !== "all");
+
+  function clearFilters() {
+    setFromDate("");
+    setToDate("");
+    setStatusFilter("all");
+  }
+
+  return (
+    <section className="admin-glass-card rounded-[1.35rem] border p-4 sm:p-6">
+      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[#9ee6ec]/45 pb-5 dark:border-white/10">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#6f8a95] dark:text-[#9fc1c8]">
+            Appointment history
+          </p>
+          <h2 className="mt-1 text-xl font-semibold text-[#263746] dark:text-[#e4f4f7]">
+            Track bookings
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Review past, upcoming, and pending appointments by date or status.
+          </p>
+        </div>
+        <span className="rounded-full bg-[#e4f7f8] px-3 py-1.5 text-xs font-semibold text-[#25727b] dark:bg-[#173c44] dark:text-[#9fe4ea]">
+          {filteredAppointments.length} shown · {appointments.length} total
+        </span>
+      </div>
+
+      <div className="mt-5 grid gap-3 md:grid-cols-[1fr_1fr_1.2fr_auto] md:items-end">
+        <label className="grid gap-2 text-xs font-semibold text-[#55707b] dark:text-[#b8d2d7]">
+          From date
+          <input
+            type="date"
+            value={fromDate}
+            onChange={event => setFromDate(event.target.value)}
+            className="soft-input"
+          />
+        </label>
+        <label className="grid gap-2 text-xs font-semibold text-[#55707b] dark:text-[#b8d2d7]">
+          To date
+          <input
+            type="date"
+            value={toDate}
+            onChange={event => setToDate(event.target.value)}
+            className="soft-input"
+          />
+        </label>
+        <label className="grid gap-2 text-xs font-semibold text-[#55707b] dark:text-[#b8d2d7]">
+          Status
+          <select
+            value={statusFilter}
+            onChange={event =>
+              setStatusFilter(event.target.value as HistoryStatusFilter)
+            }
+            className="soft-input"
+          >
+            {historyStatusFilters.map(filter => (
+              <option key={filter.value} value={filter.value}>
+                {filter.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <Button
+          type="button"
+          variant="outline"
+          className="rounded-xl bg-white/60 dark:bg-white/5"
+          onClick={clearFilters}
+          disabled={!hasFilters}
+        >
+          Clear filters
+        </Button>
+      </div>
+
+      {invalidDateRange ? (
+        <p className="mt-3 text-xs font-medium text-[#b44d61] dark:text-[#f0a5b8]">
+          The from date must be before or the same as the to date.
+        </p>
+      ) : null}
+
+      <div className="mt-5 overflow-x-auto rounded-2xl border border-[#9ee6ec]/45 dark:border-white/10">
+        <table className="w-full min-w-[900px] border-collapse text-left text-sm">
+          <thead className="bg-[#e8f7f8]/75 text-xs uppercase tracking-[0.08em] text-[#55707b] dark:bg-white/5 dark:text-[#b8d2d7]">
+            <tr>
+              <th className="px-4 py-3 font-semibold">Date &amp; time</th>
+              <th className="px-4 py-3 font-semibold">Customer</th>
+              <th className="px-4 py-3 font-semibold">Service</th>
+              <th className="px-4 py-3 font-semibold">Location</th>
+              <th className="px-4 py-3 font-semibold">Status</th>
+              <th className="px-4 py-3 font-semibold">Reference</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[#9ee6ec]/35 dark:divide-white/10">
+            {isLoading ? (
+              [0, 1, 2].map(item => (
+                <tr key={item}>
+                  <td colSpan={6} className="px-4 py-4">
+                    <div className="h-5 animate-pulse rounded bg-[#e8f7f8]/75 dark:bg-white/5" />
+                  </td>
+                </tr>
+              ))
+            ) : filteredAppointments.length ? (
+              filteredAppointments.map(row => (
+                <AppointmentHistoryRow key={row.appointment.id} row={row} />
+              ))
+            ) : (
+              <tr>
+                <td
+                  colSpan={6}
+                  className="px-4 py-10 text-center text-sm text-muted-foreground"
+                >
+                  No appointments match the selected filters.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function AppointmentHistoryRow({ row }: { row: AppointmentRow }) {
+  const date = appointmentDate(row);
+  const isHome = row.appointment.location === "home";
+  const LocationIcon = isHome ? Home : MapPin;
+
+  return (
+    <tr className="bg-white/25 transition-colors hover:bg-white/60 dark:bg-transparent dark:hover:bg-white/5">
+      <td className="whitespace-nowrap px-4 py-4 align-top">
+        <p className="font-semibold text-[#324956] dark:text-[#e4f4f7]">
+          {formatDay(date)}
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {formatTime(date)} · {row.durationMinutes} minutes
+        </p>
+      </td>
+      <td className="px-4 py-4 align-top">
+        <p className="font-semibold text-[#324956] dark:text-[#e4f4f7]">
+          {row.appointment.customerName}
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {row.appointment.customerPhone}
+        </p>
+      </td>
+      <td className="px-4 py-4 align-top text-[#4d6974] dark:text-[#c1d9dd]">
+        {row.serviceName}
+      </td>
+      <td className="px-4 py-4 align-top">
+        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[#4d6974] dark:text-[#c1d9dd]">
+          <LocationIcon className="h-3.5 w-3.5" />
+          {locationLabel(row.appointment.location)}
+        </span>
+        {isHome && row.appointment.locationDetails ? (
+          <p className="mt-1 max-w-[220px] truncate text-xs text-muted-foreground">
+            {row.appointment.locationDetails}
+          </p>
+        ) : null}
+      </td>
+      <td className="px-4 py-4 align-top">
+        <span
+          className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusClass(row.appointment.status)}`}
+        >
+          {statusLabel(row.appointment.status)}
+        </span>
+      </td>
+      <td className="whitespace-nowrap px-4 py-4 align-top text-xs font-medium text-muted-foreground">
+        {row.appointment.reference}
+      </td>
+    </tr>
   );
 }
 
