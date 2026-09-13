@@ -64,7 +64,13 @@ const readableDate = (value: Date | string) =>
   });
 
 const methodLabel = (value: string) =>
-  METHODS.find(item => item.value === value)?.label ?? value.replaceAll("_", " ");
+  METHODS.find(item => item.value === value)?.label ??
+  value.replaceAll("_", " ");
+
+function today() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
 
 export default function DailyServicesPage() {
   return (
@@ -80,6 +86,7 @@ function DailyServicesContent() {
   const { can, isAdmin } = usePermissions();
   const [search, setSearch] = useState("");
   const [method, setMethod] = useState("all");
+  const [serviceDate, setServiceDate] = useState(today);
   const [page, setPage] = useState(1);
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState<EditableService | null>(null);
@@ -91,7 +98,12 @@ function DailyServicesContent() {
   const filters = {
     sortDir: "desc" as const,
     search: search || undefined,
-    paymentMethod: method === "all" ? undefined : (method as (typeof METHODS)[number]["value"]),
+    paymentMethod:
+      method === "all"
+        ? undefined
+        : (method as (typeof METHODS)[number]["value"]),
+    dateFrom: serviceDate,
+    dateTo: serviceDate,
   };
 
   const query = trpc.services.list.useQuery({ ...filters, page, pageSize: 25 });
@@ -109,19 +121,27 @@ function DailyServicesContent() {
     {
       key: "serviceDate",
       header: "Date",
-      cell: row => <span className="whitespace-nowrap">{readableDate(row.serviceDate)}</span>,
+      cell: row => (
+        <span className="whitespace-nowrap">
+          {readableDate(row.serviceDate)}
+        </span>
+      ),
       value: row => new Date(row.serviceDate).toISOString().slice(0, 10),
     },
     {
       key: "serviceName",
       header: "Service",
-      cell: row => <span className="font-medium text-foreground">{row.serviceName}</span>,
+      cell: row => (
+        <span className="font-medium text-foreground">{row.serviceName}</span>
+      ),
     },
     {
       key: "amount",
       header: "Amount",
       align: "right",
-      cell: row => <span className="tabular-nums">{formatMoney(row.amount)}</span>,
+      cell: row => (
+        <span className="tabular-nums">{formatMoney(row.amount)}</span>
+      ),
       value: row => row.amount,
     },
     {
@@ -143,7 +163,9 @@ function DailyServicesContent() {
           {row.workerName}
           {/* Says the name is a note rather than a linked staff account. */}
           {row.workerUserId === null ? (
-            <span className="block text-xs text-muted-foreground">not on staff list</span>
+            <span className="block text-xs text-muted-foreground">
+              not on staff list
+            </span>
           ) : null}
         </span>
       ),
@@ -208,30 +230,49 @@ function DailyServicesContent() {
         exportFileName="daily-services"
         fetchAllRows={() =>
           collectAllPages((page, pageSize) =>
-            utils.services.list.fetch({ ...filters, page, pageSize }),
+            utils.services.list.fetch({ ...filters, page, pageSize })
           )
         }
         emptyMessage="No services recorded yet."
         filters={
-          <Select
-            value={method}
-            onValueChange={value => {
-              setMethod(value);
-              setPage(1);
-            }}
-          >
-            <SelectTrigger className="w-[11rem]" aria-label="Filter by payment type">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All payment types</SelectItem>
-              {METHODS.map(item => (
-                <SelectItem key={item.value} value={item.value}>
-                  {item.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span className="sr-only">Service date</span>
+              <input
+                type="date"
+                value={serviceDate}
+                max={today()}
+                onChange={event => {
+                  setServiceDate(event.target.value || today());
+                  setPage(1);
+                }}
+                className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                aria-label="Filter services by date"
+              />
+            </label>
+            <Select
+              value={method}
+              onValueChange={value => {
+                setMethod(value);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger
+                className="w-[11rem]"
+                aria-label="Filter by payment type"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All payment types</SelectItem>
+                {METHODS.map(item => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         }
         actions={
           writable ? (
@@ -254,7 +295,11 @@ function DailyServicesContent() {
           </span>
           <span className="ml-auto flex flex-wrap gap-2">
             {totals.map(row => (
-              <Badge key={row.paymentMethod} variant="outline" className="gap-1 text-xs">
+              <Badge
+                key={row.paymentMethod}
+                variant="outline"
+                className="gap-1 text-xs"
+              >
                 {methodLabel(row.paymentMethod)}
                 <span className="font-semibold">{formatMoney(row.total)}</span>
               </Badge>
@@ -283,20 +328,27 @@ function DailyServicesContent() {
         }}
       />
 
-      <AlertDialog open={removing !== null} onOpenChange={open => !open && setRemoving(null)}>
+      <AlertDialog
+        open={removing !== null}
+        onOpenChange={open => !open && setRemoving(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Remove &quot;{removing?.serviceName}&quot; for {removing?.clientName}?
+              Remove &quot;{removing?.serviceName}&quot; for{" "}
+              {removing?.clientName}?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              It leaves the log and its {formatMoney(removing?.amount ?? 0)} is taken back out
-              of income as a counter-entry, so a day that has already been closed still adds
-              up. The record is kept for the audit trail.
+              It leaves the log and its {formatMoney(removing?.amount ?? 0)} is
+              taken back out of income as a counter-entry, so a day that has
+              already been closed still adds up. The record is kept for the
+              audit trail.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={remove.isPending}>Keep it</AlertDialogCancel>
+            <AlertDialogCancel disabled={remove.isPending}>
+              Keep it
+            </AlertDialogCancel>
             <AlertDialogAction
               disabled={remove.isPending}
               onClick={event => {

@@ -2,7 +2,14 @@
 
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeftRight, BellRing, Pencil, Plus, Trash2, Upload } from "lucide-react";
+import {
+  ArrowLeftRight,
+  BellRing,
+  Pencil,
+  Plus,
+  Trash2,
+  Upload,
+} from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,7 +44,7 @@ import { trpc } from "@/lib/trpc";
 
 type ItemRow = {
   id: number;
-  sku: string;
+  sku: string | null;
   name: string;
   description: string | null;
   category: string;
@@ -72,9 +79,9 @@ function InventoryContent() {
 
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const [stockFilter, setStockFilter] = useState<"all" | "low" | "out" | "sellable">(
-    (params.get("filter") as "low" | "out" | null) ?? "all",
-  );
+  const [stockFilter, setStockFilter] = useState<
+    "all" | "low" | "out" | "sellable"
+  >((params.get("filter") as "low" | "out" | null) ?? "all");
   const [movingItem, setMovingItem] = useState<ItemRow | null>(null);
   const [removingItem, setRemovingItem] = useState<ItemRow | null>(null);
   const [editingItem, setEditingItem] = useState<ItemRow | null>(null);
@@ -91,7 +98,7 @@ function InventoryContent() {
         return;
       }
       toast.success(
-        `Reported ${result.lowCount} low item${result.lowCount === 1 ? "" : "s"} to ${result.recipients} recipient${result.recipients === 1 ? "" : "s"}.`,
+        `Reported ${result.lowCount} low item${result.lowCount === 1 ? "" : "s"} to ${result.recipients} recipient${result.recipients === 1 ? "" : "s"}.`
       );
     },
     onError: error => toast.error(error.message),
@@ -111,9 +118,17 @@ function InventoryContent() {
   const utils = trpc.useUtils();
 
   // Shared by the table and by export.
-  const filters = { sortDir: "asc" as const, search: search || undefined, stockFilter };
+  const filters = {
+    sortDir: "asc" as const,
+    search: search || undefined,
+    stockFilter,
+  };
 
-  const query = trpc.inventory.items.useQuery({ ...filters, page, pageSize: 25 });
+  const query = trpc.inventory.items.useQuery({
+    ...filters,
+    page,
+    pageSize: 25,
+  });
 
   const columns: Column<ItemRow>[] = [
     {
@@ -122,7 +137,13 @@ function InventoryContent() {
       cell: row => (
         <span>
           <span className="font-medium text-foreground">{row.name}</span>
-          <span className="block text-xs text-muted-foreground">{row.sku}</span>
+          {row.sku ? (
+            <span className="block text-xs text-muted-foreground">
+              {row.sku}
+            </span>
+          ) : (
+            <span className="block text-xs text-muted-foreground">No SKU</span>
+          )}
         </span>
       ),
     },
@@ -132,7 +153,12 @@ function InventoryContent() {
       cell: row => row.categoryName ?? row.category,
       value: row => row.categoryName ?? row.category,
     },
-    { key: "supplierName", header: "Supplier", optional: true, cell: row => row.supplierName ?? "-" },
+    {
+      key: "supplierName",
+      header: "Supplier",
+      optional: true,
+      cell: row => row.supplierName ?? "-",
+    },
     {
       key: "quantityOnHand",
       header: "On hand",
@@ -251,7 +277,7 @@ function InventoryContent() {
         exportFileName="stock"
         fetchAllRows={() =>
           collectAllPages((page, pageSize) =>
-            utils.inventory.items.fetch({ ...filters, page, pageSize }),
+            utils.inventory.items.fetch({ ...filters, page, pageSize })
           )
         }
         emptyMessage="No items match these filters."
@@ -301,7 +327,11 @@ function InventoryContent() {
                     : `Alert on ${lowStock.data.count} low`}
                 </Button>
               ) : null}
-              <Button variant="outline" className="gap-2" onClick={() => setImportOpen(true)}>
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={() => setImportOpen(true)}
+              >
                 <Upload className="h-4 w-4" />
                 Import
               </Button>
@@ -360,7 +390,9 @@ function InventoryContent() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={removeItem.isPending}>Keep item</AlertDialogCancel>
+            <AlertDialogCancel disabled={removeItem.isPending}>
+              Keep item
+            </AlertDialogCancel>
             <AlertDialogAction
               disabled={removeItem.isPending}
               onClick={event => {

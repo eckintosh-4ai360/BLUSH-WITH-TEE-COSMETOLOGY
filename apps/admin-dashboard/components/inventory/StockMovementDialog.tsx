@@ -33,7 +33,12 @@ const TYPES = [
   { key: "adjustment", label: "Stock count adjustment", direction: 0 },
 ] as const;
 
-type StockItem = { id: number; name: string; sku: string; quantityOnHand: number };
+type StockItem = {
+  id: number;
+  name: string;
+  sku: string | null;
+  quantityOnHand: number;
+};
 
 // Records a stock movement.
 export function StockMovementDialog({
@@ -89,7 +94,9 @@ export function StockMovementDialog({
   const validation = useMemo(() => {
     if (!item) return "No item selected.";
     if (delta === 0) {
-      return isAdjustment ? "The counted total matches the current balance." : "Enter a quantity.";
+      return isAdjustment
+        ? "The counted total matches the current balance."
+        : "Enter a quantity.";
     }
     if (balanceAfter < 0 && !(isAdjustment && allowNegative)) {
       return `This would take stock to ${balanceAfter}. Only an authorised count adjustment may go below zero.`;
@@ -110,7 +117,10 @@ export function StockMovementDialog({
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="movement-type">Type</Label>
-            <Select value={type} onValueChange={value => setType(value as typeof type)}>
+            <Select
+              value={type}
+              onValueChange={value => setType(value as typeof type)}
+            >
               <SelectTrigger id="movement-type">
                 <SelectValue />
               </SelectTrigger>
@@ -134,7 +144,8 @@ export function StockMovementDialog({
                 onChange={event => setCountedTotal(event.target.value)}
               />
               <p className="text-xs text-muted-foreground">
-                Enter what you actually counted. The difference is recorded as the adjustment.
+                Enter what you actually counted. The difference is recorded as
+                the adjustment.
               </p>
             </div>
           ) : (
@@ -153,7 +164,9 @@ export function StockMovementDialog({
           {delta !== 0 ? (
             <p className="rounded-lg bg-muted/60 px-3 py-2 text-sm">
               <span className="text-muted-foreground">Balance after: </span>
-              <span className="font-semibold tabular-nums text-foreground">{balanceAfter}</span>
+              <span className="font-semibold tabular-nums text-foreground">
+                {balanceAfter}
+              </span>
               <span className="ml-2 text-xs text-muted-foreground">
                 ({delta > 0 ? "+" : ""}
                 {delta})
@@ -187,7 +200,10 @@ export function StockMovementDialog({
           </div>
 
           {error ? (
-            <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <p
+              role="alert"
+              className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive"
+            >
               {error}
             </p>
           ) : null}
@@ -215,7 +231,9 @@ export function StockMovementDialog({
               });
             }}
           >
-            {record.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            {record.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : null}
             Record movement
           </Button>
         </DialogFooter>

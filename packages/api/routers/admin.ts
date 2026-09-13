@@ -61,7 +61,10 @@ import { flushInBackground } from "../services/messaging/dispatch";
 import { adminProcedure, permissionProcedure, router } from "../trpc";
 
 // One syllabus line, as the school advertises it.
-const outlineInput = z.array(z.string().trim().min(1).max(180)).max(40).optional();
+const outlineInput = z
+  .array(z.string().trim().min(1).max(180))
+  .max(40)
+  .optional();
 
 // The values expenses.
 const LEGACY_EXPENSE_CATEGORIES = [
@@ -78,21 +81,29 @@ const LEGACY_EXPENSE_CATEGORIES = [
   "other",
 ] as const;
 
-function isLegacyExpenseCategory(key: string): key is (typeof LEGACY_EXPENSE_CATEGORIES)[number] {
+function isLegacyExpenseCategory(
+  key: string
+): key is (typeof LEGACY_EXPENSE_CATEGORIES)[number] {
   return (LEGACY_EXPENSE_CATEGORIES as readonly string[]).includes(key);
 }
 
 // Says what is in the way and what to do about it, not that a write failed.
-function alreadyEnrolled(studentName: string, courseTitle: string, status: string): string {
+function alreadyEnrolled(
+  studentName: string,
+  courseTitle: string,
+  status: string
+): string {
   const standing = status === "paused" ? "a paused enrolment on" : "already on";
   return `${studentName} is ${standing} ${courseTitle}. Remove that enrolment, or graduate the student, before placing them on it again.`;
 }
 
 // Rewrites a programme's syllabus to exactly outline, in that order.
 async function saveOutline(
-  tx: Parameters<Parameters<Awaited<ReturnType<typeof dbOrThrow>>["transaction"]>[0]>[0],
+  tx: Parameters<
+    Parameters<Awaited<ReturnType<typeof dbOrThrow>>["transaction"]>[0]
+  >[0],
   courseId: number,
-  outline: string[],
+  outline: string[]
 ): Promise<void> {
   const titles = outline.map(title => title.trim()).filter(Boolean);
 
@@ -129,13 +140,52 @@ async function saveOutline(
 export const adminNamespaceRouter = router({
   dashboard: adminProcedure.query(async () => {
     const db = await dbOrThrow();
-    const [[studentCount], [applicationCount], [orderCount], [lowStockCount], recentOrders, recentApplications] = await Promise.all([
+    const [
+      [studentCount],
+      [applicationCount],
+      [orderCount],
+      [lowStockCount],
+      recentOrders,
+      recentApplications,
+    ] = await Promise.all([
       db.select({ count: sql<number>`count(*)` }).from(studentProfiles),
-      db.select({ count: sql<number>`count(*)` }).from(applications).where(and(eq(applications.status, "submitted"), isNull(applications.deletedAt))),
-      db.select({ count: sql<number>`count(*)` }).from(storeOrders).where(eq(storeOrders.fulfillmentStatus, "new")),
-      db.select({ count: sql<number>`count(*)` }).from(inventoryItems).where(sql`${inventoryItems.quantityOnHand} <= ${inventoryItems.reorderLevel}`),
-      db.select().from(storeOrders).orderBy(desc(storeOrders.createdAt)).limit(5),
-      db.select({ reference: applications.reference, fullName: applications.fullName, status: applications.status, createdAt: applications.createdAt, courseTitle: courses.title }).from(applications).innerJoin(courses, eq(applications.courseId, courses.id)).where(isNull(applications.deletedAt)).orderBy(desc(applications.createdAt)).limit(5),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(applications)
+        .where(
+          and(
+            eq(applications.status, "submitted"),
+            isNull(applications.deletedAt)
+          )
+        ),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(storeOrders)
+        .where(eq(storeOrders.fulfillmentStatus, "new")),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(inventoryItems)
+        .where(
+          sql`${inventoryItems.quantityOnHand} <= ${inventoryItems.reorderLevel}`
+        ),
+      db
+        .select()
+        .from(storeOrders)
+        .orderBy(desc(storeOrders.createdAt))
+        .limit(5),
+      db
+        .select({
+          reference: applications.reference,
+          fullName: applications.fullName,
+          status: applications.status,
+          createdAt: applications.createdAt,
+          courseTitle: courses.title,
+        })
+        .from(applications)
+        .innerJoin(courses, eq(applications.courseId, courses.id))
+        .where(isNull(applications.deletedAt))
+        .orderBy(desc(applications.createdAt))
+        .limit(5),
     ]);
     return {
       metrics: {
@@ -144,7 +194,10 @@ export const adminNamespaceRouter = router({
         newOrders: Number(orderCount?.count ?? 0),
         lowStock: Number(lowStockCount?.count ?? 0),
       },
-      recentOrders: recentOrders.map(order => ({ ...order, total: money(order.total) })),
+      recentOrders: recentOrders.map(order => ({
+        ...order,
+        total: money(order.total),
+      })),
       recentApplications,
     };
   }),
@@ -156,7 +209,14 @@ export const adminNamespaceRouter = router({
         pageSize: z.number().int().min(1).max(100).default(20),
         search: z.string().max(200).optional(),
         status: z
-          .enum(["draft", "submitted", "under_review", "more_information", "approved", "rejected"])
+          .enum([
+            "draft",
+            "submitted",
+            "under_review",
+            "more_information",
+            "approved",
+            "rejected",
+          ])
           .optional(),
         // Length of the programme applied for, in weeks.
         durationWeeks: z.number().int().positive().optional(),
@@ -169,7 +229,8 @@ export const adminNamespaceRouter = router({
       // A removed application is gone from every list that reads this, the export included.
       const conditions: SQL[] = [isNull(applications.deletedAt)];
       if (status) conditions.push(eq(applications.status, status));
-      if (durationWeeks) conditions.push(eq(courses.durationWeeks, durationWeeks));
+      if (durationWeeks)
+        conditions.push(eq(courses.durationWeeks, durationWeeks));
       if (search && search.trim()) {
         const pattern = `%${search.trim()}%`;
         conditions.push(
@@ -190,8 +251,12 @@ export const adminNamespaceRouter = router({
             application: applications,
             courseTitle: courses.title,
             // What the applicant was quoted.
-            courseTuition: sql<string | null>`coalesce(${applications.tuition}, ${courses.tuition})`,
-            courseProductFee: sql<string | null>`coalesce(${applications.productFee}, ${courses.productFee})`,
+            courseTuition: sql<
+              string | null
+            >`coalesce(${applications.tuition}, ${courses.tuition})`,
+            courseProductFee: sql<
+              string | null
+            >`coalesce(${applications.productFee}, ${courses.productFee})`,
           })
           .from(applications)
           .innerJoin(courses, eq(applications.courseId, courses.id))
@@ -210,91 +275,180 @@ export const adminNamespaceRouter = router({
       const total = Number(totalRow?.total ?? 0);
       const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
-      return { rows, page, pageSize, total, totalPages, hasMore: page < totalPages };
+      return {
+        rows,
+        page,
+        pageSize,
+        total,
+        totalPages,
+        hasMore: page < totalPages,
+      };
     }),
 
-  applicationDocuments: adminProcedure.input(z.object({ applicationId: z.number().int().positive() })).query(async ({ input }) => {
-    const db = await dbOrThrow();
-    const documents = await db.select().from(applicationDocuments).where(eq(applicationDocuments.applicationId, input.applicationId));
-    return Promise.all(documents.map(async document => ({ ...document, url: (await storageGet(document.storageKey)).url })));
-  }),
+  applicationDocuments: adminProcedure
+    .input(z.object({ applicationId: z.number().int().positive() }))
+    .query(async ({ input }) => {
+      const db = await dbOrThrow();
+      const documents = await db
+        .select()
+        .from(applicationDocuments)
+        .where(eq(applicationDocuments.applicationId, input.applicationId));
+      return Promise.all(
+        documents.map(async document => ({
+          ...document,
+          url: (await storageGet(document.storageKey)).url,
+        }))
+      );
+    }),
 
   // The students who can still be placed on a programme.
   students: adminProcedure.query(async () => {
     const db = await dbOrThrow();
-    const rows = await db.select({ student: studentProfiles, enrollment: enrollments, courseTitle: courses.title }).from(studentProfiles).leftJoin(enrollments, eq(studentProfiles.id, enrollments.studentId)).leftJoin(courses, eq(enrollments.courseId, courses.id)).where(and(isNull(studentProfiles.deletedAt), ne(studentProfiles.status, "graduated"))).orderBy(desc(studentProfiles.createdAt), desc(enrollments.enrolledAt));
+    const rows = await db
+      .select({
+        student: studentProfiles,
+        enrollment: enrollments,
+        courseTitle: courses.title,
+      })
+      .from(studentProfiles)
+      .leftJoin(enrollments, eq(studentProfiles.id, enrollments.studentId))
+      .leftJoin(courses, eq(enrollments.courseId, courses.id))
+      .where(
+        and(
+          isNull(studentProfiles.deletedAt),
+          ne(studentProfiles.status, "graduated")
+        )
+      )
+      .orderBy(desc(studentProfiles.createdAt), desc(enrollments.enrolledAt));
     type Row = (typeof rows)[number];
-    const byStudent = new Map<number, { student: Row["student"]; enrollments: { enrollment: NonNullable<Row["enrollment"]>; courseTitle: Row["courseTitle"] }[] }>();
+    const byStudent = new Map<
+      number,
+      {
+        student: Row["student"];
+        enrollments: {
+          enrollment: NonNullable<Row["enrollment"]>;
+          courseTitle: Row["courseTitle"];
+        }[];
+      }
+    >();
     for (const row of rows) {
-      const entry = byStudent.get(row.student.id) ?? { student: row.student, enrollments: [] };
-      if (row.enrollment) entry.enrollments.push({ enrollment: row.enrollment, courseTitle: row.courseTitle });
+      const entry = byStudent.get(row.student.id) ?? {
+        student: row.student,
+        enrollments: [],
+      };
+      if (row.enrollment)
+        entry.enrollments.push({
+          enrollment: row.enrollment,
+          courseTitle: row.courseTitle,
+        });
       byStudent.set(row.student.id, entry);
     }
     return [...byStudent.values()];
   }),
 
-  createEnrollment: adminProcedure.input(z.object({ studentId: z.number().int().positive(), courseId: z.number().int().positive(), expectedCompletionDate: z.coerce.date().optional() })).mutation(async ({ input, ctx }) => {
-    const db = await dbOrThrow();
+  createEnrollment: adminProcedure
+    .input(
+      z.object({
+        studentId: z.number().int().positive(),
+        courseId: z.number().int().positive(),
+        expectedCompletionDate: z.coerce.date().optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
 
-    // Leaving a removed or graduated student out of the picker is presentation.
-    const [student] = await db
-      .select({ id: studentProfiles.id, fullName: studentProfiles.fullName, status: studentProfiles.status })
-      .from(studentProfiles)
-      .where(and(eq(studentProfiles.id, input.studentId), isNull(studentProfiles.deletedAt)))
-      .limit(1);
+      // Leaving a removed or graduated student out of the picker is presentation.
+      const [student] = await db
+        .select({
+          id: studentProfiles.id,
+          fullName: studentProfiles.fullName,
+          status: studentProfiles.status,
+        })
+        .from(studentProfiles)
+        .where(
+          and(
+            eq(studentProfiles.id, input.studentId),
+            isNull(studentProfiles.deletedAt)
+          )
+        )
+        .limit(1);
 
-    if (!student) {
-      throw new TRPCError({ code: "NOT_FOUND", message: "That student is no longer on the register." });
-    }
-    if (student.status === "graduated") {
-      throw new TRPCError({
-        code: "BAD_REQUEST",
-        message: "That student has graduated and cannot be placed on a programme.",
-      });
-    }
-
-    const [course] = await db
-      .select({ title: courses.title })
-      .from(courses)
-      .where(eq(courses.id, input.courseId))
-      .limit(1);
-
-    if (!course) {
-      throw new TRPCError({ code: "NOT_FOUND", message: "That programme was not found." });
-    }
-
-    // Read first so the refusal can name the student and the programme.
-    const [live] = await db
-      .select({ id: enrollments.id, status: enrollments.status })
-      .from(enrollments)
-      .where(
-        and(
-          eq(enrollments.studentId, input.studentId),
-          eq(enrollments.courseId, input.courseId),
-          inArray(enrollments.status, ["active", "paused"]),
-        ),
-      )
-      .limit(1);
-
-    if (live) {
-      throw new TRPCError({ code: "CONFLICT", message: alreadyEnrolled(student.fullName, course.title, live.status) });
-    }
-
-    try {
-      const [enrollment] = await db.insert(enrollments).values({ studentId: input.studentId, courseId: input.courseId, expectedCompletionDate: input.expectedCompletionDate }).returning({ id: enrollments.id });
-
-      // Placing a student on a programme is what makes them liable for its fees.
-      const billed = await syncStudentCharges(db, input.studentId, ctx.user.id);
-
-      return { id: enrollment?.id, charged: billed.raised + billed.repaired };
-    } catch (error) {
-      // Two people enrolling the same student at once both pass the read above.
-      if (isUniqueViolation(error, "enrollment_live_course_unique")) {
-        throw new TRPCError({ code: "CONFLICT", message: alreadyEnrolled(student.fullName, course.title, "active") });
+      if (!student) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "That student is no longer on the register.",
+        });
       }
-      throw error;
-    }
-  }),
+      if (student.status === "graduated") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "That student has graduated and cannot be placed on a programme.",
+        });
+      }
+
+      const [course] = await db
+        .select({ title: courses.title })
+        .from(courses)
+        .where(eq(courses.id, input.courseId))
+        .limit(1);
+
+      if (!course) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "That programme was not found.",
+        });
+      }
+
+      // Read first so the refusal can name the student and the programme.
+      const [live] = await db
+        .select({ id: enrollments.id, status: enrollments.status })
+        .from(enrollments)
+        .where(
+          and(
+            eq(enrollments.studentId, input.studentId),
+            eq(enrollments.courseId, input.courseId),
+            inArray(enrollments.status, ["active", "paused"])
+          )
+        )
+        .limit(1);
+
+      if (live) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: alreadyEnrolled(student.fullName, course.title, live.status),
+        });
+      }
+
+      try {
+        const [enrollment] = await db
+          .insert(enrollments)
+          .values({
+            studentId: input.studentId,
+            courseId: input.courseId,
+            expectedCompletionDate: input.expectedCompletionDate,
+          })
+          .returning({ id: enrollments.id });
+
+        // Placing a student on a programme is what makes them liable for its fees.
+        const billed = await syncStudentCharges(
+          db,
+          input.studentId,
+          ctx.user.id
+        );
+
+        return { id: enrollment?.id, charged: billed.raised + billed.repaired };
+      } catch (error) {
+        // Two people enrolling the same student at once both pass the read above.
+        if (isUniqueViolation(error, "enrollment_live_course_unique")) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: alreadyEnrolled(student.fullName, course.title, "active"),
+          });
+        }
+        throw error;
+      }
+    }),
 
   // Takes an enrolment off the active register.
   removeEnrollment: adminProcedure
@@ -311,13 +465,19 @@ export const adminNamespaceRouter = router({
           courseTitle: courses.title,
         })
         .from(enrollments)
-        .innerJoin(studentProfiles, eq(enrollments.studentId, studentProfiles.id))
+        .innerJoin(
+          studentProfiles,
+          eq(enrollments.studentId, studentProfiles.id)
+        )
         .innerJoin(courses, eq(enrollments.courseId, courses.id))
         .where(eq(enrollments.id, input.enrollmentId))
         .limit(1);
 
       if (!existing) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "That enrolment is no longer on file." });
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "That enrolment is no longer on file.",
+        });
       }
 
       if (existing.status !== "active") {
@@ -342,25 +502,45 @@ export const adminNamespaceRouter = router({
           newValue: { status: "withdrawn" },
         });
 
-        return { studentName: existing.studentName, courseTitle: existing.courseTitle };
+        return {
+          studentName: existing.studentName,
+          courseTitle: existing.courseTitle,
+        };
       });
     }),
 
-  createAssessment: permissionProcedure("academics.write").input(z.object({ courseId: z.number().int().positive(), title: z.string().min(2).max(180), assessmentType: z.enum(["theory", "practical", "project", "exam"]), totalScore: z.number().int().min(1).max(1000), dueDate: z.coerce.date().optional() })).mutation(async ({ input, ctx }) => {
-    const db = await dbOrThrow();
-    const [assessment] = await db.insert(assessments).values(input).returning({ id: assessments.id });
+  createAssessment: permissionProcedure("academics.write")
+    .input(
+      z.object({
+        courseId: z.number().int().positive(),
+        title: z.string().min(2).max(180),
+        assessmentType: z.enum(["theory", "practical", "project", "exam"]),
+        totalScore: z.number().int().min(1).max(1000),
+        dueDate: z.coerce.date().optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+      const [assessment] = await db
+        .insert(assessments)
+        .values(input)
+        .returning({ id: assessments.id });
 
-    await recordAudit(db, ctx.actor, {
-      action: "create",
-      entity: "assessment",
-      entityId: assessment?.id,
-      entityLabel: input.title,
-      newValue: { courseId: input.courseId, assessmentType: input.assessmentType, totalScore: input.totalScore },
-      summary: `${ctx.actor.name ?? "Staff"} added the ${input.assessmentType} "${input.title}"`,
-    });
+      await recordAudit(db, ctx.actor, {
+        action: "create",
+        entity: "assessment",
+        entityId: assessment?.id,
+        entityLabel: input.title,
+        newValue: {
+          courseId: input.courseId,
+          assessmentType: input.assessmentType,
+          totalScore: input.totalScore,
+        },
+        summary: `${ctx.actor.name ?? "Staff"} added the ${input.assessmentType} "${input.title}"`,
+      });
 
-    return { id: assessment?.id };
-  }),
+      return { id: assessment?.id };
+    }),
 
   // Takes an assessment out of the catalogue.
   deleteAssessment: permissionProcedure("academics.write")
@@ -377,11 +557,19 @@ export const adminNamespaceRouter = router({
           courseId: assessments.courseId,
         })
         .from(assessments)
-        .where(and(eq(assessments.id, input.assessmentId), isNull(assessments.deletedAt)))
+        .where(
+          and(
+            eq(assessments.id, input.assessmentId),
+            isNull(assessments.deletedAt)
+          )
+        )
         .limit(1);
 
       if (!before) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "That assessment is no longer on file." });
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "That assessment is no longer on file.",
+        });
       }
 
       const [marks] = await db
@@ -444,11 +632,14 @@ export const adminNamespaceRouter = router({
         signatureData: z.string().trim().max(500).optional(),
         agreedToTerms: z.boolean().default(true),
         statement: z.string().trim().max(3000).optional(),
-      }),
+      })
     )
     .mutation(async ({ input, ctx }) => {
       const db = await dbOrThrow();
-      const email = input.email && input.email.trim().length > 0 ? input.email.trim().toLowerCase() : null;
+      const email =
+        input.email && input.email.trim().length > 0
+          ? input.email.trim().toLowerCase()
+          : null;
 
       const [course] = await db
         .select({
@@ -462,7 +653,10 @@ export const adminNamespaceRouter = router({
         .where(and(eq(courses.id, input.courseId), eq(courses.isActive, true)))
         .limit(1);
       if (!course) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "That programme is unavailable." });
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "That programme is unavailable.",
+        });
       }
 
       const recorded = await db.transaction(async tx => {
@@ -524,7 +718,11 @@ export const adminNamespaceRouter = router({
           entity: "application",
           entityId: created?.id,
           entityLabel: reference,
-          newValue: { fullName: input.fullName, email, courseId: input.courseId },
+          newValue: {
+            fullName: input.fullName,
+            email,
+            courseId: input.courseId,
+          },
           summary: `${ctx.actor.name ?? "Staff"} recorded application ${reference} for ${input.fullName}`,
         });
 
@@ -575,19 +773,30 @@ export const adminNamespaceRouter = router({
         guardianAddress: z.string().trim().max(1500).optional(),
         guardianPhone: z.string().trim().max(40).optional(),
         statement: z.string().trim().max(3000).optional(),
-      }),
+      })
     )
     .mutation(async ({ input, ctx }) => {
       const db = await dbOrThrow();
-      const email = input.email && input.email.trim().length > 0 ? input.email.trim().toLowerCase() : null;
+      const email =
+        input.email && input.email.trim().length > 0
+          ? input.email.trim().toLowerCase()
+          : null;
 
       const [existing] = await db
         .select()
         .from(applications)
-        .where(and(eq(applications.id, input.applicationId), isNull(applications.deletedAt)))
+        .where(
+          and(
+            eq(applications.id, input.applicationId),
+            isNull(applications.deletedAt)
+          )
+        )
         .limit(1);
       if (!existing) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Application not found." });
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Application not found.",
+        });
       }
 
       const [course] = await db
@@ -602,7 +811,10 @@ export const adminNamespaceRouter = router({
         .where(and(eq(courses.id, input.courseId), eq(courses.isActive, true)))
         .limit(1);
       if (!course) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "That programme is unavailable." });
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "That programme is unavailable.",
+        });
       }
 
       // The quote is frozen against the programme it was given.
@@ -630,7 +842,9 @@ export const adminNamespaceRouter = router({
           education: input.education ?? null,
           courseId: input.courseId,
           paymentPlan: input.paymentPlan ?? null,
-          ...(movedProgramme ? { tuition: course.tuition, productFee: course.productFee } : {}),
+          ...(movedProgramme
+            ? { tuition: course.tuition, productFee: course.productFee }
+            : {}),
           duration: input.duration || `${course.durationWeeks} weeks`,
           startDate: input.startDate ?? null,
           guardianName: input.guardianName ?? null,
@@ -660,7 +874,11 @@ export const adminNamespaceRouter = router({
         summary: `${ctx.actor.name ?? "Staff"} corrected application ${existing.reference} (${input.fullName})`,
       });
 
-      return { id: existing.id, reference: existing.reference, courseTitle: course.title };
+      return {
+        id: existing.id,
+        reference: existing.reference,
+        courseTitle: course.title,
+      };
     }),
 
   // Takes an admission form off the admissions list.
@@ -672,17 +890,28 @@ export const adminNamespaceRouter = router({
       const [existing] = await db
         .select()
         .from(applications)
-        .where(and(eq(applications.id, input.applicationId), isNull(applications.deletedAt)))
+        .where(
+          and(
+            eq(applications.id, input.applicationId),
+            isNull(applications.deletedAt)
+          )
+        )
         .limit(1);
       if (!existing) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Application not found." });
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Application not found.",
+        });
       }
 
       const [student] = await db
         .select({ studentNumber: studentProfiles.studentNumber })
         .from(studentProfiles)
         .where(
-          and(eq(studentProfiles.applicationId, existing.id), isNull(studentProfiles.deletedAt)),
+          and(
+            eq(studentProfiles.applicationId, existing.id),
+            isNull(studentProfiles.deletedAt)
+          )
         )
         .limit(1);
 
@@ -712,7 +941,11 @@ export const adminNamespaceRouter = router({
         summary: `${ctx.actor.name ?? "Staff"} removed application ${existing.reference} (${existing.fullName})`,
       });
 
-      return { id: existing.id, reference: existing.reference, fullName: existing.fullName };
+      return {
+        id: existing.id,
+        reference: existing.reference,
+        fullName: existing.fullName,
+      };
     }),
 
   endorseApplication: permissionProcedure("admissions.review")
@@ -721,7 +954,7 @@ export const adminNamespaceRouter = router({
         applicationId: z.number().int().positive(),
         signature: z.string().trim().min(2).max(160),
         endorsed: z.boolean().default(true),
-      }),
+      })
     )
     .mutation(async ({ input, ctx }) => {
       const db = await dbOrThrow();
@@ -729,9 +962,18 @@ export const adminNamespaceRouter = router({
       const [app] = await db
         .select()
         .from(applications)
-        .where(and(eq(applications.id, input.applicationId), isNull(applications.deletedAt)))
+        .where(
+          and(
+            eq(applications.id, input.applicationId),
+            isNull(applications.deletedAt)
+          )
+        )
         .limit(1);
-      if (!app) throw new TRPCError({ code: "NOT_FOUND", message: "Application not found." });
+      if (!app)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Application not found.",
+        });
 
       await db
         .update(applications)
@@ -753,121 +995,241 @@ export const adminNamespaceRouter = router({
       return { success: true };
     }),
 
-  reviewApplication: permissionProcedure("admissions.review").input(z.object({ applicationId: z.number().int().positive(), status: z.enum(["under_review", "more_information", "approved", "rejected"]), decisionNote: z.string().max(2000).optional() })).mutation(async ({ input, ctx }) => {
-    const db = await dbOrThrow();
-    // Removed forms are not reviewable.
-    const [application] = await db.select().from(applications).where(and(eq(applications.id, input.applicationId), isNull(applications.deletedAt))).limit(1);
-    if (!application) throw new TRPCError({ code: "NOT_FOUND", message: "Application not found." });
-    await db.update(applications).set({ status: input.status, decisionNote: input.decisionNote, reviewedByUserId: ctx.user.id }).where(eq(applications.id, application.id));
-
-    // Carried out of the approval branch below so the message can quote the new student number.
-    let studentNumber: string | null = null;
-
-    if (input.status === "approved") {
-      const [existing] = await db.select().from(studentProfiles).where(eq(studentProfiles.applicationId, application.id)).limit(1);
-      if (!existing) {
-        const accountId = application.userId ?? (application.email ? await findStudentAccountForEmail(db, application.email) : null);
-        // Linked to a person like every other route that creates a student.
-        const personId = await resolvePerson(db, {
-          fullName: application.fullName,
-          email: application.email,
-          phone: application.phone,
-          whatsapp: application.whatsapp,
-          birthDate: application.birthDate,
-          gender: application.gender,
-          address: application.address,
-        });
-        studentNumber = buildReference("STU");
-        const [student] = await db.insert(studentProfiles).values({ applicationId: application.id, personId, userId: accountId, studentNumber, fullName: application.fullName, email: application.email ?? null, phone: application.phone }).returning({ id: studentProfiles.id });
-        if (student?.id) {
-          await db.insert(enrollments).values({ studentId: student.id, courseId: application.courseId, status: "active" });
-          // Was a hardcoded 0.
-          await syncStudentCharges(db, student.id, ctx.user.id);
-        }
-        if (accountId) {
-          await grantStudentRole(db, accountId);
-          if (!application.userId) await db.update(applications).set({ userId: accountId }).where(eq(applications.id, application.id));
-        }
-      } else {
-        studentNumber = existing.studentNumber;
-      }
-    }
-
-    // "under_review" is an internal step and is deliberately not announced.
-    const announcement = {
-      approved: "application_approved",
-      rejected: "application_rejected",
-      more_information: "missing_document",
-    } as const;
-    const type = announcement[input.status as keyof typeof announcement];
-
-    if (type) {
-      const [course] = await db
-        .select({ title: courses.title })
-        .from(courses)
-        .where(eq(courses.id, application.courseId))
+  reviewApplication: permissionProcedure("admissions.review")
+    .input(
+      z.object({
+        applicationId: z.number().int().positive(),
+        status: z.enum([
+          "under_review",
+          "more_information",
+          "approved",
+          "rejected",
+        ]),
+        decisionNote: z.string().max(2000).optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+      // Removed forms are not reviewable.
+      const [application] = await db
+        .select()
+        .from(applications)
+        .where(
+          and(
+            eq(applications.id, input.applicationId),
+            isNull(applications.deletedAt)
+          )
+        )
         .limit(1);
+      if (!application)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Application not found.",
+        });
+      await db
+        .update(applications)
+        .set({
+          status: input.status,
+          decisionNote: input.decisionNote,
+          reviewedByUserId: ctx.user.id,
+        })
+        .where(eq(applications.id, application.id));
 
-      await announce(db, {
-        type,
-        recipient: {
-          name: application.fullName,
-          email: application.email,
-          phone: application.phone,
-          userId: application.userId,
-        },
-        title:
-          input.status === "approved"
-            ? "Your application was approved"
-            : input.status === "rejected"
-              ? "Your application was not successful"
-              : "More information needed",
-        body: input.decisionNote ?? undefined,
-        facts: {
-          course: course?.title,
-          // The student number is the more useful reference once there is one.
-          reference: studentNumber ?? application.reference,
-          note: input.decisionNote,
-        },
-        entityType: "application",
-        entityId: application.id,
-        link: "/portal",
-      });
-      flushInBackground(db);
-    }
+      // Carried out of the approval branch below so the message can quote the new student number.
+      let studentNumber: string | null = null;
 
-    return { success: true };
-  }),
+      if (input.status === "approved") {
+        const [existing] = await db
+          .select()
+          .from(studentProfiles)
+          .where(eq(studentProfiles.applicationId, application.id))
+          .limit(1);
+        if (!existing) {
+          const accountId =
+            application.userId ??
+            (application.email
+              ? await findStudentAccountForEmail(db, application.email)
+              : null);
+          // Linked to a person like every other route that creates a student.
+          const personId = await resolvePerson(db, {
+            fullName: application.fullName,
+            email: application.email,
+            phone: application.phone,
+            whatsapp: application.whatsapp,
+            birthDate: application.birthDate,
+            gender: application.gender,
+            address: application.address,
+          });
+          studentNumber = buildReference("STU");
+          const [student] = await db
+            .insert(studentProfiles)
+            .values({
+              applicationId: application.id,
+              personId,
+              userId: accountId,
+              studentNumber,
+              fullName: application.fullName,
+              email: application.email ?? null,
+              phone: application.phone,
+            })
+            .returning({ id: studentProfiles.id });
+          if (student?.id) {
+            await db
+              .insert(enrollments)
+              .values({
+                studentId: student.id,
+                courseId: application.courseId,
+                status: "active",
+              });
+            // Was a hardcoded 0.
+            await syncStudentCharges(db, student.id, ctx.user.id);
+          }
+          if (accountId) {
+            await grantStudentRole(db, accountId);
+            if (!application.userId)
+              await db
+                .update(applications)
+                .set({ userId: accountId })
+                .where(eq(applications.id, application.id));
+          }
+        } else {
+          studentNumber = existing.studentNumber;
+        }
+      }
+
+      // "under_review" is an internal step and is deliberately not announced.
+      const announcement = {
+        approved: "application_approved",
+        rejected: "application_rejected",
+        more_information: "missing_document",
+      } as const;
+      const type = announcement[input.status as keyof typeof announcement];
+
+      if (type) {
+        const [course] = await db
+          .select({ title: courses.title })
+          .from(courses)
+          .where(eq(courses.id, application.courseId))
+          .limit(1);
+
+        await announce(db, {
+          type,
+          recipient: {
+            name: application.fullName,
+            email: application.email,
+            phone: application.phone,
+            userId: application.userId,
+          },
+          title:
+            input.status === "approved"
+              ? "Your application was approved"
+              : input.status === "rejected"
+                ? "Your application was not successful"
+                : "More information needed",
+          body: input.decisionNote ?? undefined,
+          facts: {
+            course: course?.title,
+            // The student number is the more useful reference once there is one.
+            reference: studentNumber ?? application.reference,
+            note: input.decisionNote,
+          },
+          entityType: "application",
+          entityId: application.id,
+          link: "/portal",
+        });
+        flushInBackground(db);
+      }
+
+      return { success: true };
+    }),
 
   inventory: adminProcedure.query(async () => {
     const db = await dbOrThrow();
     return db.select().from(inventoryItems).orderBy(inventoryItems.name);
   }),
 
-  addInventory: adminProcedure.input(z.object({ sku: z.string().min(2).max(64), name: z.string().min(2).max(180), description: z.string().max(1500).optional(), category: z.string().min(2).max(80), quantityOnHand: z.number().int().min(0), reorderLevel: z.number().int().min(0), unitCost: z.number().min(0), sellingPrice: z.number().min(0), isSellable: z.boolean() })).mutation(async ({ input, ctx }) => {
-    const db = await dbOrThrow();
-    const [item] = await db.insert(inventoryItems).values({ ...input, unitCost: input.unitCost.toFixed(2), sellingPrice: input.sellingPrice.toFixed(2) }).returning({ id: inventoryItems.id });
-    if (item?.id && input.quantityOnHand) await db.insert(inventoryMovements).values({ inventoryItemId: item.id, movementType: "received", quantityDelta: input.quantityOnHand, referenceType: "opening_balance", performedByUserId: ctx.user.id });
-    return { id: item?.id };
-  }),
+  addInventory: adminProcedure
+    .input(
+      z.object({
+        sku: z.string().trim().min(2).max(64).optional(),
+        name: z.string().min(2).max(180),
+        description: z.string().max(1500).optional(),
+        category: z.string().min(2).max(80),
+        quantityOnHand: z.number().int().min(0),
+        reorderLevel: z.number().int().min(0),
+        unitCost: z.number().min(0),
+        sellingPrice: z.number().min(0),
+        isSellable: z.boolean(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+      const [item] = await db
+        .insert(inventoryItems)
+        .values({
+          ...input,
+          sku: input.sku?.trim() || null,
+          unitCost: input.unitCost.toFixed(2),
+          sellingPrice: input.sellingPrice.toFixed(2),
+        })
+        .returning({ id: inventoryItems.id });
+      if (item?.id && input.quantityOnHand)
+        await db
+          .insert(inventoryMovements)
+          .values({
+            inventoryItemId: item.id,
+            movementType: "received",
+            quantityDelta: input.quantityOnHand,
+            referenceType: "opening_balance",
+            performedByUserId: ctx.user.id,
+          });
+      return { id: item?.id };
+    }),
 
   orders: adminProcedure.query(async () => {
     const db = await dbOrThrow();
     return db.select().from(storeOrders).orderBy(desc(storeOrders.createdAt));
   }),
 
-  updateOrder: adminProcedure.input(z.object({ orderId: z.number().int().positive(), fulfillmentStatus: z.enum(["new", "confirmed", "processing", "ready", "shipped", "delivered", "cancelled"]), paymentStatus: z.enum(["pending", "paid", "refunded", "failed"]).optional() })).mutation(async ({ input }) => {
-    const db = await dbOrThrow();
-    await db.update(storeOrders).set(input).where(eq(storeOrders.id, input.orderId));
-    return { success: true };
-  }),
+  updateOrder: adminProcedure
+    .input(
+      z.object({
+        orderId: z.number().int().positive(),
+        fulfillmentStatus: z.enum([
+          "new",
+          "confirmed",
+          "processing",
+          "ready",
+          "shipped",
+          "delivered",
+          "cancelled",
+        ]),
+        paymentStatus: z
+          .enum(["pending", "paid", "refunded", "failed"])
+          .optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await dbOrThrow();
+      await db
+        .update(storeOrders)
+        .set(input)
+        .where(eq(storeOrders.id, input.orderId));
+      return { success: true };
+    }),
 
   expenses: adminProcedure.query(async () => {
     const db = await dbOrThrow();
     return db
-      .select({ ...getTableColumns(expenses), categoryName: expenseCategories.name })
+      .select({
+        ...getTableColumns(expenses),
+        categoryName: expenseCategories.name,
+      })
       .from(expenses)
-      .leftJoin(expenseCategories, eq(expenses.categoryId, expenseCategories.id))
+      .leftJoin(
+        expenseCategories,
+        eq(expenses.categoryId, expenseCategories.id)
+      )
       .orderBy(desc(expenses.expenseDate));
   }),
 
@@ -877,7 +1239,11 @@ export const adminNamespaceRouter = router({
     // The seeded categories are this list.
     await ensurePlatformBootstrapped(db);
     return db
-      .select({ id: expenseCategories.id, key: expenseCategories.key, name: expenseCategories.name })
+      .select({
+        id: expenseCategories.id,
+        key: expenseCategories.key,
+        name: expenseCategories.name,
+      })
       .from(expenseCategories)
       .where(eq(expenseCategories.isActive, true))
       .orderBy(asc(expenseCategories.name));
@@ -896,7 +1262,11 @@ export const adminNamespaceRouter = router({
         .insert(expenseCategories)
         .values({ key, name })
         .onConflictDoNothing({ target: expenseCategories.key })
-        .returning({ id: expenseCategories.id, key: expenseCategories.key, name: expenseCategories.name });
+        .returning({
+          id: expenseCategories.id,
+          key: expenseCategories.key,
+          name: expenseCategories.name,
+        });
       if (created) {
         await recordAudit(db, ctx.actor, {
           action: "create",
@@ -909,12 +1279,20 @@ export const adminNamespaceRouter = router({
       }
 
       const [existing] = await db
-        .select({ id: expenseCategories.id, key: expenseCategories.key, name: expenseCategories.name, isActive: expenseCategories.isActive })
+        .select({
+          id: expenseCategories.id,
+          key: expenseCategories.key,
+          name: expenseCategories.name,
+          isActive: expenseCategories.isActive,
+        })
         .from(expenseCategories)
         .where(eq(expenseCategories.key, key))
         .limit(1);
       if (!existing) {
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "The category could not be saved." });
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "The category could not be saved.",
+        });
       }
       // Re-adding a retired name brings it back, rather than failing on a row the person cannot.
       if (!existing.isActive) {
@@ -935,9 +1313,15 @@ export const adminNamespaceRouter = router({
         amount: z.number().positive(),
         expenseDate: z.coerce.date(),
         vendor: z.string().max(160).optional(),
-        paymentMethod: z.enum(["cash", "mobile_money", "bank", "card", "online"]),
+        paymentMethod: z.enum([
+          "cash",
+          "mobile_money",
+          "bank",
+          "card",
+          "online",
+        ]),
         note: z.string().max(2000).optional(),
-      }),
+      })
     )
     .mutation(async ({ input, ctx }) => {
       const db = await dbOrThrow();
@@ -945,10 +1329,18 @@ export const adminNamespaceRouter = router({
       const [category] = await db
         .select({ id: expenseCategories.id, key: expenseCategories.key })
         .from(expenseCategories)
-        .where(and(eq(expenseCategories.key, input.category), eq(expenseCategories.isActive, true)))
+        .where(
+          and(
+            eq(expenseCategories.key, input.category),
+            eq(expenseCategories.isActive, true)
+          )
+        )
         .limit(1);
       if (!category) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "That expense category no longer exists." });
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "That expense category no longer exists.",
+        });
       }
 
       const [expense] = await db
@@ -956,7 +1348,9 @@ export const adminNamespaceRouter = router({
         .values({
           title: input.title,
           // Expenses.
-          category: isLegacyExpenseCategory(category.key) ? category.key : "other",
+          category: isLegacyExpenseCategory(category.key)
+            ? category.key
+            : "other",
           categoryId: category.id,
           amount: input.amount.toFixed(2),
           expenseDate: input.expenseDate,
@@ -971,14 +1365,40 @@ export const adminNamespaceRouter = router({
 
   financeSummary: adminProcedure.query(async () => {
     const db = await dbOrThrow();
-    const [[received], [spent], [outstanding], [storeRevenue]] = await Promise.all([
-      db.select({ total: sql<string>`coalesce(sum(${payments.amount}), 0)` }).from(payments).where(eq(payments.status, "completed")),
-      db.select({ total: sql<string>`coalesce(sum(${expenses.amount}), 0)` }).from(expenses),
-      db.select({ total: sql<string>`coalesce(sum(${feeCharges.amountDue}), 0)` }).from(feeCharges).where(sql`${feeCharges.status} in ('open', 'partially_paid')`),
-      db.select({ total: sql<string>`coalesce(sum(${payments.amount}), 0)` }).from(payments).where(and(eq(payments.status, "completed"), sql`${payments.storeOrderId} is not null`)),
-    ]);
-    const income = money(received?.total); const outgoings = money(spent?.total);
-    return { income, outgoings, net: income - outgoings, outstandingFees: money(outstanding?.total), storeRevenue: money(storeRevenue?.total) };
+    const [[received], [spent], [outstanding], [storeRevenue]] =
+      await Promise.all([
+        db
+          .select({ total: sql<string>`coalesce(sum(${payments.amount}), 0)` })
+          .from(payments)
+          .where(eq(payments.status, "completed")),
+        db
+          .select({ total: sql<string>`coalesce(sum(${expenses.amount}), 0)` })
+          .from(expenses),
+        db
+          .select({
+            total: sql<string>`coalesce(sum(${feeCharges.amountDue}), 0)`,
+          })
+          .from(feeCharges)
+          .where(sql`${feeCharges.status} in ('open', 'partially_paid')`),
+        db
+          .select({ total: sql<string>`coalesce(sum(${payments.amount}), 0)` })
+          .from(payments)
+          .where(
+            and(
+              eq(payments.status, "completed"),
+              sql`${payments.storeOrderId} is not null`
+            )
+          ),
+      ]);
+    const income = money(received?.total);
+    const outgoings = money(spent?.total);
+    return {
+      income,
+      outgoings,
+      net: income - outgoings,
+      outstandingFees: money(outstanding?.total),
+      storeRevenue: money(storeRevenue?.total),
+    };
   }),
 
   // Name-or-number lookup for the payment form.
@@ -1002,9 +1422,9 @@ export const adminNamespaceRouter = router({
               ilike(studentProfiles.fullName, pattern),
               ilike(studentProfiles.studentNumber, pattern),
               ilike(studentProfiles.email, pattern),
-              ilike(studentProfiles.phone, pattern),
-            ),
-          ),
+              ilike(studentProfiles.phone, pattern)
+            )
+          )
         )
         .orderBy(asc(studentProfiles.fullName))
         .limit(10);
@@ -1023,9 +1443,18 @@ export const adminNamespaceRouter = router({
           fullName: studentProfiles.fullName,
         })
         .from(studentProfiles)
-        .where(and(eq(studentProfiles.id, input.studentId), isNull(studentProfiles.deletedAt)))
+        .where(
+          and(
+            eq(studentProfiles.id, input.studentId),
+            isNull(studentProfiles.deletedAt)
+          )
+        )
         .limit(1);
-      if (!student) throw new TRPCError({ code: "NOT_FOUND", message: "Student was not found." });
+      if (!student)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Student was not found.",
+        });
 
       const [summary, charges] = await Promise.all([
         studentAccountSummary(db, input.studentId),
@@ -1043,8 +1472,8 @@ export const adminNamespaceRouter = router({
           .where(
             and(
               eq(feeCharges.studentId, input.studentId),
-              inArray(feeCharges.status, ["open", "partially_paid"]),
-            ),
+              inArray(feeCharges.status, ["open", "partially_paid"])
+            )
           )
           .orderBy(asc(feeCharges.dueDate), asc(feeCharges.id)),
       ]);
@@ -1067,9 +1496,15 @@ export const adminNamespaceRouter = router({
         studentId: z.number().int().positive(),
         feeChargeId: z.number().int().positive().optional(),
         amount: z.number().positive(),
-        paymentMethod: z.enum(["cash", "mobile_money", "bank", "card", "online"]),
+        paymentMethod: z.enum([
+          "cash",
+          "mobile_money",
+          "bank",
+          "card",
+          "online",
+        ]),
         transactionReference: z.string().max(120).optional(),
-      }),
+      })
     )
     .mutation(async ({ input, ctx }) => {
       const db = await dbOrThrow();
@@ -1090,7 +1525,10 @@ export const adminNamespaceRouter = router({
           })
           .returning({ id: payments.id });
         if (!payment?.id) {
-          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Payment could not be recorded." });
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Payment could not be recorded.",
+          });
         }
 
         // Shared with the finance module rather than reimplemented.
@@ -1105,27 +1543,119 @@ export const adminNamespaceRouter = router({
       });
     }),
 
-  recordStorePayment: adminProcedure.input(z.object({ orderId: z.number().int().positive(), amount: z.number().positive(), paymentMethod: z.enum(["cash", "mobile_money", "bank", "card", "online"]), transactionReference: z.string().max(120).optional() })).mutation(async ({ input, ctx }) => {
-    const db = await dbOrThrow();
-    const [payment] = await db.insert(payments).values({ reference: buildReference("SALE"), storeOrderId: input.orderId, amount: input.amount.toFixed(2), paymentMethod: input.paymentMethod, transactionReference: input.transactionReference, recordedByUserId: ctx.user.id, status: "completed" }).returning({ id: payments.id });
-    await db.update(storeOrders).set({ paymentStatus: "paid" }).where(eq(storeOrders.id, input.orderId));
-    return { id: payment?.id };
-  }),
+  recordStorePayment: adminProcedure
+    .input(
+      z.object({
+        orderId: z.number().int().positive(),
+        amount: z.number().positive(),
+        paymentMethod: z.enum([
+          "cash",
+          "mobile_money",
+          "bank",
+          "card",
+          "online",
+        ]),
+        transactionReference: z.string().max(120).optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+      const [payment] = await db
+        .insert(payments)
+        .values({
+          reference: buildReference("SALE"),
+          storeOrderId: input.orderId,
+          amount: input.amount.toFixed(2),
+          paymentMethod: input.paymentMethod,
+          transactionReference: input.transactionReference,
+          recordedByUserId: ctx.user.id,
+          status: "completed",
+        })
+        .returning({ id: payments.id });
+      await db
+        .update(storeOrders)
+        .set({ paymentStatus: "paid" })
+        .where(eq(storeOrders.id, input.orderId));
+      return { id: payment?.id };
+    }),
 
-  createPaymentPlan: adminProcedure.input(z.object({ studentId: z.number().int().positive(), title: z.string().min(2).max(180), totalAmount: z.number().positive(), installmentAmount: z.number().positive(), nextDueDate: z.coerce.date().optional() })).mutation(async ({ input }) => {
-    const db = await dbOrThrow();
-    const [plan] = await db.insert(paymentPlans).values({ studentId: input.studentId, title: input.title, totalAmount: input.totalAmount.toFixed(2), installmentAmount: input.installmentAmount.toFixed(2), nextDueDate: input.nextDueDate }).returning({ id: paymentPlans.id });
-    return { id: plan?.id };
-  }),
+  createPaymentPlan: adminProcedure
+    .input(
+      z.object({
+        studentId: z.number().int().positive(),
+        title: z.string().min(2).max(180),
+        totalAmount: z.number().positive(),
+        installmentAmount: z.number().positive(),
+        nextDueDate: z.coerce.date().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await dbOrThrow();
+      const [plan] = await db
+        .insert(paymentPlans)
+        .values({
+          studentId: input.studentId,
+          title: input.title,
+          totalAmount: input.totalAmount.toFixed(2),
+          installmentAmount: input.installmentAmount.toFixed(2),
+          nextDueDate: input.nextDueDate,
+        })
+        .returning({ id: paymentPlans.id });
+      return { id: plan?.id };
+    }),
 
-  uploadMedia: adminProcedure.input(z.object({ purpose: z.enum(["brochure", "gallery", "product", "receipt", "profile", "other"]), fileName: z.string().min(1).max(255), mimeType: z.enum(["image/jpeg", "image/png", "image/webp", "application/pdf"]), base64Data: z.string().min(8).max(MAX_UPLOAD_BASE64_LENGTH), altText: z.string().max(255).optional() })).mutation(async ({ input, ctx }) => {
-    const db = await dbOrThrow();
-    let buffer: Buffer;
-    try { buffer = validateDocumentUpload(input.mimeType, input.base64Data); } catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Invalid upload." }); }
-    const stored = await storagePut(`media/${input.purpose}/${Date.now()}-${safeFileName(input.fileName)}`, buffer, input.mimeType);
-    const [file] = await db.insert(mediaFiles).values({ ownerUserId: ctx.user.id, purpose: input.purpose, storageKey: stored.key, fileName: safeFileName(input.fileName), mimeType: input.mimeType, sizeBytes: buffer.length, altText: input.altText }).returning({ id: mediaFiles.id });
-    return { id: file?.id, url: stored.url };
-  }),
+  uploadMedia: adminProcedure
+    .input(
+      z.object({
+        purpose: z.enum([
+          "brochure",
+          "gallery",
+          "product",
+          "receipt",
+          "profile",
+          "other",
+        ]),
+        fileName: z.string().min(1).max(255),
+        mimeType: z.enum([
+          "image/jpeg",
+          "image/png",
+          "image/webp",
+          "application/pdf",
+        ]),
+        base64Data: z.string().min(8).max(MAX_UPLOAD_BASE64_LENGTH),
+        altText: z.string().max(255).optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+      let buffer: Buffer;
+      try {
+        buffer = validateDocumentUpload(input.mimeType, input.base64Data);
+      } catch (error) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: error instanceof Error ? error.message : "Invalid upload.",
+        });
+      }
+      const stored = await storagePut(
+        `media/${input.purpose}/${Date.now()}-${safeFileName(input.fileName)}`,
+        buffer,
+        input.mimeType
+      );
+      const [file] = await db
+        .insert(mediaFiles)
+        .values({
+          ownerUserId: ctx.user.id,
+          purpose: input.purpose,
+          storageKey: stored.key,
+          fileName: safeFileName(input.fileName),
+          mimeType: input.mimeType,
+          sizeBytes: buffer.length,
+          altText: input.altText,
+        })
+        .returning({ id: mediaFiles.id });
+      return { id: file?.id, url: stored.url };
+    }),
 
   // Academic programmes management.
   courses: permissionProcedure("academics.read")
@@ -1141,9 +1671,12 @@ export const adminNamespaceRouter = router({
     .query(async ({ input }) => {
       const db = await dbOrThrow();
       const conditions: SQL[] = [sql`${courses.deletedAt} is null`];
-      if (input?.status === "active") conditions.push(eq(courses.isActive, true));
-      if (input?.status === "inactive") conditions.push(eq(courses.isActive, false));
-      if (input?.category && input.category !== "all") conditions.push(eq(courses.category, input.category));
+      if (input?.status === "active")
+        conditions.push(eq(courses.isActive, true));
+      if (input?.status === "inactive")
+        conditions.push(eq(courses.isActive, false));
+      if (input?.category && input.category !== "all")
+        conditions.push(eq(courses.category, input.category));
       if (input?.search && input.search.trim()) {
         const pattern = `%${input.search.trim()}%`;
         conditions.push(
@@ -1182,7 +1715,10 @@ export const adminNamespaceRouter = router({
         .from(courses)
         .leftJoin(
           enrollments,
-          and(eq(enrollments.courseId, courses.id), eq(enrollments.status, "active"))
+          and(
+            eq(enrollments.courseId, courses.id),
+            eq(enrollments.status, "active")
+          )
         )
         .where(and(...conditions))
         .groupBy(courses.id)
@@ -1190,13 +1726,16 @@ export const adminNamespaceRouter = router({
 
       const outlines = rows.length
         ? await db
-            .select({ courseId: courseModules.courseId, title: courseModules.title })
+            .select({
+              courseId: courseModules.courseId,
+              title: courseModules.title,
+            })
             .from(courseModules)
             .where(
               inArray(
                 courseModules.courseId,
-                rows.map(row => row.id),
-              ),
+                rows.map(row => row.id)
+              )
             )
             .orderBy(asc(courseModules.sequence), asc(courseModules.id))
         : [];
@@ -1367,7 +1906,12 @@ export const adminNamespaceRouter = router({
             description: input.description.trim(),
             durationWeeks: input.durationWeeks,
             tuition: input.tuition.toFixed(2),
-            productFee: input.productFee !== undefined ? (input.productFee ? input.productFee.toFixed(2) : null) : existing.productFee,
+            productFee:
+              input.productFee !== undefined
+                ? input.productFee
+                  ? input.productFee.toFixed(2)
+                  : null
+                : existing.productFee,
             schedule: input.schedule?.trim() || null,
             certification: input.certification?.trim() || null,
             requirements: input.requirements?.trim() || null,
@@ -1393,7 +1937,11 @@ export const adminNamespaceRouter = router({
           entity: "course",
           entityId: updated.id,
           entityLabel: `${updated.code} · ${updated.title}`,
-          oldValue: { code: existing.code, title: existing.title, tuition: existing.tuition },
+          oldValue: {
+            code: existing.code,
+            title: existing.title,
+            tuition: existing.tuition,
+          },
           newValue: { code, title: updated.title, tuition: updated.tuition },
           summary: `${ctx.actor.name ?? "Staff"} updated programme "${updated.title}" (${code})`,
         });
@@ -1418,7 +1966,10 @@ export const adminNamespaceRouter = router({
         .limit(1);
 
       if (!existing) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Programme not found." });
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Programme not found.",
+        });
       }
 
       return db.transaction(async tx => {
@@ -1452,20 +2003,26 @@ export const adminNamespaceRouter = router({
         .limit(1);
 
       if (!existing) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Programme not found." });
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Programme not found.",
+        });
       }
 
       // Paused counts as still on the programme.
       const [enrolled] = await db
         .select({ total: count() })
         .from(enrollments)
-        .innerJoin(studentProfiles, eq(enrollments.studentId, studentProfiles.id))
+        .innerJoin(
+          studentProfiles,
+          eq(enrollments.studentId, studentProfiles.id)
+        )
         .where(
           and(
             eq(enrollments.courseId, input.id),
             inArray(enrollments.status, ["active", "paused"]),
-            isNull(studentProfiles.deletedAt),
-          ),
+            isNull(studentProfiles.deletedAt)
+          )
         );
 
       const studying = Number(enrolled?.total ?? 0);
@@ -1480,7 +2037,11 @@ export const adminNamespaceRouter = router({
         await tx
           .update(courses)
           // Closed as well as removed.
-          .set({ deletedAt: new Date(), isActive: false, updatedAt: new Date() })
+          .set({
+            deletedAt: new Date(),
+            isActive: false,
+            updatedAt: new Date(),
+          })
           .where(eq(courses.id, input.id));
 
         await recordAudit(tx, ctx.actor, {

@@ -1,4 +1,5 @@
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, isNull, or, sql } from "drizzle-orm";
+import { randomUUID } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
@@ -12,14 +13,31 @@ import {
   enrollments,
   inventoryItems,
   inventoryMovements,
+  people,
   staffProfiles,
   studentProfiles,
   users,
 } from "@blush/db/schema";
 import { dbOrThrow } from "../dbOrThrow";
-import { buildReference, inventoryBalanceAfter, money } from "../platform.utils";
+import {
+  buildReference,
+  inventoryBalanceAfter,
+  money,
+} from "../platform.utils";
+import { recordAudit } from "../services/audit";
 import { recordOneResult } from "./results";
-import { router, staffAccessProcedure, staffProcedure } from "../trpc";
+import {
+  permissionProcedure,
+  router,
+  staffAccessProcedure,
+  staffProcedure,
+} from "../trpc";
+import {
+  likePattern,
+  listInputSchema,
+  paginate,
+  paginationBounds,
+} from "../services/pagination";
 
 const staffAppointmentInput = z
   .object({
@@ -53,6 +71,216 @@ const staffAppointmentInput = z
   });
 
 export const staffRouter = router({
+  records: permissionProcedure("staff.read")
+    .input(listInputSchema)
+    .query(async ({ input }) => {
+      const db = await dbOrThrow();
+      const { limit, offset } = paginationBounds(input);
+      const where = and(
+        isNull(staffProfiles.deletedAt),
+        input.search
+          ? or(
+              ilike(users.name, likePattern(input.search)),
+              ilike(users.email, likePattern(input.search)),
+              ilike(staffProfiles.position, likePattern(input.search)),
+              sql`${staffProfiles.department}::text ilike ${likePattern(input.search)}`,
+              ilike(staffProfiles.staffNumber, likePattern(input.search))
+            )
+          : undefined
+      );
+
+      const [rows, [total]] = await Promise.all([
+        db
+          .select({
+            worker: staffProfiles,
+            name: users.name,
+            accountEmail: users.email,
+            notes: people.notes,
+          })
+          .from(staffProfiles)
+          .innerJoin(users, eq(staffProfiles.userId, users.id))
+          .leftJoin(people, eq(staffProfiles.personId, people.id))
+          .where(where)
+          .orderBy(asc(users.name), asc(staffProfiles.id))
+          .limit(limit)
+          .offset(offset),
+        db
+          .select({ total: count() })
+          .from(staffProfiles)
+          .innerJoin(users, eq(staffProfiles.userId, users.id))
+          .where(where),
+      ]);
+
+      return paginate(
+        rows.map(row => ({
+          ...row.worker,
+          name: row.name ?? "Unnamed worker",
+          accountEmail: row.accountEmail,
+          notes: row.notes,
+          salary: row.worker.salary == null ? null : money(row.worker.salary),
+        })),
+        Number(total?.total ?? 0),
+        input
+      );
+    }),
+
+  saveRecord: permissionProcedure("staff.write")
+    .input(
+      z.object({
+        id: z.number().int().positive().optional(),
+        name: z.string().trim().min(2).max(160),
+        email: z.string().trim().email().max(320).optional(),
+        phone: z.string().trim().max(40).optional(),
+        position: z.string().trim().min(2).max(120),
+        department: z.enum(["school", "salon", "shop"]),
+        staffNumber: z.string().trim().max(40).optional(),
+        employmentDate: z.coerce.date().optional(),
+        salary: z.number().min(0).optional(),
+        status: z.enum(["active", "inactive", "on_leave"]).default("active"),
+        notes: z.string().trim().max(2000).optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+      const email = input.email?.trim().toLowerCase() || null;
+      const phone = input.phone?.trim() || null;
+      const staffNumber = input.staffNumber?.trim() || null;
+      const profileValues = {
+        position: input.position.trim(),
+        phone,
+        email,
+        staffNumber,
+        department: input.department,
+        employmentDate: input.employmentDate ?? null,
+        salary: input.salary == null ? null : input.salary.toFixed(2),
+        status: input.status,
+        updatedAt: new Date(),
+      };
+
+      return db.transaction(async tx => {
+        if (input.id) {
+          const [before] = await tx
+            .select()
+            .from(staffProfiles)
+            .where(
+              and(
+                eq(staffProfiles.id, input.id),
+                isNull(staffProfiles.deletedAt)
+              )
+            )
+            .limit(1);
+
+          if (!before) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "That worker record was not found.",
+            });
+          }
+
+          await tx
+            .update(users)
+            .set({
+              name: input.name.trim(),
+              email,
+              isActive: input.status === "active",
+              updatedAt: new Date(),
+            })
+            .where(eq(users.id, before.userId));
+          await tx
+            .update(staffProfiles)
+            .set(profileValues)
+            .where(eq(staffProfiles.id, input.id));
+
+          if (before.personId) {
+            await tx
+              .update(people)
+              .set({
+                fullName: input.name.trim(),
+                email,
+                phone,
+                notes: input.notes?.trim() || null,
+                updatedAt: new Date(),
+              })
+              .where(eq(people.id, before.personId));
+          }
+
+          await recordAudit(tx, ctx.actor, {
+            action: "update",
+            entity: "staffProfile",
+            entityId: input.id,
+            entityLabel: input.name.trim(),
+            newValue: {
+              ...profileValues,
+              name: input.name.trim(),
+              notes: input.notes ?? null,
+            },
+            summary: `${ctx.actor.name ?? "Staff"} updated the worker record for ${input.name.trim()}`,
+          });
+          return { id: input.id };
+        }
+
+        const [person] = await tx
+          .insert(people)
+          .values({
+            fullName: input.name.trim(),
+            email,
+            phone,
+            notes: input.notes?.trim() || null,
+          })
+          .returning({ id: people.id });
+        if (!person?.id) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Worker person was not created.",
+          });
+        }
+
+        const [user] = await tx
+          .insert(users)
+          .values({
+            openId: `worker-${randomUUID()}`,
+            personId: person.id,
+            name: input.name.trim(),
+            email,
+            loginMethod: "worker_record",
+            role: "staff",
+            isActive: input.status === "active",
+          })
+          .returning({ id: users.id });
+        if (!user?.id) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Worker account was not created.",
+          });
+        }
+
+        const [created] = await tx
+          .insert(staffProfiles)
+          .values({ ...profileValues, userId: user.id, personId: person.id })
+          .returning({ id: staffProfiles.id });
+        if (!created?.id) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Worker record was not created.",
+          });
+        }
+
+        await recordAudit(tx, ctx.actor, {
+          action: "create",
+          entity: "staffProfile",
+          entityId: created.id,
+          entityLabel: input.name.trim(),
+          newValue: {
+            ...profileValues,
+            name: input.name.trim(),
+            notes: input.notes ?? null,
+          },
+          summary: `${ctx.actor.name ?? "Staff"} added ${input.name.trim()} as a ${input.department} worker`,
+        });
+        return { id: created.id };
+      });
+    }),
+
   overview: staffProcedure.query(async () => {
     const db = await dbOrThrow();
     const [lowStock] = await db
@@ -105,16 +333,14 @@ export const staffRouter = router({
             quantityOnHand: sql`${inventoryItems.quantityOnHand} - ${input.quantity}`,
           })
           .where(eq(inventoryItems.id, input.inventoryItemId));
-        await tx
-          .insert(inventoryMovements)
-          .values({
-            inventoryItemId: item.id,
-            movementType: "classroom_use",
-            quantityDelta: -input.quantity,
-            referenceType: "classroom",
-            note: input.note,
-            performedByUserId: ctx.user.id,
-          });
+        await tx.insert(inventoryMovements).values({
+          inventoryItemId: item.id,
+          movementType: "classroom_use",
+          quantityDelta: -input.quantity,
+          referenceType: "classroom",
+          note: input.note,
+          performedByUserId: ctx.user.id,
+        });
         return { remaining: item.quantityOnHand - input.quantity };
       });
     }),
@@ -188,16 +414,14 @@ export const staffRouter = router({
             quantityOnHand: sql`${inventoryItems.quantityOnHand} + ${input.quantityDelta}`,
           })
           .where(eq(inventoryItems.id, item.id));
-        await tx
-          .insert(inventoryMovements)
-          .values({
-            inventoryItemId: item.id,
-            movementType: input.movementType,
-            quantityDelta: input.quantityDelta,
-            referenceType: "staff_adjustment",
-            note: input.note,
-            performedByUserId: ctx.user.id,
-          });
+        await tx.insert(inventoryMovements).values({
+          inventoryItemId: item.id,
+          movementType: input.movementType,
+          quantityDelta: input.quantityDelta,
+          referenceType: "staff_adjustment",
+          note: input.note,
+          performedByUserId: ctx.user.id,
+        });
         return { remaining };
       });
     }),
@@ -320,8 +544,8 @@ export const staffRouter = router({
             .where(
               and(
                 eq(clinicServices.name, customServiceName),
-                eq(clinicServices.isActive, true),
-              ),
+                eq(clinicServices.isActive, true)
+              )
             )
             .limit(1);
 
@@ -349,8 +573,8 @@ export const staffRouter = router({
               and(
                 eq(clinicServices.id, input.serviceId!),
                 eq(clinicServices.isActive, true),
-                eq(clinicServices.isBookable, true),
-              ),
+                eq(clinicServices.isBookable, true)
+              )
             )
             .limit(1);
           if (!service) {

@@ -53,11 +53,15 @@ function SupplierDetailContent({ supplierId }: { supplierId: number }) {
 
   const query = trpc.inventory.supplierDetail.useQuery(
     { supplierId },
-    { enabled: Number.isInteger(supplierId) && supplierId > 0 },
+    { enabled: Number.isInteger(supplierId) && supplierId > 0 }
   );
 
   if (!Number.isInteger(supplierId) || supplierId <= 0) {
-    return <p className="p-6 text-sm text-destructive">That is not a valid supplier.</p>;
+    return (
+      <p className="p-6 text-sm text-destructive">
+        That is not a valid supplier.
+      </p>
+    );
   }
 
   if (query.isLoading) {
@@ -82,7 +86,9 @@ function SupplierDetailContent({ supplierId }: { supplierId: number }) {
   if (!data) return null;
 
   const { supplier, purchaseHistory, itemsSupplied, payments } = data;
-  const contact = [supplier.phone, supplier.whatsapp, supplier.email].filter(Boolean);
+  const contact = [supplier.phone, supplier.whatsapp, supplier.email].filter(
+    Boolean
+  );
 
   return (
     <div className="mx-auto max-w-[1400px] space-y-6">
@@ -98,7 +104,9 @@ function SupplierDetailContent({ supplierId }: { supplierId: number }) {
 
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{supplier.name}</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {supplier.name}
+          </h1>
           <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
             {supplier.company ? <span>{supplier.company}</span> : null}
             {contact.length ? <span>{contact.join(" · ")}</span> : null}
@@ -110,7 +118,11 @@ function SupplierDetailContent({ supplierId }: { supplierId: number }) {
 
         <div className="flex flex-wrap gap-2">
           {can("suppliers.write") ? (
-            <Button variant="outline" className="gap-2" onClick={() => setEditOpen(true)}>
+            <Button
+              variant="outline"
+              className="gap-2"
+              onClick={() => setEditOpen(true)}
+            >
               <Pencil className="h-4 w-4" />
               Edit
             </Button>
@@ -127,10 +139,14 @@ function SupplierDetailContent({ supplierId }: { supplierId: number }) {
       <Card className="p-5">
         <dl className="flex flex-wrap items-end gap-x-10 gap-y-4">
           <div>
-            <dt className="text-xs uppercase tracking-wide text-muted-foreground">Owed</dt>
+            <dt className="text-xs uppercase tracking-wide text-muted-foreground">
+              Owed
+            </dt>
             <dd
               className={`mt-1 text-2xl font-semibold tabular-nums ${
-                supplier.outstandingBalance > 0 ? "text-destructive" : "text-foreground"
+                supplier.outstandingBalance > 0
+                  ? "text-destructive"
+                  : "text-foreground"
               }`}
             >
               {formatMoney(supplier.outstandingBalance)}
@@ -140,13 +156,17 @@ function SupplierDetailContent({ supplierId }: { supplierId: number }) {
             <dt className="text-xs uppercase tracking-wide text-muted-foreground">
               Purchase orders
             </dt>
-            <dd className="mt-1 text-lg font-medium tabular-nums">{purchaseHistory.length}</dd>
+            <dd className="mt-1 text-lg font-medium tabular-nums">
+              {purchaseHistory.length}
+            </dd>
           </div>
           <div>
             <dt className="text-xs uppercase tracking-wide text-muted-foreground">
               Items supplied
             </dt>
-            <dd className="mt-1 text-lg font-medium tabular-nums">{itemsSupplied.length}</dd>
+            <dd className="mt-1 text-lg font-medium tabular-nums">
+              {itemsSupplied.length}
+            </dd>
           </div>
           {supplier.productsSupplied ? (
             <div className="min-w-[12rem] flex-1">
@@ -267,9 +287,14 @@ function SupplierDetailContent({ supplierId }: { supplierId: number }) {
           ) : (
             <ul className="divide-y divide-border/60">
               {itemsSupplied.map(item => (
-                <li key={item.id} className="flex items-center justify-between px-5 py-3">
+                <li
+                  key={item.id}
+                  className="flex items-center justify-between px-5 py-3"
+                >
                   <span className="text-sm text-foreground">{item.name}</span>
-                  <span className="font-mono text-xs text-muted-foreground">{item.sku}</span>
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {item.sku ?? "No SKU"}
+                  </span>
                 </li>
               ))}
             </ul>

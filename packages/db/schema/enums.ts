@@ -97,6 +97,12 @@ export const staffStatus = pgEnum("staff_status", [
   "on_leave",
 ]);
 
+export const staffDepartment = pgEnum("staff_department", [
+  "school",
+  "salon",
+  "shop",
+]);
+
 // Inventory & procurement
 
 export const inventoryMovementType = pgEnum("inventory_movement_type", [

@@ -26,14 +26,16 @@ export const productCategories = pgTable(
     isActive: boolean("isActive").default(true).notNull(),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
   },
-  table => [index("product_categories_active_idx").on(table.isActive)],
+  table => [index("product_categories_active_idx").on(table.isActive)]
 );
 
 export const suppliers = pgTable(
   "suppliers",
   {
     id: serial("id").primaryKey(),
-    personId: integer("personId").references(() => people.id, { onDelete: "set null" }),
+    personId: integer("personId").references(() => people.id, {
+      onDelete: "set null",
+    }),
     name: varchar("name", { length: 160 }).notNull(),
     company: varchar("company", { length: 160 }),
     phone: varchar("phone", { length: 40 }),
@@ -42,7 +44,10 @@ export const suppliers = pgTable(
     address: text("address"),
     productsSupplied: text("productsSupplied"),
     // Outstanding payables balance owed to supplier.
-    outstandingBalance: numeric("outstandingBalance", { precision: 12, scale: 2 })
+    outstandingBalance: numeric("outstandingBalance", {
+      precision: 12,
+      scale: 2,
+    })
       .default("0.00")
       .notNull(),
     notes: text("notes"),
@@ -54,7 +59,7 @@ export const suppliers = pgTable(
       .$onUpdate(() => new Date()),
     deletedAt: timestamp("deletedAt"),
   },
-  table => [index("suppliers_name_idx").on(table.name)],
+  table => [index("suppliers_name_idx").on(table.name)]
 );
 
 // Single source of truth for stock-keeping and product items.
@@ -62,7 +67,7 @@ export const inventoryItems = pgTable(
   "inventoryItems",
   {
     id: serial("id").primaryKey(),
-    sku: varchar("sku", { length: 64 }).notNull().unique(),
+    sku: varchar("sku", { length: 64 }).unique(),
     slug: varchar("slug", { length: 180 }).unique(),
     name: varchar("name", { length: 180 }).notNull(),
     description: text("description"),
@@ -71,12 +76,18 @@ export const inventoryItems = pgTable(
     categoryId: integer("categoryId").references(() => productCategories.id, {
       onDelete: "set null",
     }),
-    supplierId: integer("supplierId").references(() => suppliers.id, { onDelete: "set null" }),
+    supplierId: integer("supplierId").references(() => suppliers.id, {
+      onDelete: "set null",
+    }),
     imageKey: varchar("imageKey", { length: 512 }),
     quantityOnHand: integer("quantityOnHand").default(0).notNull(),
     reorderLevel: integer("reorderLevel").default(0).notNull(),
-    unitCost: numeric("unitCost", { precision: 10, scale: 2 }).default("0.00").notNull(),
-    sellingPrice: numeric("sellingPrice", { precision: 10, scale: 2 }).default("0.00").notNull(),
+    unitCost: numeric("unitCost", { precision: 10, scale: 2 })
+      .default("0.00")
+      .notNull(),
+    sellingPrice: numeric("sellingPrice", { precision: 10, scale: 2 })
+      .default("0.00")
+      .notNull(),
     seoTitle: varchar("seoTitle", { length: 180 }),
     seoDescription: varchar("seoDescription", { length: 320 }),
     isSellable: boolean("isSellable").default(false).notNull(),
@@ -92,7 +103,7 @@ export const inventoryItems = pgTable(
     index("inventory_items_sellable_idx").on(table.isSellable, table.isActive),
     index("inventory_items_category_idx").on(table.categoryId),
     index("inventory_items_name_idx").on(table.name),
-  ],
+  ]
 );
 
 export const productImages = pgTable(
@@ -107,7 +118,7 @@ export const productImages = pgTable(
     sortOrder: integer("sortOrder").default(0).notNull(),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
   },
-  table => [index("product_images_item_idx").on(table.inventoryItemId)],
+  table => [index("product_images_item_idx").on(table.inventoryItemId)]
 );
 
 export const productVariations = pgTable(
@@ -119,11 +130,13 @@ export const productVariations = pgTable(
       .references(() => inventoryItems.id, { onDelete: "cascade" }),
     name: varchar("name", { length: 120 }).notNull(),
     value: varchar("value", { length: 120 }).notNull(),
-    priceDelta: numeric("priceDelta", { precision: 10, scale: 2 }).default("0.00").notNull(),
+    priceDelta: numeric("priceDelta", { precision: 10, scale: 2 })
+      .default("0.00")
+      .notNull(),
     sku: varchar("sku", { length: 64 }),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
   },
-  table => [index("product_variations_item_idx").on(table.inventoryItemId)],
+  table => [index("product_variations_item_idx").on(table.inventoryItemId)]
 );
 
 // Append-only stock movement audit ledger.
@@ -150,8 +163,11 @@ export const inventoryMovements = pgTable(
   table => [
     index("inventory_movements_item_idx").on(table.inventoryItemId),
     index("inventory_movements_created_idx").on(table.createdAt),
-    index("inventory_movements_reference_idx").on(table.referenceType, table.referenceId),
-  ],
+    index("inventory_movements_reference_idx").on(
+      table.referenceType,
+      table.referenceId
+    ),
+  ]
 );
 
 export const purchaseOrders = pgTable(
@@ -165,9 +181,15 @@ export const purchaseOrders = pgTable(
     orderDate: date("orderDate", { mode: "date" }).notNull(),
     expectedDate: date("expectedDate", { mode: "date" }),
     status: purchaseOrderStatus("status").default("draft").notNull(),
-    subtotal: numeric("subtotal", { precision: 12, scale: 2 }).default("0.00").notNull(),
-    total: numeric("total", { precision: 12, scale: 2 }).default("0.00").notNull(),
-    amountPaid: numeric("amountPaid", { precision: 12, scale: 2 }).default("0.00").notNull(),
+    subtotal: numeric("subtotal", { precision: 12, scale: 2 })
+      .default("0.00")
+      .notNull(),
+    total: numeric("total", { precision: 12, scale: 2 })
+      .default("0.00")
+      .notNull(),
+    amountPaid: numeric("amountPaid", { precision: 12, scale: 2 })
+      .default("0.00")
+      .notNull(),
     notes: text("notes"),
     createdByUserId: integer("createdByUserId").references(() => users.id, {
       onDelete: "set null",
@@ -182,7 +204,7 @@ export const purchaseOrders = pgTable(
   table => [
     index("purchase_orders_supplier_idx").on(table.supplierId),
     index("purchase_orders_status_idx").on(table.status),
-  ],
+  ]
 );
 
 export const purchaseOrderItems = pgTable(
@@ -201,7 +223,7 @@ export const purchaseOrderItems = pgTable(
     unitCost: numeric("unitCost", { precision: 10, scale: 2 }).notNull(),
     lineTotal: numeric("lineTotal", { precision: 12, scale: 2 }).notNull(),
   },
-  table => [index("purchase_order_items_order_idx").on(table.purchaseOrderId)],
+  table => [index("purchase_order_items_order_idx").on(table.purchaseOrderId)]
 );
 
 export const supplierPayments = pgTable(
@@ -211,9 +233,12 @@ export const supplierPayments = pgTable(
     supplierId: integer("supplierId")
       .notNull()
       .references(() => suppliers.id, { onDelete: "restrict" }),
-    purchaseOrderId: integer("purchaseOrderId").references(() => purchaseOrders.id, {
-      onDelete: "set null",
-    }),
+    purchaseOrderId: integer("purchaseOrderId").references(
+      () => purchaseOrders.id,
+      {
+        onDelete: "set null",
+      }
+    ),
     amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
     paidAt: timestamp("paidAt").defaultNow().notNull(),
     reference: varchar("reference", { length: 120 }),
@@ -222,51 +247,72 @@ export const supplierPayments = pgTable(
       onDelete: "set null",
     }),
   },
-  table => [index("supplier_payments_supplier_idx").on(table.supplierId)],
+  table => [index("supplier_payments_supplier_idx").on(table.supplierId)]
 );
 
-export const inventoryItemsRelations = relations(inventoryItems, ({ one, many }) => ({
-  category: one(productCategories, {
-    fields: [inventoryItems.categoryId],
-    references: [productCategories.id],
-  }),
-  supplier: one(suppliers, { fields: [inventoryItems.supplierId], references: [suppliers.id] }),
-  images: many(productImages),
-  variations: many(productVariations),
-  movements: many(inventoryMovements),
-}));
+export const inventoryItemsRelations = relations(
+  inventoryItems,
+  ({ one, many }) => ({
+    category: one(productCategories, {
+      fields: [inventoryItems.categoryId],
+      references: [productCategories.id],
+    }),
+    supplier: one(suppliers, {
+      fields: [inventoryItems.supplierId],
+      references: [suppliers.id],
+    }),
+    images: many(productImages),
+    variations: many(productVariations),
+    movements: many(inventoryMovements),
+  })
+);
 
-export const productCategoriesRelations = relations(productCategories, ({ many }) => ({
-  items: many(inventoryItems),
-}));
+export const productCategoriesRelations = relations(
+  productCategories,
+  ({ many }) => ({
+    items: many(inventoryItems),
+  })
+);
 
-export const inventoryMovementsRelations = relations(inventoryMovements, ({ one }) => ({
-  item: one(inventoryItems, {
-    fields: [inventoryMovements.inventoryItemId],
-    references: [inventoryItems.id],
-  }),
-}));
+export const inventoryMovementsRelations = relations(
+  inventoryMovements,
+  ({ one }) => ({
+    item: one(inventoryItems, {
+      fields: [inventoryMovements.inventoryItemId],
+      references: [inventoryItems.id],
+    }),
+  })
+);
 
 export const suppliersRelations = relations(suppliers, ({ many }) => ({
   purchaseOrders: many(purchaseOrders),
   items: many(inventoryItems),
 }));
 
-export const purchaseOrdersRelations = relations(purchaseOrders, ({ one, many }) => ({
-  supplier: one(suppliers, { fields: [purchaseOrders.supplierId], references: [suppliers.id] }),
-  items: many(purchaseOrderItems),
-}));
+export const purchaseOrdersRelations = relations(
+  purchaseOrders,
+  ({ one, many }) => ({
+    supplier: one(suppliers, {
+      fields: [purchaseOrders.supplierId],
+      references: [suppliers.id],
+    }),
+    items: many(purchaseOrderItems),
+  })
+);
 
-export const purchaseOrderItemsRelations = relations(purchaseOrderItems, ({ one }) => ({
-  purchaseOrder: one(purchaseOrders, {
-    fields: [purchaseOrderItems.purchaseOrderId],
-    references: [purchaseOrders.id],
-  }),
-  item: one(inventoryItems, {
-    fields: [purchaseOrderItems.inventoryItemId],
-    references: [inventoryItems.id],
-  }),
-}));
+export const purchaseOrderItemsRelations = relations(
+  purchaseOrderItems,
+  ({ one }) => ({
+    purchaseOrder: one(purchaseOrders, {
+      fields: [purchaseOrderItems.purchaseOrderId],
+      references: [purchaseOrders.id],
+    }),
+    item: one(inventoryItems, {
+      fields: [purchaseOrderItems.inventoryItemId],
+      references: [inventoryItems.id],
+    }),
+  })
+);
 
 export type InventoryItem = typeof inventoryItems.$inferSelect;
 export type InventoryMovement = typeof inventoryMovements.$inferSelect;

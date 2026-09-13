@@ -89,8 +89,8 @@ export const PRODUCT_IMPORT_COLUMNS: ImportColumn[] = [
   {
     key: "sku",
     header: "SKU",
-    required: true,
-    hint: "Your code for the item. Used to match existing stock, so it must be unique.",
+    required: false,
+    hint: "Optional code for the item. If supplied, it is used to match existing stock.",
     example: "BWT-SERUM-01",
   },
   {
@@ -169,7 +169,9 @@ export function normaliseHeader(value: string): string {
 
 // Builds lookup map from normalized header names to column keys.
 export function headerLookup(columns: ImportColumn[]): Map<string, string> {
-  return new Map(columns.map(column => [normaliseHeader(column.header), column.key]));
+  return new Map(
+    columns.map(column => [normaliseHeader(column.header), column.key])
+  );
 }
 
 // Maximum allowed rows per single bulk import operation.

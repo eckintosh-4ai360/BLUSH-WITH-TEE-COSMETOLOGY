@@ -41,7 +41,7 @@ const TYPES = [
 type MovementRow = {
   id: number;
   itemName: string;
-  sku: string;
+  sku: string | null;
   movementType: string;
   quantityDelta: number;
   balanceAfter: number | null;
@@ -79,14 +79,23 @@ function MovementsContent() {
   const filters = {
     sortDir: "desc" as const,
     search: search || undefined,
-    movementType: movementType === "all" ? undefined : (movementType as (typeof TYPES)[number]),
+    movementType:
+      movementType === "all"
+        ? undefined
+        : (movementType as (typeof TYPES)[number]),
   };
 
-  const query = trpc.inventory.movements.useQuery({ ...filters, page, pageSize: 25 });
+  const query = trpc.inventory.movements.useQuery({
+    ...filters,
+    page,
+    pageSize: 25,
+  });
 
   const reverseMovement = trpc.inventory.reverseMovement.useMutation({
     onSuccess: result => {
-      toast.success(`Reversed. ${result.itemName} is now at ${result.balanceAfter}.`);
+      toast.success(
+        `Reversed. ${result.itemName} is now at ${result.balanceAfter}.`
+      );
       setReversing(null);
       query.refetch();
       // The stock screen and its low-stock count both moved with it.
@@ -118,7 +127,9 @@ function MovementsContent() {
       cell: row => (
         <span>
           <span className="text-foreground">{row.itemName}</span>
-          <span className="block text-xs text-muted-foreground">{row.sku}</span>
+          <span className="block text-xs text-muted-foreground">
+            {row.sku ?? "No SKU"}
+          </span>
         </span>
       ),
     },
@@ -138,7 +149,9 @@ function MovementsContent() {
       cell: row => (
         <span className="inline-flex items-center gap-2">
           {row.isReversed ? (
-            <Badge className="bg-muted text-muted-foreground hover:bg-muted">Reversed</Badge>
+            <Badge className="bg-muted text-muted-foreground hover:bg-muted">
+              Reversed
+            </Badge>
           ) : null}
           <span
             className={`font-medium tabular-nums ${
@@ -178,8 +191,18 @@ function MovementsContent() {
         ),
       value: row => row.referenceType ?? "",
     },
-    { key: "performedBy", header: "By", optional: true, cell: row => row.performedBy ?? "System" },
-    { key: "note", header: "Note", optional: true, cell: row => row.note ?? "-" },
+    {
+      key: "performedBy",
+      header: "By",
+      optional: true,
+      cell: row => row.performedBy ?? "System",
+    },
+    {
+      key: "note",
+      header: "Note",
+      optional: true,
+      cell: row => row.note ?? "-",
+    },
     ...(can("inventory.write")
       ? [
           {
@@ -227,7 +250,7 @@ function MovementsContent() {
         exportFileName="stock-movements"
         fetchAllRows={() =>
           collectAllPages((page, pageSize) =>
-            utils.inventory.movements.fetch({ ...filters, page, pageSize }),
+            utils.inventory.movements.fetch({ ...filters, page, pageSize })
           )
         }
         emptyMessage="No movements match these filters."
@@ -239,7 +262,10 @@ function MovementsContent() {
               setPage(1);
             }}
           >
-            <SelectTrigger className="w-[12rem]" aria-label="Filter by movement type">
+            <SelectTrigger
+              className="w-[12rem]"
+              aria-label="Filter by movement type"
+            >
               <SelectValue placeholder="All movements" />
             </SelectTrigger>
             <SelectContent>
@@ -254,7 +280,10 @@ function MovementsContent() {
         }
       />
 
-      <AlertDialog open={reversing !== null} onOpenChange={open => !open && setReversing(null)}>
+      <AlertDialog
+        open={reversing !== null}
+        onOpenChange={open => !open && setReversing(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Reverse this movement?</AlertDialogTitle>
@@ -269,13 +298,16 @@ function MovementsContent() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={reverseMovement.isPending}>Keep it</AlertDialogCancel>
+            <AlertDialogCancel disabled={reverseMovement.isPending}>
+              Keep it
+            </AlertDialogCancel>
             <AlertDialogAction
               disabled={reverseMovement.isPending}
               onClick={event => {
                 // Confirming holds the dialog open until the server answers.
                 event.preventDefault();
-                if (reversing) reverseMovement.mutate({ movementId: reversing.id });
+                if (reversing)
+                  reverseMovement.mutate({ movementId: reversing.id });
               }}
             >
               {reverseMovement.isPending ? "Reversing..." : "Reverse movement"}

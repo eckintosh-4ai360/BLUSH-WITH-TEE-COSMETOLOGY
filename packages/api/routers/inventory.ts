@@ -1,4 +1,16 @@
-import { and, count, desc, eq, gte, ilike, inArray, isNull, lte, or, sql } from "drizzle-orm";
+import {
+  and,
+  count,
+  desc,
+  eq,
+  gte,
+  ilike,
+  inArray,
+  isNull,
+  lte,
+  or,
+  sql,
+} from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
@@ -20,7 +32,12 @@ import {
   alertLowStockInBackground,
   lowStockItems,
 } from "../services/lowStock";
-import { listInputSchema, likePattern, paginate, paginationBounds } from "../services/pagination";
+import {
+  listInputSchema,
+  likePattern,
+  paginate,
+  paginationBounds,
+} from "../services/pagination";
 import { applyStockMovement } from "../services/stock";
 import { permissionProcedure, router } from "../trpc";
 
@@ -41,7 +58,7 @@ export const inventoryRouter = router({
       listInputSchema.extend({
         stockFilter: z.enum(["all", "low", "out", "sellable"]).default("all"),
         categoryId: z.number().int().positive().optional(),
-      }),
+      })
     )
     .query(async ({ input }) => {
       const db = await dbOrThrow();
@@ -59,13 +76,15 @@ export const inventoryRouter = router({
       const where = and(
         isNull(inventoryItems.deletedAt),
         stockCondition,
-        input.categoryId ? eq(inventoryItems.categoryId, input.categoryId) : undefined,
+        input.categoryId
+          ? eq(inventoryItems.categoryId, input.categoryId)
+          : undefined,
         input.search
           ? or(
               ilike(inventoryItems.name, likePattern(input.search)),
-              ilike(inventoryItems.sku, likePattern(input.search)),
+              ilike(inventoryItems.sku, likePattern(input.search))
             )
-          : undefined,
+          : undefined
       );
 
       const [rows, [total], [valuation]] = await Promise.all([
@@ -76,7 +95,10 @@ export const inventoryRouter = router({
             supplierName: suppliers.name,
           })
           .from(inventoryItems)
-          .leftJoin(productCategories, eq(inventoryItems.categoryId, productCategories.id))
+          .leftJoin(
+            productCategories,
+            eq(inventoryItems.categoryId, productCategories.id)
+          )
           .leftJoin(suppliers, eq(inventoryItems.supplierId, suppliers.id))
           .where(where)
           .orderBy(inventoryItems.name)
@@ -102,7 +124,7 @@ export const inventoryRouter = router({
             isLowStock: row.item.quantityOnHand <= row.item.reorderLevel,
           })),
           Number(total?.total ?? 0),
-          input,
+          input
         ),
         valuation: money(valuation?.atCost),
       };
@@ -123,7 +145,7 @@ export const inventoryRouter = router({
       z.object({
         name: z.string().min(2).max(120),
         description: z.string().max(2000).optional(),
-      }),
+      })
     )
     .mutation(async ({ input, ctx }) => {
       const db = await dbOrThrow();
@@ -146,7 +168,11 @@ export const inventoryRouter = router({
       if (existing) {
         await db
           .update(productCategories)
-          .set({ name: input.name, description: input.description ?? existing.description, isActive: true })
+          .set({
+            name: input.name,
+            description: input.description ?? existing.description,
+            isActive: true,
+          })
           .where(eq(productCategories.id, existing.id));
         await recordAudit(db, ctx.actor, {
           action: "update",
@@ -199,7 +225,7 @@ export const inventoryRouter = router({
     .input(
       z.object({
         id: z.number().int().positive().optional(),
-        sku: z.string().min(2).max(64),
+        sku: z.string().trim().min(2).max(64).nullable().optional(),
         name: z.string().min(2).max(180),
         description: z.string().max(2000).optional(),
         category: z.string().min(2).max(80),
@@ -212,13 +238,13 @@ export const inventoryRouter = router({
         isActive: z.boolean().default(true),
         // Only accepted on create; later changes must go through a movement.
         openingQuantity: z.number().int().min(0).optional(),
-      }),
+      })
     )
     .mutation(async ({ input, ctx }) => {
       const db = await dbOrThrow();
 
       const values = {
-        sku: input.sku,
+        sku: input.sku?.trim() || null,
         slug: slugify(input.name),
         name: input.name,
         description: input.description,
@@ -238,9 +264,16 @@ export const inventoryRouter = router({
           .from(inventoryItems)
           .where(eq(inventoryItems.id, input.id))
           .limit(1);
-        if (!before) throw new TRPCError({ code: "NOT_FOUND", message: "Item was not found." });
+        if (!before)
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Item was not found.",
+          });
 
-        await db.update(inventoryItems).set(values).where(eq(inventoryItems.id, input.id));
+        await db
+          .update(inventoryItems)
+          .set(values)
+          .where(eq(inventoryItems.id, input.id));
         await recordAudit(db, ctx.actor, {
           action: "update",
           entity: "inventoryItem",
@@ -259,7 +292,10 @@ export const inventoryRouter = router({
           .returning({ id: inventoryItems.id });
 
         if (!item?.id) {
-          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Item was not created." });
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Item was not created.",
+          });
         }
 
         // Opening stock is a real movement, so the ledger explains every unit.
@@ -308,11 +344,19 @@ export const inventoryRouter = router({
         const [existing] = await tx
           .select()
           .from(inventoryItems)
-          .where(and(eq(inventoryItems.id, input.id), isNull(inventoryItems.deletedAt)))
+          .where(
+            and(
+              eq(inventoryItems.id, input.id),
+              isNull(inventoryItems.deletedAt)
+            )
+          )
           .limit(1);
 
         if (!existing) {
-          throw new TRPCError({ code: "NOT_FOUND", message: "That item is no longer on the list." });
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "That item is no longer on the list.",
+          });
         }
 
         // Stock on hand is money on a shelf.
@@ -327,12 +371,19 @@ export const inventoryRouter = router({
         const [onOrder] = await tx
           .select({ total: count() })
           .from(purchaseOrderItems)
-          .innerJoin(purchaseOrders, eq(purchaseOrderItems.purchaseOrderId, purchaseOrders.id))
+          .innerJoin(
+            purchaseOrders,
+            eq(purchaseOrderItems.purchaseOrderId, purchaseOrders.id)
+          )
           .where(
             and(
               eq(purchaseOrderItems.inventoryItemId, input.id),
-              inArray(purchaseOrders.status, ["draft", "ordered", "partially_received"]),
-            ),
+              inArray(purchaseOrders.status, [
+                "draft",
+                "ordered",
+                "partially_received",
+              ])
+            )
           );
 
         const pending = Number(onOrder?.total ?? 0);
@@ -358,7 +409,7 @@ export const inventoryRouter = router({
           action: "delete",
           entity: "inventoryItem",
           entityId: existing.id,
-          entityLabel: `${existing.sku} · ${existing.name}`,
+          entityLabel: `${existing.sku ? `${existing.sku} · ` : ""}${existing.name}`,
           oldValue: {
             sku: existing.sku,
             name: existing.name,
@@ -367,7 +418,7 @@ export const inventoryRouter = router({
             unitCost: existing.unitCost,
             sellingPrice: existing.sellingPrice,
           },
-          summary: `${ctx.actor.name ?? "Staff"} removed stock item "${existing.name}" (${existing.sku})`,
+          summary: `${ctx.actor.name ?? "Staff"} removed stock item "${existing.name}"${existing.sku ? ` (${existing.sku})` : ""}`,
         });
 
         return { id: existing.id, name: existing.name };
@@ -380,32 +431,44 @@ export const inventoryRouter = router({
       z.object({
         inventoryItemId: z.number().int().positive(),
         movementType: z.enum(MOVEMENT_TYPES),
-        quantity: z.number().int().refine(value => value !== 0, "Quantity cannot be zero."),
+        quantity: z
+          .number()
+          .int()
+          .refine(value => value !== 0, "Quantity cannot be zero."),
         note: z.string().max(1000).optional(),
         unitCost: z.number().min(0).optional(),
         allowNegative: z.boolean().default(false),
-      }),
+      })
     )
     .mutation(async ({ input, ctx }) => {
       const db = await dbOrThrow();
 
       const outcome = await db.transaction(async tx => {
         const [item] = await tx
-          .select({ name: inventoryItems.name, before: inventoryItems.quantityOnHand })
+          .select({
+            name: inventoryItems.name,
+            before: inventoryItems.quantityOnHand,
+          })
           .from(inventoryItems)
           .where(eq(inventoryItems.id, input.inventoryItemId))
           .limit(1);
-        if (!item) throw new TRPCError({ code: "NOT_FOUND", message: "Item was not found." });
+        if (!item)
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Item was not found.",
+          });
 
         const result = await applyStockMovement(tx, {
           inventoryItemId: input.inventoryItemId,
           movementType: input.movementType,
           quantityDelta: input.quantity,
           note: input.note,
-          unitCostMinor: input.unitCost == null ? null : toMinor(input.unitCost),
+          unitCostMinor:
+            input.unitCost == null ? null : toMinor(input.unitCost),
           referenceType: "manual",
           performedByUserId: ctx.user.id,
-          allowNegative: input.allowNegative && input.movementType === "adjustment",
+          allowNegative:
+            input.allowNegative && input.movementType === "adjustment",
         });
 
         await recordAudit(tx, ctx.actor, {
@@ -433,7 +496,7 @@ export const inventoryRouter = router({
       z.object({
         movementId: z.number().int().positive(),
         reason: z.string().max(255).optional(),
-      }),
+      })
     )
     .mutation(async ({ input, ctx }) => {
       const db = await dbOrThrow();
@@ -445,19 +508,26 @@ export const inventoryRouter = router({
             itemName: inventoryItems.name,
           })
           .from(inventoryMovements)
-          .innerJoin(inventoryItems, eq(inventoryMovements.inventoryItemId, inventoryItems.id))
+          .innerJoin(
+            inventoryItems,
+            eq(inventoryMovements.inventoryItemId, inventoryItems.id)
+          )
           .where(eq(inventoryMovements.id, input.movementId))
           .limit(1);
 
         if (!original) {
-          throw new TRPCError({ code: "NOT_FOUND", message: "That movement is no longer on file." });
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "That movement is no longer on file.",
+          });
         }
 
         // Reversing a reversal walks the balance back and forth and reads as noise in the ledger.
         if (original.movement.referenceType === "reversal") {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: "This entry is itself a reversal. Record a new movement rather than undoing it.",
+            message:
+              "This entry is itself a reversal. Record a new movement rather than undoing it.",
           });
         }
 
@@ -467,8 +537,8 @@ export const inventoryRouter = router({
           .where(
             and(
               eq(inventoryMovements.referenceType, "reversal"),
-              eq(inventoryMovements.referenceId, input.movementId),
-            ),
+              eq(inventoryMovements.referenceId, input.movementId)
+            )
           )
           .limit(1);
 
@@ -526,7 +596,7 @@ export const inventoryRouter = router({
       listInputSchema.extend({
         inventoryItemId: z.number().int().positive().optional(),
         movementType: z.enum(MOVEMENT_TYPES).optional(),
-      }),
+      })
     )
     .query(async ({ input }) => {
       const db = await dbOrThrow();
@@ -536,10 +606,18 @@ export const inventoryRouter = router({
         input.inventoryItemId
           ? eq(inventoryMovements.inventoryItemId, input.inventoryItemId)
           : undefined,
-        input.movementType ? eq(inventoryMovements.movementType, input.movementType) : undefined,
-        input.dateFrom ? gte(inventoryMovements.createdAt, input.dateFrom) : undefined,
-        input.dateTo ? lte(inventoryMovements.createdAt, input.dateTo) : undefined,
-        input.search ? ilike(inventoryItems.name, likePattern(input.search)) : undefined,
+        input.movementType
+          ? eq(inventoryMovements.movementType, input.movementType)
+          : undefined,
+        input.dateFrom
+          ? gte(inventoryMovements.createdAt, input.dateFrom)
+          : undefined,
+        input.dateTo
+          ? lte(inventoryMovements.createdAt, input.dateTo)
+          : undefined,
+        input.search
+          ? ilike(inventoryItems.name, likePattern(input.search))
+          : undefined
       );
 
       const [rows, [total]] = await Promise.all([
@@ -558,7 +636,10 @@ export const inventoryRouter = router({
             )`,
           })
           .from(inventoryMovements)
-          .innerJoin(inventoryItems, eq(inventoryMovements.inventoryItemId, inventoryItems.id))
+          .innerJoin(
+            inventoryItems,
+            eq(inventoryMovements.inventoryItemId, inventoryItems.id)
+          )
           .leftJoin(users, eq(inventoryMovements.performedByUserId, users.id))
           .where(where)
           .orderBy(desc(inventoryMovements.createdAt))
@@ -567,7 +648,10 @@ export const inventoryRouter = router({
         db
           .select({ total: count() })
           .from(inventoryMovements)
-          .innerJoin(inventoryItems, eq(inventoryMovements.inventoryItemId, inventoryItems.id))
+          .innerJoin(
+            inventoryItems,
+            eq(inventoryMovements.inventoryItemId, inventoryItems.id)
+          )
           .where(where),
       ]);
 
@@ -582,7 +666,7 @@ export const inventoryRouter = router({
           isReversed: row.reversedByMovementId !== null,
         })),
         Number(total?.total ?? 0),
-        input,
+        input
       );
     }),
 
@@ -600,20 +684,29 @@ export const inventoryRouter = router({
           ? or(
               ilike(suppliers.name, likePattern(input.search)),
               ilike(suppliers.company, likePattern(input.search)),
-              ilike(suppliers.phone, likePattern(input.search)),
+              ilike(suppliers.phone, likePattern(input.search))
             )
-          : undefined,
+          : undefined
       );
 
       const [rows, [total]] = await Promise.all([
-        db.select().from(suppliers).where(where).orderBy(suppliers.name).limit(limit).offset(offset),
+        db
+          .select()
+          .from(suppliers)
+          .where(where)
+          .orderBy(suppliers.name)
+          .limit(limit)
+          .offset(offset),
         db.select({ total: count() }).from(suppliers).where(where),
       ]);
 
       return paginate(
-        rows.map(row => ({ ...row, outstandingBalance: money(row.outstandingBalance) })),
+        rows.map(row => ({
+          ...row,
+          outstandingBalance: money(row.outstandingBalance),
+        })),
         Number(total?.total ?? 0),
-        input,
+        input
       );
     }),
 
@@ -627,7 +720,11 @@ export const inventoryRouter = router({
         .from(suppliers)
         .where(eq(suppliers.id, input.supplierId))
         .limit(1);
-      if (!supplier) throw new TRPCError({ code: "NOT_FOUND", message: "Supplier was not found." });
+      if (!supplier)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Supplier was not found.",
+        });
 
       const [orders, items, paymentHistory] = await Promise.all([
         db
@@ -637,7 +734,11 @@ export const inventoryRouter = router({
           .orderBy(desc(purchaseOrders.orderDate))
           .limit(25),
         db
-          .select({ id: inventoryItems.id, name: inventoryItems.name, sku: inventoryItems.sku })
+          .select({
+            id: inventoryItems.id,
+            name: inventoryItems.name,
+            sku: inventoryItems.sku,
+          })
           .from(inventoryItems)
           .where(eq(inventoryItems.supplierId, input.supplierId)),
         db
@@ -649,14 +750,20 @@ export const inventoryRouter = router({
       ]);
 
       return {
-        supplier: { ...supplier, outstandingBalance: money(supplier.outstandingBalance) },
+        supplier: {
+          ...supplier,
+          outstandingBalance: money(supplier.outstandingBalance),
+        },
         purchaseHistory: orders.map(order => ({
           ...order,
           total: money(order.total),
           amountPaid: money(order.amountPaid),
         })),
         itemsSupplied: items,
-        payments: paymentHistory.map(row => ({ ...row, amount: money(row.amount) })),
+        payments: paymentHistory.map(row => ({
+          ...row,
+          amount: money(row.amount),
+        })),
       };
     }),
 
@@ -673,7 +780,7 @@ export const inventoryRouter = router({
         productsSupplied: z.string().max(1000).optional(),
         notes: z.string().max(2000).optional(),
         isActive: z.boolean().default(true),
-      }),
+      })
     )
     .mutation(async ({ input, ctx }) => {
       const db = await dbOrThrow();
@@ -692,7 +799,10 @@ export const inventoryRouter = router({
         return { id };
       }
 
-      const [created] = await db.insert(suppliers).values(values).returning({ id: suppliers.id });
+      const [created] = await db
+        .insert(suppliers)
+        .values(values)
+        .returning({ id: suppliers.id });
       await recordAudit(db, ctx.actor, {
         action: "create",
         entity: "supplier",
@@ -709,10 +819,16 @@ export const inventoryRouter = router({
     .input(
       listInputSchema.extend({
         status: z
-          .enum(["draft", "ordered", "partially_received", "received", "cancelled"])
+          .enum([
+            "draft",
+            "ordered",
+            "partially_received",
+            "received",
+            "cancelled",
+          ])
           .optional(),
         supplierId: z.number().int().positive().optional(),
-      }),
+      })
     )
     .query(async ({ input }) => {
       const db = await dbOrThrow();
@@ -720,8 +836,12 @@ export const inventoryRouter = router({
 
       const where = and(
         input.status ? eq(purchaseOrders.status, input.status) : undefined,
-        input.supplierId ? eq(purchaseOrders.supplierId, input.supplierId) : undefined,
-        input.search ? ilike(purchaseOrders.reference, likePattern(input.search)) : undefined,
+        input.supplierId
+          ? eq(purchaseOrders.supplierId, input.supplierId)
+          : undefined,
+        input.search
+          ? ilike(purchaseOrders.reference, likePattern(input.search))
+          : undefined
       );
 
       const [rows, [total]] = await Promise.all([
@@ -745,7 +865,7 @@ export const inventoryRouter = router({
           supplierName: row.supplierName,
         })),
         Number(total?.total ?? 0),
-        input,
+        input
       );
     }),
 
@@ -760,7 +880,11 @@ export const inventoryRouter = router({
         .innerJoin(suppliers, eq(purchaseOrders.supplierId, suppliers.id))
         .where(eq(purchaseOrders.id, input.purchaseOrderId))
         .limit(1);
-      if (!order) throw new TRPCError({ code: "NOT_FOUND", message: "Purchase order not found." });
+      if (!order)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Purchase order not found.",
+        });
 
       const items = await db
         .select()
@@ -794,10 +918,10 @@ export const inventoryRouter = router({
               inventoryItemId: z.number().int().positive(),
               quantityOrdered: z.number().int().min(1),
               unitCost: z.number().min(0),
-            }),
+            })
           )
           .min(1),
-      }),
+      })
     )
     .mutation(async ({ input, ctx }) => {
       const db = await dbOrThrow();
@@ -809,8 +933,8 @@ export const inventoryRouter = router({
           .where(
             inArray(
               inventoryItems.id,
-              input.items.map(item => item.inventoryItemId),
-            ),
+              input.items.map(item => item.inventoryItemId)
+            )
           );
         const nameById = new Map(catalogue.map(row => [row.id, row.name]));
 
@@ -862,7 +986,7 @@ export const inventoryRouter = router({
           lines.map(({ lineMinor: _lineMinor, ...line }) => ({
             ...line,
             purchaseOrderId: order.id,
-          })),
+          }))
         );
 
         await recordAudit(tx, ctx.actor, {
@@ -870,7 +994,11 @@ export const inventoryRouter = router({
           entity: "purchaseOrder",
           entityId: order.id,
           entityLabel: reference,
-          newValue: { supplierId: input.supplierId, total: totalMinor / 100, lines: lines.length },
+          newValue: {
+            supplierId: input.supplierId,
+            total: totalMinor / 100,
+            lines: lines.length,
+          },
         });
 
         return { id: order.id, reference, total: totalMinor / 100 };
@@ -887,10 +1015,10 @@ export const inventoryRouter = router({
             z.object({
               purchaseOrderItemId: z.number().int().positive(),
               quantityReceived: z.number().int().min(1),
-            }),
+            })
           )
           .min(1),
-      }),
+      })
     )
     .mutation(async ({ input, ctx }) => {
       const db = await dbOrThrow();
@@ -901,7 +1029,11 @@ export const inventoryRouter = router({
           .from(purchaseOrders)
           .where(eq(purchaseOrders.id, input.purchaseOrderId))
           .limit(1);
-        if (!order) throw new TRPCError({ code: "NOT_FOUND", message: "Purchase order not found." });
+        if (!order)
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Purchase order not found.",
+          });
         if (order.status === "cancelled") {
           throw new TRPCError({
             code: "BAD_REQUEST",
@@ -920,7 +1052,10 @@ export const inventoryRouter = router({
         for (const line of input.lines) {
           const item = itemById.get(line.purchaseOrderItemId);
           if (!item) {
-            throw new TRPCError({ code: "BAD_REQUEST", message: "Unknown purchase order line." });
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Unknown purchase order line.",
+            });
           }
 
           const outstanding = item.quantityOrdered - item.quantityReceived;
@@ -944,7 +1079,9 @@ export const inventoryRouter = router({
 
           await tx
             .update(purchaseOrderItems)
-            .set({ quantityReceived: item.quantityReceived + line.quantityReceived })
+            .set({
+              quantityReceived: item.quantityReceived + line.quantityReceived,
+            })
             .where(eq(purchaseOrderItems.id, item.id));
 
           receivedValueMinor += toMinor(item.unitCost) * line.quantityReceived;
@@ -954,13 +1091,19 @@ export const inventoryRouter = router({
           .select()
           .from(purchaseOrderItems)
           .where(eq(purchaseOrderItems.purchaseOrderId, order.id));
-        const fullyReceived = refreshed.every(item => item.quantityReceived >= item.quantityOrdered);
+        const fullyReceived = refreshed.every(
+          item => item.quantityReceived >= item.quantityOrdered
+        );
         const anyReceived = refreshed.some(item => item.quantityReceived > 0);
 
         await tx
           .update(purchaseOrders)
           .set({
-            status: fullyReceived ? "received" : anyReceived ? "partially_received" : order.status,
+            status: fullyReceived
+              ? "received"
+              : anyReceived
+                ? "partially_received"
+                : order.status,
             receivedAt: fullyReceived ? new Date() : order.receivedAt,
           })
           .where(eq(purchaseOrders.id, order.id));
@@ -978,7 +1121,10 @@ export const inventoryRouter = router({
           entity: "purchaseOrder",
           entityId: order.id,
           entityLabel: order.reference,
-          newValue: { lines: input.lines, valueReceived: receivedValueMinor / 100 },
+          newValue: {
+            lines: input.lines,
+            valueReceived: receivedValueMinor / 100,
+          },
           summary: `${ctx.actor.name ?? "Staff"} received stock against ${order.reference}`,
         });
 
@@ -994,7 +1140,7 @@ export const inventoryRouter = router({
         amount: z.number().positive(),
         reference: z.string().max(120).optional(),
         note: z.string().max(1000).optional(),
-      }),
+      })
     )
     .mutation(async ({ input, ctx }) => {
       const db = await dbOrThrow();
@@ -1020,7 +1166,9 @@ export const inventoryRouter = router({
         if (input.purchaseOrderId) {
           await tx
             .update(purchaseOrders)
-            .set({ amountPaid: sql`${purchaseOrders.amountPaid} + ${toAmountString(amountMinor)}` })
+            .set({
+              amountPaid: sql`${purchaseOrders.amountPaid} + ${toAmountString(amountMinor)}`,
+            })
             .where(eq(purchaseOrders.id, input.purchaseOrderId));
         }
 
@@ -1028,7 +1176,10 @@ export const inventoryRouter = router({
           action: "pay_supplier",
           entity: "supplier",
           entityId: input.supplierId,
-          newValue: { amount: input.amount, purchaseOrderId: input.purchaseOrderId },
+          newValue: {
+            amount: input.amount,
+            purchaseOrderId: input.purchaseOrderId,
+          },
           summary: `${ctx.actor.name ?? "Staff"} paid GHS ${input.amount.toFixed(2)} to supplier ${input.supplierId}`,
         });
 
@@ -1044,8 +1195,10 @@ export const inventoryRouter = router({
   }),
 
   // Raises the low-stock alert by hand.
-  notifyLowStock: permissionProcedure("inventory.write").mutation(async ({ ctx }) => {
-    const db = await dbOrThrow();
-    return alertLowStock(db, { force: true, actor: ctx.actor });
-  }),
+  notifyLowStock: permissionProcedure("inventory.write").mutation(
+    async ({ ctx }) => {
+      const db = await dbOrThrow();
+      return alertLowStock(db, { force: true, actor: ctx.actor });
+    }
+  ),
 });

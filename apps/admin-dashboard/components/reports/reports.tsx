@@ -4,7 +4,10 @@ import { useMemo, useState, type ReactNode } from "react";
 import { Card } from "@blush/ui/components/ui/card";
 import { formatMoney } from "@blush/ui/lib/viz";
 import { DataTable, type Column } from "@/components/DataTable";
-import { ReportTable, type ReportColumn } from "@/components/reports/ReportTable";
+import {
+  ReportTable,
+  type ReportColumn,
+} from "@/components/reports/ReportTable";
 import { collectAllPages } from "@/lib/exportAll";
 import type { ExportMeta } from "@/lib/exportTable";
 import { describeRange, resolveRange, type RangeKey } from "@/lib/reportRange";
@@ -26,7 +29,11 @@ function rangeMeta(rangeKey: RangeKey): ExportMeta[] {
 }
 
 // Headline figures above a report.
-function Figures({ items }: { items: Array<{ label: string; value: ReactNode; tone?: "good" | "bad" }> }) {
+function Figures({
+  items,
+}: {
+  items: Array<{ label: string; value: ReactNode; tone?: "good" | "bad" }>;
+}) {
   return (
     <Card className="p-5">
       <dl className="flex flex-wrap gap-x-10 gap-y-4">
@@ -65,7 +72,12 @@ function monthLabel(value: string): string {
 
 // Finance.
 
-type MonthRow = { month: string; income: number; expenses: number; profit: number };
+type MonthRow = {
+  month: string;
+  income: number;
+  expenses: number;
+  profit: number;
+};
 
 export function IncomeVsExpensesReport({ rangeKey }: { rangeKey: RangeKey }) {
   const range = useRange(rangeKey);
@@ -77,7 +89,12 @@ export function IncomeVsExpensesReport({ rangeKey }: { rangeKey: RangeKey }) {
   const totals = query.data?.totals;
 
   const columns: ReportColumn<MonthRow>[] = [
-    { key: "month", header: "Month", cell: row => monthLabel(row.month), value: row => row.month },
+    {
+      key: "month",
+      header: "Month",
+      cell: row => monthLabel(row.month),
+      value: row => row.month,
+    },
     {
       key: "income",
       header: "Income",
@@ -97,7 +114,11 @@ export function IncomeVsExpensesReport({ rangeKey }: { rangeKey: RangeKey }) {
       header: "Profit",
       align: "right",
       cell: row => (
-        <span className={row.profit < 0 ? "font-medium text-destructive" : "font-medium"}>
+        <span
+          className={
+            row.profit < 0 ? "font-medium text-destructive" : "font-medium"
+          }
+        >
           {formatMoney(row.profit)}
         </span>
       ),
@@ -166,7 +187,9 @@ export function ProfitAndLossReport({ rangeKey }: { rangeKey: RangeKey }) {
     {
       key: "label",
       header: "Line",
-      cell: row => <span className="capitalize">{row.label.replaceAll("_", " ")}</span>,
+      cell: row => (
+        <span className="capitalize">{row.label.replaceAll("_", " ")}</span>
+      ),
       value: row => row.label.replaceAll("_", " "),
     },
     {
@@ -181,7 +204,8 @@ export function ProfitAndLossReport({ rangeKey }: { rangeKey: RangeKey }) {
       header: "Share",
       align: "right",
       cell: row => (total > 0 ? percent((row.amount / total) * 100) : "—"),
-      value: row => (total > 0 ? Number(((row.amount / total) * 100).toFixed(1)) : 0),
+      value: row =>
+        total > 0 ? Number(((row.amount / total) * 100).toFixed(1)) : 0,
     },
   ];
 
@@ -255,7 +279,12 @@ export function FeeCollectionReport({ rangeKey }: { rangeKey: RangeKey }) {
       cell: row => <span className="capitalize">{row.feeType}</span>,
       value: row => row.feeType,
     },
-    { key: "charges", header: "Charges", align: "right", value: row => row.charges },
+    {
+      key: "charges",
+      header: "Charges",
+      align: "right",
+      value: row => row.charges,
+    },
     {
       key: "billed",
       header: "Billed",
@@ -275,7 +304,11 @@ export function FeeCollectionReport({ rangeKey }: { rangeKey: RangeKey }) {
       header: "Outstanding",
       align: "right",
       cell: row => (
-        <span className={row.outstanding > 0 ? "font-medium text-destructive" : undefined}>
+        <span
+          className={
+            row.outstanding > 0 ? "font-medium text-destructive" : undefined
+          }
+        >
           {formatMoney(row.outstanding)}
         </span>
       ),
@@ -353,13 +386,25 @@ export function CoursePerformanceReport({ rangeKey }: { rangeKey: RangeKey }) {
       cell: row => (
         <span>
           <span className="font-medium text-foreground">{row.title}</span>
-          <span className="block text-xs text-muted-foreground">{row.code}</span>
+          <span className="block text-xs text-muted-foreground">
+            {row.code}
+          </span>
         </span>
       ),
       value: row => row.title,
     },
-    { key: "enrolled", header: "Enrolled", align: "right", value: row => row.enrolled },
-    { key: "completed", header: "Completed", align: "right", value: row => row.completed },
+    {
+      key: "enrolled",
+      header: "Enrolled",
+      align: "right",
+      value: row => row.enrolled,
+    },
+    {
+      key: "completed",
+      header: "Completed",
+      align: "right",
+      value: row => row.completed,
+    },
     {
       key: "completionRate",
       header: "Completed %",
@@ -379,8 +424,13 @@ export function CoursePerformanceReport({ rangeKey }: { rangeKey: RangeKey }) {
       header: "Avg score",
       align: "right",
       cell: row =>
-        row.resultsRecorded > 0 ? percent(row.averageScore) : <span className="text-muted-foreground">—</span>,
-      value: row => (row.resultsRecorded > 0 ? Number(row.averageScore.toFixed(1)) : ""),
+        row.resultsRecorded > 0 ? (
+          percent(row.averageScore)
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        ),
+      value: row =>
+        row.resultsRecorded > 0 ? Number(row.averageScore.toFixed(1)) : "",
     },
     {
       key: "certificatesIssued",
@@ -444,7 +494,11 @@ export function AttendanceReport({ rangeKey }: { rangeKey: RangeKey }) {
     dateTo: range.dateTo,
   };
 
-  const query = trpc.reports.attendance.useQuery({ ...filters, page, pageSize: 25 });
+  const query = trpc.reports.attendance.useQuery({
+    ...filters,
+    page,
+    pageSize: 25,
+  });
 
   const columns: Column<AttendanceRow>[] = [
     {
@@ -453,7 +507,9 @@ export function AttendanceReport({ rangeKey }: { rangeKey: RangeKey }) {
       cell: row => (
         <span>
           <span className="font-medium text-foreground">{row.fullName}</span>
-          <span className="block text-xs text-muted-foreground">{row.studentNumber}</span>
+          <span className="block text-xs text-muted-foreground">
+            {row.studentNumber}
+          </span>
         </span>
       ),
       value: row => row.fullName,
@@ -468,7 +524,13 @@ export function AttendanceReport({ rangeKey }: { rangeKey: RangeKey }) {
       header: "Rate",
       align: "right",
       cell: row => (
-        <span className={row.attendanceRate < 75 ? "font-medium text-destructive" : "font-medium"}>
+        <span
+          className={
+            row.attendanceRate < 75
+              ? "font-medium text-destructive"
+              : "font-medium"
+          }
+        >
           {percent(row.attendanceRate)}
         </span>
       ),
@@ -498,7 +560,7 @@ export function AttendanceReport({ rangeKey }: { rangeKey: RangeKey }) {
       exportFileName="attendance"
       fetchAllRows={() =>
         collectAllPages((page, pageSize) =>
-          utils.reports.attendance.fetch({ ...filters, page, pageSize }),
+          utils.reports.attendance.fetch({ ...filters, page, pageSize })
         )
       }
       emptyMessage="No attendance has been recorded in this period."
@@ -531,7 +593,11 @@ export function GraduatesReport({ rangeKey }: { rangeKey: RangeKey }) {
     dateTo: range.dateTo,
   };
 
-  const query = trpc.reports.graduates.useQuery({ ...filters, page, pageSize: 25 });
+  const query = trpc.reports.graduates.useQuery({
+    ...filters,
+    page,
+    pageSize: 25,
+  });
 
   const columns: Column<GraduateRow>[] = [
     {
@@ -540,7 +606,9 @@ export function GraduatesReport({ rangeKey }: { rangeKey: RangeKey }) {
       cell: row => (
         <span>
           <span className="font-medium text-foreground">{row.fullName}</span>
-          <span className="block text-xs text-muted-foreground">{row.studentNumber}</span>
+          <span className="block text-xs text-muted-foreground">
+            {row.studentNumber}
+          </span>
         </span>
       ),
       value: row => row.fullName,
@@ -585,7 +653,7 @@ export function GraduatesReport({ rangeKey }: { rangeKey: RangeKey }) {
       exportFileName="graduates"
       fetchAllRows={() =>
         collectAllPages((page, pageSize) =>
-          utils.reports.graduates.fetch({ ...filters, page, pageSize }),
+          utils.reports.graduates.fetch({ ...filters, page, pageSize })
         )
       }
       emptyMessage="No certificates have been issued in this period."
@@ -597,7 +665,7 @@ export function GraduatesReport({ rangeKey }: { rangeKey: RangeKey }) {
 
 type StockRow = {
   id: number;
-  sku: string;
+  sku: string | null;
   name: string;
   categoryName: string | null;
   supplierName: string | null;
@@ -617,7 +685,11 @@ export function StockValuationReport() {
   const utils = trpc.useUtils();
 
   const filters = { sortDir: "desc" as const, search: search || undefined };
-  const query = trpc.reports.stockValuation.useQuery({ ...filters, page, pageSize: 25 });
+  const query = trpc.reports.stockValuation.useQuery({
+    ...filters,
+    page,
+    pageSize: 25,
+  });
   const totals = query.data?.totals;
 
   const columns: Column<StockRow>[] = [
@@ -627,19 +699,34 @@ export function StockValuationReport() {
       cell: row => (
         <span>
           <span className="font-medium text-foreground">{row.name}</span>
-          <span className="block text-xs text-muted-foreground">{row.sku}</span>
+          <span className="block text-xs text-muted-foreground">
+            {row.sku ?? "No SKU"}
+          </span>
         </span>
       ),
       value: row => row.name,
     },
-    { key: "categoryName", header: "Category", cell: row => row.categoryName ?? "—" },
-    { key: "supplierName", header: "Supplier", optional: true, cell: row => row.supplierName ?? "—" },
+    {
+      key: "categoryName",
+      header: "Category",
+      cell: row => row.categoryName ?? "—",
+    },
+    {
+      key: "supplierName",
+      header: "Supplier",
+      optional: true,
+      cell: row => row.supplierName ?? "—",
+    },
     {
       key: "quantityOnHand",
       header: "On hand",
       align: "right",
       cell: row => (
-        <span className={row.isLowStock ? "font-medium text-destructive" : undefined}>
+        <span
+          className={
+            row.isLowStock ? "font-medium text-destructive" : undefined
+          }
+        >
           {row.quantityOnHand}
         </span>
       ),
@@ -656,7 +743,9 @@ export function StockValuationReport() {
       key: "costValue",
       header: "Value at cost",
       align: "right",
-      cell: row => <span className="font-medium">{formatMoney(row.costValue)}</span>,
+      cell: row => (
+        <span className="font-medium">{formatMoney(row.costValue)}</span>
+      ),
       value: row => row.costValue,
     },
     {
@@ -680,7 +769,10 @@ export function StockValuationReport() {
           items={[
             { label: "Value at cost", value: formatMoney(totals.atCost) },
             { label: "Value at retail", value: formatMoney(totals.atRetail) },
-            { label: "Potential margin", value: formatMoney(totals.potentialMargin) },
+            {
+              label: "Potential margin",
+              value: formatMoney(totals.potentialMargin),
+            },
             { label: "Units on hand", value: totals.units },
             {
               label: "Low stock",
@@ -712,7 +804,7 @@ export function StockValuationReport() {
         exportFileName="stock-valuation"
         fetchAllRows={() =>
           collectAllPages((page, pageSize) =>
-            utils.reports.stockValuation.fetch({ ...filters, page, pageSize }),
+            utils.reports.stockValuation.fetch({ ...filters, page, pageSize })
           )
         }
         emptyMessage="No stock items have been added yet."
@@ -741,7 +833,11 @@ export function ProductSalesReport({ rangeKey }: { rangeKey: RangeKey }) {
     dateTo: range.dateTo,
   };
 
-  const query = trpc.reports.productSales.useQuery({ ...filters, page, pageSize: 25 });
+  const query = trpc.reports.productSales.useQuery({
+    ...filters,
+    page,
+    pageSize: 25,
+  });
 
   const columns: Column<SalesRow>[] = [
     { key: "itemName", header: "Product" },
@@ -751,7 +847,9 @@ export function ProductSalesReport({ rangeKey }: { rangeKey: RangeKey }) {
       key: "revenue",
       header: "Revenue",
       align: "right",
-      cell: row => <span className="font-medium">{formatMoney(row.revenue)}</span>,
+      cell: row => (
+        <span className="font-medium">{formatMoney(row.revenue)}</span>
+      ),
       value: row => row.revenue,
     },
   ];
@@ -778,7 +876,7 @@ export function ProductSalesReport({ rangeKey }: { rangeKey: RangeKey }) {
       exportFileName="product-sales"
       fetchAllRows={() =>
         collectAllPages((page, pageSize) =>
-          utils.reports.productSales.fetch({ ...filters, page, pageSize }),
+          utils.reports.productSales.fetch({ ...filters, page, pageSize })
         )
       }
       emptyMessage="No products have been sold in this period."

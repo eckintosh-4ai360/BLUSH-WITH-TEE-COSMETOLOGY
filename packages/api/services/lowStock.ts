@@ -1,6 +1,12 @@
 import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { ENV } from "@blush/env";
-import { inventoryItems, people, suppliers, systemSettings, users } from "@blush/db/schema";
+import {
+  inventoryItems,
+  people,
+  suppliers,
+  systemSettings,
+  users,
+} from "@blush/db/schema";
 import { isStorageConfigured, storagePut } from "@blush/storage";
 import type { Database, DbExecutor } from "../dbOrThrow";
 import { recordAudit, type AuditActor } from "./audit";
@@ -21,7 +27,7 @@ const NAMED_IN_MESSAGE = 3;
 
 export type LowStockRow = {
   id: number;
-  sku: string;
+  sku: string | null;
   name: string;
   category: string;
   supplier: string | null;
@@ -47,7 +53,10 @@ export type LowStockAlertResult = {
 };
 
 // Everything currently at or below its reorder level.
-export async function lowStockItems(db: DbExecutor, limit = 500): Promise<LowStockRow[]> {
+export async function lowStockItems(
+  db: DbExecutor,
+  limit = 500
+): Promise<LowStockRow[]> {
   const rows = await db
     .select({
       id: inventoryItems.id,
@@ -65,8 +74,8 @@ export async function lowStockItems(db: DbExecutor, limit = 500): Promise<LowSto
       and(
         eq(inventoryItems.isActive, true),
         isNull(inventoryItems.deletedAt),
-        sql`${inventoryItems.quantityOnHand} <= ${inventoryItems.reorderLevel}`,
-      ),
+        sql`${inventoryItems.quantityOnHand} <= ${inventoryItems.reorderLevel}`
+      )
     )
     // Emptiest shelves first, ties broken by name so two reports run minutes apart list.
     .orderBy(asc(inventoryItems.quantityOnHand), asc(inventoryItems.name))
@@ -87,8 +96,11 @@ export async function lowStockItems(db: DbExecutor, limit = 500): Promise<LowSto
 }
 
 // "Relaxer (out of stock, reorder at 5)" - one item, as a person would say it.
-export function describeItem(row: Pick<LowStockRow, "name" | "quantityOnHand" | "reorderLevel">) {
-  const left = row.quantityOnHand === 0 ? "out of stock" : `${row.quantityOnHand} left`;
+export function describeItem(
+  row: Pick<LowStockRow, "name" | "quantityOnHand" | "reorderLevel">
+) {
+  const left =
+    row.quantityOnHand === 0 ? "out of stock" : `${row.quantityOnHand} left`;
   return `${row.name} (${left}, reorder at ${row.reorderLevel})`;
 }
 
@@ -107,23 +119,31 @@ async function readAlertState(db: DbExecutor): Promise<AlertState> {
 
   const stored = (row?.value ?? {}) as Partial<AlertState>;
   return {
-    lastSentAt: typeof stored.lastSentAt === "string" ? stored.lastSentAt : null,
+    lastSentAt:
+      typeof stored.lastSentAt === "string" ? stored.lastSentAt : null,
     itemIds: Array.isArray(stored.itemIds)
       ? stored.itemIds.filter((id): id is number => Number.isInteger(id))
       : [],
   };
 }
 
-async function writeAlertState(db: DbExecutor, state: AlertState): Promise<void> {
+async function writeAlertState(
+  db: DbExecutor,
+  state: AlertState
+): Promise<void> {
   await db
     .insert(systemSettings)
     .values({
       key: ALERT_STATE_KEY,
       category: "inventory",
       value: state as never,
-      description: "Which items administrators have already been alerted about, and when.",
+      description:
+        "Which items administrators have already been alerted about, and when.",
     })
-    .onConflictDoUpdate({ target: systemSettings.key, set: { value: state as never } });
+    .onConflictDoUpdate({
+      target: systemSettings.key,
+      set: { value: state as never },
+    });
 }
 
 // Decides whether a crossing is worth a message.
@@ -131,22 +151,31 @@ export function shouldAlert(
   state: AlertState,
   currentIds: number[],
   now: Date,
-  force = false,
+  force = false
 ): { send: boolean; newlyLow: number[]; reason?: string } {
   // Only items that are still low count as reported.
   const current = new Set(currentIds);
   const alreadyTold = new Set(state.itemIds.filter(id => current.has(id)));
   const newlyLow = currentIds.filter(id => !alreadyTold.has(id));
 
-  if (!currentIds.length) return { send: false, newlyLow, reason: "Nothing is low." };
+  if (!currentIds.length)
+    return { send: false, newlyLow, reason: "Nothing is low." };
   if (force) return { send: true, newlyLow };
   if (!newlyLow.length) {
-    return { send: false, newlyLow, reason: "Everything low has already been reported." };
+    return {
+      send: false,
+      newlyLow,
+      reason: "Everything low has already been reported.",
+    };
   }
 
   const last = state.lastSentAt ? Date.parse(state.lastSentAt) : Number.NaN;
   if (Number.isFinite(last) && now.getTime() - last < QUIET_PERIOD_MS) {
-    return { send: false, newlyLow, reason: "An alert went out within the last half hour." };
+    return {
+      send: false,
+      newlyLow,
+      reason: "An alert went out within the last half hour.",
+    };
   }
 
   return { send: true, newlyLow };
@@ -173,7 +202,9 @@ async function alertRecipients(db: DbExecutor): Promise<Recipient[]> {
     })
     .from(users)
     .leftJoin(people, eq(users.personId, people.id))
-    .where(and(inArray(users.role, ["admin", "staff"]), eq(users.isActive, true)));
+    .where(
+      and(inArray(users.role, ["admin", "staff"]), eq(users.isActive, true))
+    );
 
   return rows.map(row => ({
     userId: row.userId,
@@ -187,7 +218,7 @@ async function alertRecipients(db: DbExecutor): Promise<Recipient[]> {
 // Publishes the report and returns the link the email carries.
 async function publishReport(
   rows: LowStockRow[],
-  meta: { schoolName: string; requestedBy?: string | null },
+  meta: { schoolName: string; requestedBy?: string | null }
 ): Promise<{ url: string; key: string } | null> {
   if (!isStorageConfigured()) return null;
 
@@ -199,7 +230,11 @@ async function publishReport(
     });
 
     const stamp = new Date().toISOString().slice(0, 10);
-    const stored = await storagePut(`reports/low-stock-${stamp}.pdf`, pdf, "application/pdf");
+    const stored = await storagePut(
+      `reports/low-stock-${stamp}.pdf`,
+      pdf,
+      "application/pdf"
+    );
     return { url: absoluteAdminUrl(stored.url), key: stored.key };
   } catch {
     // Swallowed deliberately.
@@ -210,7 +245,7 @@ async function publishReport(
 // Raises the alert.
 export async function alertLowStock(
   db: Database,
-  options: { force?: boolean; actor?: AuditActor } = {},
+  options: { force?: boolean; actor?: AuditActor } = {}
 ): Promise<LowStockAlertResult> {
   const rows = await lowStockItems(db);
   const currentIds = rows.map(row => row.id);
@@ -256,7 +291,10 @@ export async function alertLowStock(
   const facts = {
     school,
     count: rows.length,
-    items: remainder > 0 ? `${listed}\n- and ${remainder} more in the report` : listed,
+    items:
+      remainder > 0
+        ? `${listed}\n- and ${remainder} more in the report`
+        : listed,
     topItem: rows[0] ? describeItem(rows[0]) : "",
     // The report itself.
     url: reportUrl,
@@ -286,11 +324,14 @@ export async function alertLowStock(
           entityType: "inventory",
           link: "/inventory?filter=low",
         },
-        config,
+        config
       );
     }
 
-    await writeAlertState(tx, { lastSentAt: now.toISOString(), itemIds: currentIds });
+    await writeAlertState(tx, {
+      lastSentAt: now.toISOString(),
+      itemIds: currentIds,
+    });
 
     if (options.actor) {
       await recordAudit(tx, options.actor, {
@@ -319,6 +360,9 @@ export async function alertLowStock(
 }
 
 // The same thing, for a caller that has just finished a sale.
-export function alertLowStockInBackground(db: Database, actor?: AuditActor): void {
+export function alertLowStockInBackground(
+  db: Database,
+  actor?: AuditActor
+): void {
   void alertLowStock(db, { actor }).catch(() => {});
 }

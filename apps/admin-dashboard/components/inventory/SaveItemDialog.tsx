@@ -32,7 +32,7 @@ const NONE = "none";
 
 export type SaveableItem = {
   id: number;
-  sku: string;
+  sku: string | null;
   name: string;
   description: string | null;
   category: string;
@@ -90,14 +90,16 @@ export function SaveItemDialog({
     setError(null);
   }, [open, editing]);
 
-  const categories = trpc.inventory.categories.useQuery(undefined, { enabled: open });
+  const categories = trpc.inventory.categories.useQuery(undefined, {
+    enabled: open,
+  });
 
   // Suppliers sit behind their own permission.
   const canReadSuppliers = can("suppliers.read");
   const canWriteSuppliers = can("suppliers.write");
   const suppliers = trpc.inventory.suppliers.useQuery(
     { page: 1, pageSize: 100 },
-    { enabled: open && canReadSuppliers },
+    { enabled: open && canReadSuppliers }
   );
 
   const save = trpc.inventory.saveItem.useMutation({
@@ -117,10 +119,12 @@ export function SaveItemDialog({
     categories.data?.find(row => String(row.id) === categoryId)?.name ?? "";
 
   const validation = useMemo(() => {
-    if (sku.trim().length < 2) return "Give the item a SKU.";
+    if (sku.trim() && sku.trim().length < 2)
+      return "SKU must be at least 2 characters when supplied.";
     if (name.trim().length < 2) return "Give the item a name.";
     if (categoryId === NONE) return "Choose a category.";
-    if (!Number.isFinite(parsedCost) || parsedCost < 0) return "Unit cost cannot be negative.";
+    if (!Number.isFinite(parsedCost) || parsedCost < 0)
+      return "Unit cost cannot be negative.";
     if (!Number.isFinite(parsedPrice) || parsedPrice < 0) {
       return "Selling price cannot be negative.";
     }
@@ -154,20 +158,20 @@ export function SaveItemDialog({
         <DialogHeader>
           <DialogTitle>{editing ? "Edit item" : "New item"}</DialogTitle>
           <DialogDescription>
-            One shared pool: the same stock serves the storefront, the classroom and the
-            salon.
+            One shared pool: the same stock serves the storefront, the classroom
+            and the salon.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-[1fr_2fr]">
             <div className="space-y-2">
-              <Label htmlFor="item-sku">SKU</Label>
+              <Label htmlFor="item-sku">SKU (optional)</Label>
               <Input
                 id="item-sku"
                 value={sku}
                 onChange={event => setSku(event.target.value)}
-                placeholder="BWT-SERUM-01"
+                placeholder="Leave blank if not needed"
                 autoComplete="off"
               />
             </div>
@@ -221,7 +225,9 @@ export function SaveItemDialog({
                     ))
                   ) : (
                     <p className="px-2 py-1.5 text-sm text-muted-foreground">
-                      {categories.isLoading ? "Loading..." : "No categories yet - add one."}
+                      {categories.isLoading
+                        ? "Loading..."
+                        : "No categories yet - add one."}
                     </p>
                   )}
                 </SelectContent>
@@ -313,7 +319,8 @@ export function SaveItemDialog({
                   {editing.quantityOnHand}
                 </span>
                 <span className="ml-2 text-xs text-muted-foreground">
-                  Changed through a stock movement, so the ledger explains every unit.
+                  Changed through a stock movement, so the ledger explains every
+                  unit.
                 </span>
               </div>
             ) : (
@@ -325,7 +332,8 @@ export function SaveItemDialog({
                   onChange={event => setOpeningQuantity(event.target.value)}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Booked as an opening-balance movement, not written straight to the count.
+                  Booked as an opening-balance movement, not written straight to
+                  the count.
                 </p>
               </>
             )}
@@ -334,7 +342,9 @@ export function SaveItemDialog({
           <div className="space-y-3 rounded-xl bg-muted/50 p-3">
             <label className="flex items-center justify-between gap-4 text-sm">
               <span>
-                <span className="block font-medium text-foreground">Sold online</span>
+                <span className="block font-medium text-foreground">
+                  Sold online
+                </span>
                 <span className="text-xs text-muted-foreground">
                   Appears in the storefront catalogue.
                 </span>
@@ -344,9 +354,12 @@ export function SaveItemDialog({
 
             <label className="flex items-center justify-between gap-4 text-sm">
               <span>
-                <span className="block font-medium text-foreground">Active</span>
+                <span className="block font-medium text-foreground">
+                  Active
+                </span>
                 <span className="text-xs text-muted-foreground">
-                  Turn off to retire an item without losing its movement history.
+                  Turn off to retire an item without losing its movement
+                  history.
                 </span>
               </span>
               <Switch checked={isActive} onCheckedChange={setIsActive} />
@@ -377,13 +390,14 @@ export function SaveItemDialog({
               }
               save.mutate({
                 id: editing?.id,
-                sku: sku.trim(),
+                sku: sku.trim() || null,
                 name: name.trim(),
                 description: description.trim() || undefined,
                 // The legacy free-text column is kept in step with the chosen category so older rows.
                 category: chosenCategoryName || "other",
                 categoryId: Number(categoryId),
-                supplierId: supplierId === NONE ? undefined : Number(supplierId),
+                supplierId:
+                  supplierId === NONE ? undefined : Number(supplierId),
                 reorderLevel: parsedReorder,
                 unitCost: parsedCost,
                 sellingPrice: parsedPrice,
@@ -394,7 +408,9 @@ export function SaveItemDialog({
             }}
             className="gap-2"
           >
-            {save.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            {save.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : null}
             {editing ? "Save changes" : "Create item"}
           </Button>
         </DialogFooter>
@@ -405,7 +421,9 @@ export function SaveItemDialog({
           onOpenChange={setCategoryDialogOpen}
           onCreated={category => {
             // Selected only once the list holds it, otherwise the trigger falls back to its placeholder.
-            void categories.refetch().then(() => setCategoryId(String(category.id)));
+            void categories
+              .refetch()
+              .then(() => setCategoryId(String(category.id)));
           }}
         />
 

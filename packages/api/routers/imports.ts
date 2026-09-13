@@ -81,10 +81,16 @@ type ValidStudent = {
 function parseDate(value: string): Date | null {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (!match) return null;
-  const [, year, month, day] = match.map(Number) as [number, number, number, number];
+  const [, year, month, day] = match.map(Number) as [
+    number,
+    number,
+    number,
+    number,
+  ];
   const date = new Date(Date.UTC(year, month - 1, day));
   // Rejects 2026-02-31, which Date would roll forward into March.
-  if (date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null;
+  if (date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day)
+    return null;
   return date;
 }
 
@@ -94,7 +100,7 @@ export const importsRouter = router({
       z.object({
         rows: z.array(importRow).min(1).max(MAX_IMPORT_ROWS),
         ...importOptions,
-      }),
+      })
     )
     .mutation(async ({ input, ctx }) => {
       const db = await dbOrThrow();
@@ -129,21 +135,26 @@ export const importsRouter = router({
         if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
           return fail("That is not a valid email address.");
         }
-        if (row.phone.length < 7) return fail("A phone number of at least 7 characters is required.");
+        if (row.phone.length < 7)
+          return fail("A phone number of at least 7 characters is required.");
 
         if (seenEmails.has(email)) {
           return fail("The same email appears earlier in this file.");
         }
 
         const status = (row.status || "active").toLowerCase();
-        if (!STUDENT_STATUS.includes(status as (typeof STUDENT_STATUS)[number])) {
+        if (
+          !STUDENT_STATUS.includes(status as (typeof STUDENT_STATUS)[number])
+        ) {
           return fail(`Status must be one of: ${STUDENT_STATUS.join(", ")}.`);
         }
 
         const studentNumber = row.studentNumber || null;
         if (studentNumber) {
           if (seenNumbers.has(studentNumber)) {
-            return fail("The same student number appears earlier in this file.");
+            return fail(
+              "The same student number appears earlier in this file."
+            );
           }
           seenNumbers.add(studentNumber);
         }
@@ -151,7 +162,8 @@ export const importsRouter = router({
         let birthDate: Date | null = null;
         if (row.birthDate) {
           birthDate = parseDate(row.birthDate);
-          if (!birthDate) return fail("Date of birth must be written as YYYY-MM-DD.");
+          if (!birthDate)
+            return fail("Date of birth must be written as YYYY-MM-DD.");
         }
 
         seenEmails.add(email);
@@ -172,7 +184,9 @@ export const importsRouter = router({
 
       // Looked up in two queries rather than one per row.
       const emails = valid.map(row => row.email);
-      const numbers = valid.map(row => row.studentNumber).filter((n): n is string => Boolean(n));
+      const numbers = valid
+        .map(row => row.studentNumber)
+        .filter((n): n is string => Boolean(n));
 
       const [existingByEmail, existingByNumber] = await Promise.all([
         emails.length
@@ -198,7 +212,9 @@ export const importsRouter = router({
           idByEmail.set(row.email.toLowerCase(), row.id);
         }
       }
-      const idByNumber = new Map(existingByNumber.map(row => [row.studentNumber, row.id]));
+      const idByNumber = new Map(
+        existingByNumber.map(row => [row.studentNumber, row.id])
+      );
 
       const toCreate: ValidStudent[] = [];
       const toUpdate: Array<{ row: ValidStudent; id: number }> = [];
@@ -207,7 +223,9 @@ export const importsRouter = router({
         const existingId = idByEmail.get(row.email);
 
         // A student number already used by somebody else is a collision, not a duplicate: importing.
-        const numberOwner = row.studentNumber ? idByNumber.get(row.studentNumber) : undefined;
+        const numberOwner = row.studentNumber
+          ? idByNumber.get(row.studentNumber)
+          : undefined;
         if (numberOwner !== undefined && numberOwner !== existingId) {
           outcomes.push({
             line: row.line,
@@ -283,7 +301,9 @@ export const importsRouter = router({
               fullName: row.fullName,
               phone: row.phone,
               status: row.status,
-              ...(row.studentNumber ? { studentNumber: row.studentNumber } : {}),
+              ...(row.studentNumber
+                ? { studentNumber: row.studentNumber }
+                : {}),
             })
             .where(eq(studentProfiles.id, id));
         }
@@ -306,7 +326,7 @@ export const importsRouter = router({
       z.object({
         rows: z.array(importRow).min(1).max(MAX_IMPORT_ROWS),
         ...importOptions,
-      }),
+      })
     )
     .mutation(async ({ input, ctx }) => {
       const db = await dbOrThrow();
@@ -314,7 +334,7 @@ export const importsRouter = router({
       const outcomes: RowOutcome[] = [];
       const valid: Array<{
         line: number;
-        sku: string;
+        sku: string | null;
         name: string;
         category: string;
         unitCost: number;
@@ -360,15 +380,18 @@ export const importsRouter = router({
         const fail = (message: string) =>
           outcomes.push({ line, label, action: "error", message });
 
-        if (row.sku.length < 2) return fail("A SKU is required.");
+        if (row.sku && row.sku.length < 2)
+          return fail("SKU must be at least 2 characters when supplied.");
         if (row.name.length < 2) return fail("A name is required.");
         if (row.category.length < 2) return fail("A category is required.");
 
-        const sku = row.sku;
-        if (seenSkus.has(sku)) return fail("The same SKU appears earlier in this file.");
+        const sku = row.sku || null;
+        if (sku && seenSkus.has(sku))
+          return fail("The same SKU appears earlier in this file.");
 
         const unitCost = parseMoney(row.unitCost);
-        if (unitCost === null || unitCost < 0) return fail("Unit cost must be a number, 0 or more.");
+        if (unitCost === null || unitCost < 0)
+          return fail("Unit cost must be a number, 0 or more.");
 
         const sellingPrice = parseMoney(row.sellingPrice);
         if (sellingPrice === null || sellingPrice < 0) {
@@ -386,11 +409,14 @@ export const importsRouter = router({
         }
 
         const sellableRaw = row.isSellable.toLowerCase();
-        if (sellableRaw && !["yes", "no", "true", "false", "y", "n"].includes(sellableRaw)) {
+        if (
+          sellableRaw &&
+          !["yes", "no", "true", "false", "y", "n"].includes(sellableRaw)
+        ) {
           return fail("Sold online must be yes or no.");
         }
 
-        seenSkus.add(sku);
+        if (sku) seenSkus.add(sku);
         valid.push({
           line,
           sku,
@@ -400,14 +426,18 @@ export const importsRouter = router({
           sellingPrice,
           quantityOnHand,
           reorderLevel,
-          isSellable: sellableRaw ? ["yes", "true", "y"].includes(sellableRaw) : true,
+          isSellable: sellableRaw
+            ? ["yes", "true", "y"].includes(sellableRaw)
+            : true,
           supplier: row.supplier || null,
           description: row.description || null,
         });
       });
 
-      const skus = valid.map(row => row.sku);
-      const supplierNames = [...new Set(valid.map(row => row.supplier).filter(Boolean))] as string[];
+      const skus = valid.flatMap(row => (row.sku ? [row.sku] : []));
+      const supplierNames = [
+        ...new Set(valid.map(row => row.supplier).filter(Boolean)),
+      ] as string[];
 
       const [existingItems, categoryRows, supplierRows] = await Promise.all([
         skus.length
@@ -416,7 +446,9 @@ export const importsRouter = router({
               .from(inventoryItems)
               .where(inArray(inventoryItems.sku, skus))
           : [],
-        db.select({ id: productCategories.id, name: productCategories.name }).from(productCategories),
+        db
+          .select({ id: productCategories.id, name: productCategories.name })
+          .from(productCategories),
         supplierNames.length
           ? db
               .select({ id: suppliers.id, name: suppliers.name })
@@ -425,25 +457,32 @@ export const importsRouter = router({
           : [],
       ]);
 
-      const idBySku = new Map(existingItems.map(row => [row.sku, row.id]));
-      const categoryByName = new Map(
-        categoryRows.map(row => [row.name.toLowerCase(), row.id]),
+      const idBySku = new Map(
+        existingItems.flatMap(row =>
+          row.sku ? [[row.sku, row.id] as const] : []
+        )
       );
-      const supplierByName = new Map(supplierRows.map(row => [row.name.toLowerCase(), row.id]));
+      const categoryByName = new Map(
+        categoryRows.map(row => [row.name.toLowerCase(), row.id])
+      );
+      const supplierByName = new Map(
+        supplierRows.map(row => [row.name.toLowerCase(), row.id])
+      );
 
       const newCategories = new Set<string>();
       const toCreate: typeof valid = [];
       const toUpdate: Array<{ row: (typeof valid)[number]; id: number }> = [];
 
       for (const row of valid) {
-        if (!categoryByName.has(row.category.toLowerCase())) newCategories.add(row.category);
+        if (!categoryByName.has(row.category.toLowerCase()))
+          newCategories.add(row.category);
 
         const unknownSupplier =
           row.supplier && !supplierByName.has(row.supplier.toLowerCase())
             ? ` Supplier "${row.supplier}" was not found and will be left unlinked.`
             : "";
 
-        const existingId = idBySku.get(row.sku);
+        const existingId = row.sku ? idBySku.get(row.sku) : undefined;
 
         if (existingId !== undefined) {
           if (input.onDuplicate === "skip") {

@@ -108,7 +108,8 @@ export const ROLE_DEFINITIONS: Record<
   },
   administrator: {
     name: "Administrator",
-    description: "Students, applications, courses, attendance and general reports.",
+    description:
+      "Students, applications, courses, attendance and general reports.",
     permissions: [
       "admissions.read",
       "admissions.write",
@@ -133,6 +134,7 @@ export const ROLE_DEFINITIONS: Record<
       "cms.write",
       "reports.read",
       "notifications.read",
+      "staff.write",
       "customers.read",
       "orders.read",
       "products.read",
@@ -142,7 +144,8 @@ export const ROLE_DEFINITIONS: Record<
   },
   instructor: {
     name: "Instructor",
-    description: "Assigned classes and students, attendance, results and academic information.",
+    description:
+      "Assigned classes and students, attendance, results and academic information.",
     permissions: [
       ...READ_ONLY_ACADEMIC,
       "appointments.read",
@@ -274,7 +277,9 @@ export const ROLE_KEYS = Object.keys(ROLE_DEFINITIONS) as RoleKey[];
 export function permissionsForRole(role: RoleKey): PermissionKey[] {
   const definition = ROLE_DEFINITIONS[role];
   if (!definition) return [];
-  return definition.permissions === "*" ? [...PERMISSION_KEYS] : definition.permissions;
+  return definition.permissions === "*"
+    ? [...PERMISSION_KEYS]
+    : definition.permissions;
 }
 
 // Combines all unique permissions granted across multiple roles.

@@ -685,7 +685,7 @@ export default function AdminOverviewPage() {
                 key={item.id}
                 href={`/inventory?item=${item.id}`}
                 primary={item.name}
-                secondary={`${item.sku} - reorder at ${item.reorderLevel}`}
+                secondary={`${item.sku ?? "No SKU"} - reorder at ${item.reorderLevel}`}
                 badge={`${item.quantityOnHand} left`}
                 tone={item.quantityOnHand === 0 ? "critical" : "warning"}
               />

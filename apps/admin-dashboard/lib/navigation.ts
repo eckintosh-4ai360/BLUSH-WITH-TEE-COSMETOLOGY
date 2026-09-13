@@ -212,6 +212,12 @@ export const NAV_SECTIONS: NavSection[] = [
         permissions: ["staff.read"],
       },
       {
+        label: "Workers",
+        path: "/staff/workers",
+        icon: Users,
+        permissions: ["staff.read"],
+      },
+      {
         label: "Access",
         path: "/staff/roles",
         icon: ShieldCheck,
