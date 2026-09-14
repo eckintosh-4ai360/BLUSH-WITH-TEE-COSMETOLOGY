@@ -51,75 +51,6 @@ function OrderStatusTracker({ status }: { status: string }) {
   );
 }
 
-const STATIC_PRODUCTS = [
-  {
-    id: 1,
-    sku: "BWT-SERUM-01",
-    name: "Lumina Renewal Serum",
-    category: "Skin & Hair Care",
-    description:
-      "A lightweight botanical renewal serum infused with argan and rosehip oils for radiant shine, deep hydration, and smooth finish.",
-    sellingPrice: 68.0,
-    quantityOnHand: 32,
-    imageUrl: "/products/lumina-serum.jpg",
-  },
-  {
-    id: 2,
-    sku: "BWT-KIT-01",
-    name: "Student Artistry Essentials Kit",
-    category: "Tools & Kits",
-    description:
-      "Professional cosmetology starter kit containing precision shears, sectioning clips, tail combs, makeup brushes, and a luxury case.",
-    sellingPrice: 210.0,
-    quantityOnHand: 22,
-    imageUrl: "/products/student-essentials-kit.jpg",
-  },
-  {
-    id: 3,
-    sku: "BWT-SHMP-01",
-    name: "Hydrating Botanical Shampoo & Mask Duo",
-    category: "Hair Care",
-    description:
-      "Sulfate-free moisture-rich cleanser and restorative hair mask formulated with shea butter and keratin for revitalized curls and waves.",
-    sellingPrice: 85.0,
-    quantityOnHand: 45,
-    imageUrl: "/products/hydrating-shampoo-mask.jpg",
-  },
-  {
-    id: 4,
-    sku: "BWT-GEL-01",
-    name: "Sculpting Builder Gel & UV Kit",
-    category: "Nail Care",
-    description:
-      "Pro-grade builder gel kit with base, builder gel, top coat, dual-form tips, and fine detailer nail brush for salon-grade manicures.",
-    sellingPrice: 120.0,
-    quantityOnHand: 18,
-    imageUrl: "/products/builder-gel-kit.jpg",
-  },
-  {
-    id: 5,
-    sku: "BWT-CLNS-01",
-    name: "Gentle Radiance Facial Cleanser",
-    category: "Skin Care",
-    description:
-      "pH-balanced gentle foaming cleanser with chamomile, niacinamide, and rosewater that purifies while preserving the skin moisture barrier.",
-    sellingPrice: 48.0,
-    quantityOnHand: 28,
-    imageUrl: "/products/facial-cleanser.jpg",
-  },
-  {
-    id: 6,
-    sku: "BWT-BRUSH-01",
-    name: "Master Precision Makeup Brush Set",
-    category: "Tools & Kits",
-    description:
-      "12-piece ultra-soft synthetic vegan makeup brush set with ergonomic handles and a chic travel cylinder case.",
-    sellingPrice: 140.0,
-    quantityOnHand: 15,
-    imageUrl: "/products/makeup-brush-set.jpg",
-  },
-];
-
 export default function StorePage() {
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   useEffect(() => {
@@ -130,7 +61,7 @@ export default function StorePage() {
     orderNumber: string;
     email: string;
   } | null>(null);
-  const { data: rawProducts = [], isLoading } = trpc.store.products.useQuery();
+  const { data: products = [], isLoading, isError } = trpc.store.products.useQuery();
   const { data: cart } = trpc.store.cart.useQuery(
     { sessionToken: sessionToken ?? "" },
     { enabled: Boolean(sessionToken) }
@@ -183,20 +114,6 @@ export default function StorePage() {
   }
 
   const items = cart?.items ?? [];
-  const products =
-    rawProducts.length > 0
-      ? rawProducts.map(p => ({
-          ...p,
-          imageUrl:
-            p.imageUrl ||
-            STATIC_PRODUCTS.find(
-              sp =>
-                sp.sku === p.sku ||
-                sp.name.toLowerCase() === p.name.toLowerCase()
-            )?.imageUrl ||
-            null,
-        }))
-      : STATIC_PRODUCTS;
 
   return (
     <PublicShell>
@@ -287,6 +204,14 @@ export default function StorePage() {
                       </div>
                     </article>
                   ))}
+              {/* Only real catalogue items are shown: Add to Bag sends the database id. */}
+              {!isLoading && products.length === 0 ? (
+                <p className="col-span-full rounded-3xl border border-[#8f0d6b]/15 bg-white/90 p-8 text-center text-sm leading-6 text-[#692156]">
+                  {isError
+                    ? "The store could not be loaded just now. Please refresh the page to try again."
+                    : "No products are on sale at the moment. Please check back soon."}
+                </p>
+              ) : null}
             </div>
           </section>
 
