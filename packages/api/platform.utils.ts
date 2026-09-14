@@ -53,6 +53,17 @@ export function buildSequentialNumber(prefix: string, sequence: number, width = 
   return `${prefix}-${new Date().getFullYear()}-${String(sequence).padStart(width, "0")}`;
 }
 
+// What an applicant quotes to show an application is theirs. Phones are compared on their
+// last nine digits, so 059 770 6250 and +233 59 770 6250 are the same number.
+export function parseApplicantContact(
+  value: string,
+): { email: string } | { phoneDigits: string } | null {
+  const trimmed = value.trim();
+  if (trimmed.includes("@")) return { email: trimmed.toLowerCase() };
+  const digits = trimmed.replace(/\D/g, "");
+  return digits.length >= 7 ? { phoneDigits: digits.slice(-9) } : null;
+}
+
 export function safeFileName(fileName: string) {
   return (
     fileName

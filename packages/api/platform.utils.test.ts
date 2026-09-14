@@ -7,6 +7,7 @@ import {
   canUsePortal,
   checkoutStockDeductions,
   inventoryBalanceAfter,
+  parseApplicantContact,
   safeFileName,
   slugify,
   validateDocumentUpload,
@@ -37,6 +38,26 @@ describe("portal access", () => {
     expect(canUsePortal("admin", "student")).toBe(true);
     expect(canUsePortal("admin", "staff")).toBe(true);
     expect(canUsePortal("admin", "admin")).toBe(true);
+  });
+});
+
+describe("applicant contact", () => {
+  it("compares emails without regard to case or surrounding space", () => {
+    expect(parseApplicantContact("  Jessica@Example.com ")).toEqual({ email: "jessica@example.com" });
+  });
+
+  it("treats local and international forms of one phone as the same number", () => {
+    const local = parseApplicantContact("059 770 6250");
+    expect(local).toEqual({ phoneDigits: "597706250" });
+    expect(parseApplicantContact("+233 59 770 6250")).toEqual(local);
+    expect(parseApplicantContact("0597-706-250")).toEqual(local);
+  });
+
+  it("refuses anything too short to identify an applicant", () => {
+    expect(parseApplicantContact("")).toBeNull();
+    expect(parseApplicantContact("   ")).toBeNull();
+    expect(parseApplicantContact("12345")).toBeNull();
+    expect(parseApplicantContact("not a phone")).toBeNull();
   });
 });
 

@@ -1,4 +1,4 @@
-import { and, eq, or, sql } from "drizzle-orm";
+import { and, eq, sql, type SQL } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { applicationDocuments, applications, courses } from "@blush/db/schema";
@@ -7,6 +7,7 @@ import { dbOrThrow } from "../dbOrThrow";
 import {
   MAX_UPLOAD_BASE64_LENGTH,
   buildReference,
+  parseApplicantContact,
   safeFileName,
   validateDocumentUpload,
 } from "../platform.utils";
@@ -18,6 +19,18 @@ import { router, throttledPublicProcedure } from "../trpc";
 const submitLimit = throttledPublicProcedure({ bucket: "admissions.submit", limit: 5, windowMs: 60 * 60_000 });
 const uploadLimit = throttledPublicProcedure({ bucket: "admissions.upload", limit: 20, windowMs: 60 * 60_000 });
 const lookupLimit = throttledPublicProcedure({ bucket: "admissions.lookup", limit: 30, windowMs: 10 * 60_000 });
+
+// The email or phone the application was filed with.
+const applicantContact = z.string().trim().min(3).max(320);
+
+// References are printed on forms and sent by text, so a reference alone never opens an
+// application. Always a real condition: and() silently drops an undefined one.
+function filedWith(contact: string): SQL {
+  const parsed = parseApplicantContact(contact);
+  if (!parsed) return sql`false`;
+  if ("email" in parsed) return sql`lower(${applications.email}) = ${parsed.email}`;
+  return sql`right(regexp_replace(${applications.phone}, '[^0-9]', '', 'g'), ${parsed.phoneDigits.length}) = ${parsed.phoneDigits}`;
+}
 
 const applicationInput = z.object({
   fullName: z.string().trim().min(2).max(160),
@@ -123,17 +136,16 @@ export const admissionsRouter = router({
   }),
   uploadDocument: uploadLimit.input(z.object({
     reference: z.string().min(6).max(32),
-    email: z.string().email().optional().or(z.literal("")),
+    contact: applicantContact,
     documentType: z.enum(["transcript", "government_id", "passport_photo", "certificate", "other"]),
     fileName: z.string().min(1).max(255),
     mimeType: z.string().min(3).max(120),
     base64Data: z.string().min(8).max(MAX_UPLOAD_BASE64_LENGTH),
   })).mutation(async ({ input, ctx }) => {
     const db = await dbOrThrow();
-    const email = input.email && input.email.trim().length > 0 ? input.email.trim().toLowerCase() : null;
     const [application] = await db.select().from(applications).where(and(
       eq(applications.reference, input.reference),
-      email ? eq(applications.email, email) : undefined,
+      filedWith(input.contact),
     )).limit(1);
     if (!application) throw new TRPCError({ code: "NOT_FOUND", message: "Application could not be verified." });
 
@@ -158,9 +170,8 @@ export const admissionsRouter = router({
     return { documentId: inserted[0]?.id, url: stored.url };
   }),
   // An applicant checking on their own application.
-  lookup: lookupLimit.input(z.object({ reference: z.string().min(6), email: z.string().optional().or(z.literal("")) })).query(async ({ input }) => {
+  lookup: lookupLimit.input(z.object({ reference: z.string().min(6), contact: applicantContact })).query(async ({ input }) => {
     const db = await dbOrThrow();
-    const query = input.email && input.email.trim().length > 0 ? input.email.trim().toLowerCase() : null;
     const rows = await db.select({
       reference: applications.reference,
       status: applications.status,
@@ -202,9 +213,9 @@ export const admissionsRouter = router({
       statement: applications.statement,
     }).from(applications).innerJoin(courses, eq(applications.courseId, courses.id)).where(and(
       eq(applications.reference, input.reference),
-      query ? or(eq(applications.email, query), eq(applications.phone, input.email!.trim())) : undefined,
+      filedWith(input.contact),
     )).limit(1);
-    if (!rows[0]) throw new TRPCError({ code: "NOT_FOUND", message: "No application matches that reference." });
+    if (!rows[0]) throw new TRPCError({ code: "NOT_FOUND", message: "No application matches that reference and contact." });
     return rows[0];
   }),
 });

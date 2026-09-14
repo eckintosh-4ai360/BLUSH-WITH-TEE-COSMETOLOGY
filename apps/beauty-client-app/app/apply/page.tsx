@@ -101,10 +101,10 @@ function ApplyFormContent() {
   const submit = trpc.admissions.submit.useMutation();
   const upload = trpc.admissions.uploadDocument.useMutation();
 
-  const [lookupInput, setLookupInput] = useState<{ reference: string; email?: string } | null>(null);
+  const [lookupInput, setLookupInput] = useState<{ reference: string; contact: string } | null>(null);
   const [lookupError, setLookupError] = useState("");
   const lookup = trpc.admissions.lookup.useQuery(
-    lookupInput ?? { reference: "APP-000000", email: "placeholder@example.com" },
+    lookupInput ?? { reference: "APP-000000", contact: "placeholder@example.com" },
     { enabled: Boolean(lookupInput) }
   );
 
@@ -212,11 +212,13 @@ function ApplyFormContent() {
         statement: statement.trim() || undefined,
       });
 
-      // Upload documents if provided
+      // Upload documents if provided. The server only attaches them when the
+      // contact matches the one the form was filed with.
+      const uploadContact = email.trim() || phone.trim();
       if (transcript) {
         await upload.mutateAsync({
           reference: result.reference,
-          email: email.trim() ? email.trim().toLowerCase() : undefined,
+          contact: uploadContact,
           documentType: "transcript",
           fileName: transcript.name,
           mimeType: transcript.type,
@@ -227,7 +229,7 @@ function ApplyFormContent() {
       if (governmentId) {
         await upload.mutateAsync({
           reference: result.reference,
-          email: email.trim() ? email.trim().toLowerCase() : undefined,
+          contact: uploadContact,
           documentType: "government_id",
           fileName: governmentId.name,
           mimeType: governmentId.type,
@@ -352,7 +354,7 @@ function ApplyFormContent() {
                   setLookupError("");
                   setLookupInput({
                     reference: String(form.get("reference")).trim().toUpperCase(),
-                    email: String(form.get("lookupEmail")).trim().toLowerCase(),
+                    contact: String(form.get("lookupContact")).trim(),
                   });
                 }}
               >
@@ -363,8 +365,9 @@ function ApplyFormContent() {
                   className="soft-input font-mono uppercase"
                 />
                 <input
-                  name="lookupEmail"
-                  placeholder="Applicant Email or Phone (Optional)"
+                  name="lookupContact"
+                  required
+                  placeholder="Email or phone number on your form"
                   className="soft-input"
                 />
                 <Button
