@@ -30,12 +30,15 @@ export function RecordOrderPaymentDialog({
   onOpenChange,
   orderId,
   amountDue,
+  stockAlreadyTaken,
   onRecorded,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   orderId: number;
   amountDue: number;
+  // Website orders take their stock at checkout, so paying them moves no stock.
+  stockAlreadyTaken: boolean;
   onRecorded: () => void;
 }) {
   const [amount, setAmount] = useState(amountDue.toFixed(2));
@@ -69,7 +72,9 @@ export function RecordOrderPaymentDialog({
         <DialogHeader>
           <DialogTitle>Record payment</DialogTitle>
           <DialogDescription>
-            Marking this order paid deducts the ordered stock and books the sale as revenue.
+            {stockAlreadyTaken
+              ? "Marking this order paid books the sale as revenue. Its stock already came off the shelf when the order was placed."
+              : "Marking this order paid deducts the ordered stock and books the sale as revenue."}
           </DialogDescription>
         </DialogHeader>
 

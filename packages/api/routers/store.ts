@@ -397,6 +397,9 @@ export const storeRouter = router({
             total: total.toFixed(2),
             paymentStatus: "pending",
             fulfillmentStatus: "new",
+            // The stock is taken below in this same transaction. Without the mark, recording
+            // payment takes it a second time and cancelling never puts it back.
+            stockDeductedAt: new Date(),
           })
           .returning({ id: storeOrders.id });
         if (!order?.id)

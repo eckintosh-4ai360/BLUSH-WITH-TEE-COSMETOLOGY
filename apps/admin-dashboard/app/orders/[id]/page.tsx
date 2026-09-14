@@ -361,8 +361,11 @@ function OrderDetail({ orderId }: { orderId: number }) {
         onOpenChange={setPayOpen}
         orderId={orderId}
         amountDue={order.total}
+        stockAlreadyTaken={Boolean(order.stockDeductedAt)}
         onRecorded={() => {
-          toast.success("Payment recorded. Stock has been deducted.");
+          toast.success(
+            order.stockDeductedAt ? "Payment recorded." : "Payment recorded. Stock has been deducted.",
+          );
           query.refetch();
         }}
       />

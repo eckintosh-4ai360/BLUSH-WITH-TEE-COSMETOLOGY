@@ -133,8 +133,9 @@ and a timeline of everything that has happened.
 be confirmed and processed before it can be delivered — this is deliberate, and
 the buttons will not offer a shortcut.
 
-**Recording payment** deducts the ordered stock and books the sale as revenue.
-That is the moment inventory moves, and the dialog says so.
+**Recording payment** books the sale as revenue. An order placed on the website
+already took its stock off the shelf at checkout, so paying it moves no stock;
+any other order has its stock deducted at this point. The dialog says which.
 
 **Cancelling** returns any reserved stock to the shelf.
 
