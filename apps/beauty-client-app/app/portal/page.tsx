@@ -50,7 +50,7 @@ function StudentPortalContent() {
         <section className="rounded-3xl border border-[#8f0d6b]/15 bg-white/90 p-7 shadow-[0_12px_36px_rgba(143,13,107,.06)]">
           <h2 className="font-serif text-2xl font-bold text-[#8f0d6b]">Attendance Records</h2>
           <div className="mt-5 grid gap-3">
-            {data.attendance.map(({ attendance, courseTitle }) => (
+            {data.attendance.length ? data.attendance.map(({ attendance, courseTitle }) => (
               <div key={attendance.id} className="flex items-center justify-between rounded-2xl bg-[#fdf2f9] p-4 border border-[#8f0d6b]/10">
                 <div>
                   <p className="text-sm font-bold text-[#8f0d6b]">{courseTitle}</p>
@@ -58,14 +58,14 @@ function StudentPortalContent() {
                 </div>
                 <Badge className="bg-[#faeaf6] font-bold text-[#fe00b6] hover:bg-[#faeaf6]">{attendance.status}</Badge>
               </div>
-            )) || <p className="text-sm text-[#8f0d6b]">Attendance will appear as classes are recorded.</p>}
+            )) : <p className="text-sm text-[#8f0d6b]">Attendance will appear as classes are recorded.</p>}
           </div>
         </section>
 
         <section className="rounded-3xl border border-[#8f0d6b]/15 bg-white/90 p-7 shadow-[0_12px_36px_rgba(143,13,107,.06)]">
           <h2 className="font-serif text-2xl font-bold text-[#8f0d6b]">Assessment Results</h2>
           <div className="mt-5 grid gap-3">
-            {data.results.map(({ result, title, assessmentType, totalScore }) => (
+            {data.results.length ? data.results.map(({ result, title, assessmentType, totalScore }) => (
               <div key={result.id} className="flex items-center justify-between rounded-2xl bg-[#fdf2f9] p-4 border border-[#8f0d6b]/10">
                 <div>
                   <p className="text-sm font-bold text-[#8f0d6b]">{title}</p>
@@ -75,7 +75,7 @@ function StudentPortalContent() {
                   {Number(result.score)}/{totalScore} {result.grade ? `· ${result.grade}` : ""}
                 </p>
               </div>
-            )) || <p className="text-sm text-[#8f0d6b]">Results will appear when instructors submit them.</p>}
+            )) : <p className="text-sm text-[#8f0d6b]">Results will appear when instructors submit them.</p>}
           </div>
         </section>
       </div>
@@ -84,21 +84,21 @@ function StudentPortalContent() {
         <section className="rounded-3xl border border-[#8f0d6b]/15 bg-white/90 p-7 shadow-[0_12px_36px_rgba(143,13,107,.06)]">
           <h2 className="font-serif text-2xl font-bold text-[#8f0d6b]">Fees & Balances</h2>
           <div className="mt-5 grid gap-3">
-            {data.balances.map(balance => (
+            {data.balances.length ? data.balances.map(balance => (
               <div key={balance.id} className="rounded-2xl bg-[#fdf2f9] p-4 border border-[#8f0d6b]/10">
                 <p className="text-sm font-bold text-[#8f0d6b]">{balance.description}</p>
                 <p className="mt-1 text-xs font-semibold text-[#fe00b6]">
                   {balance.status.replaceAll("_", " ")} · GHS {Number(balance.amountDue).toFixed(2)}
                 </p>
               </div>
-            )) || <p className="text-sm text-[#8f0d6b]">No fee charges have been added.</p>}
+            )) : <p className="text-sm text-[#8f0d6b]">No fee charges have been added.</p>}
           </div>
         </section>
 
         <section className="rounded-3xl border border-[#8f0d6b]/15 bg-white/90 p-7 shadow-[0_12px_36px_rgba(143,13,107,.06)]">
           <h2 className="font-serif text-2xl font-bold text-[#8f0d6b]">Payment History</h2>
           <div className="mt-5 grid gap-3">
-            {data.payments.map(payment => (
+            {data.payments.length ? data.payments.map(payment => (
               <div key={payment.id} className="rounded-2xl bg-[#fdf2f9] p-4 border border-[#8f0d6b]/10">
                 <p className="text-sm font-bold text-[#8f0d6b]">{payment.reference}</p>
                 <p className="mt-1 text-xs text-[#6a2557]">
@@ -106,21 +106,21 @@ function StudentPortalContent() {
                   {payment.amount.toFixed(2)}
                 </p>
               </div>
-            )) || <p className="text-sm text-[#8f0d6b]">Completed payments will appear here.</p>}
+            )) : <p className="text-sm text-[#8f0d6b]">Completed payments will appear here.</p>}
           </div>
         </section>
 
         <section className="rounded-3xl border border-[#8f0d6b]/15 bg-white/90 p-7 shadow-[0_12px_36px_rgba(143,13,107,.06)]">
           <h2 className="font-serif text-2xl font-bold text-[#8f0d6b]">Store Orders</h2>
           <div className="mt-5 grid gap-3">
-            {data.orders.map(order => (
+            {data.orders.length ? data.orders.map(order => (
               <div key={order.id} className="rounded-2xl bg-[#fdf2f9] p-4 border border-[#8f0d6b]/10">
                 <p className="text-sm font-bold text-[#8f0d6b]">{order.orderNumber}</p>
                 <p className="mt-1 text-xs text-[#6a2557]">
                   {order.fulfillmentStatus} · {order.paymentStatus} · GHS {order.total.toFixed(2)}
                 </p>
               </div>
-            )) || <p className="text-sm text-[#8f0d6b]">Your completed store orders will appear here.</p>}
+            )) : <p className="text-sm text-[#8f0d6b]">Your completed store orders will appear here.</p>}
           </div>
         </section>
       </div>
