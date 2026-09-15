@@ -7,6 +7,7 @@ import { Button } from "@blush/ui/components/ui/button";
 import PublicShell from "@/components/PublicShell";
 import HeroCarousel, { type HeroSlide } from "@/components/HeroCarousel";
 import { HomeBanners, Testimonials, UpcomingEvents } from "@/components/home/ContentSections";
+import { Reveal, RevealGroup, RevealItem } from "@/components/motion";
 
 const heroStats = [
   { value: "12+", label: "Cosmetology Programs" },
@@ -95,22 +96,29 @@ export default function Home() {
 
           <div className="container grid items-center gap-14 pb-24 pt-24 lg:grid-cols-[1.08fr_.92fr] lg:pb-32 lg:pt-32">
             <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-[#fe00b6]/35 bg-white/10 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.24em] text-[#ffb8ed] backdrop-blur-md shadow-[0_0_20px_rgba(254,0,182,0.25)]">
-                <Sparkles className="h-3.5 w-3.5 text-[#fe00b6]" /> BWT School of Cosmetology
-              </div>
+              <Reveal delay={0} y={16}>
+                <div className="inline-flex items-center gap-2 rounded-full border border-[#fe00b6]/35 bg-white/10 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.24em] text-[#ffb8ed] backdrop-blur-md shadow-[0_0_20px_rgba(254,0,182,0.25)]">
+                  <Sparkles className="h-3.5 w-3.5 text-[#fe00b6]" /> BWT School of Cosmetology
+                </div>
+              </Reveal>
 
-              <h1 className="mt-8 text-5xl font-bold leading-[1.02] tracking-[-0.03em] sm:text-6xl lg:text-7xl">
-                Master the Art of Beauty. <br />
-                <span className="bg-gradient-to-r from-[#ffffff] via-[#ff94e4] to-[#fe00b6] bg-clip-text text-transparent drop-shadow-[0_4px_12px_rgba(254,0,182,0.3)]">
-                  Shape Your Future.
-                </span>
-              </h1>
+              <Reveal delay={0.08} y={22}>
+                <h1 className="mt-8 text-5xl font-bold leading-[1.02] tracking-[-0.03em] sm:text-6xl lg:text-7xl">
+                  Master the Art of Beauty. <br />
+                  <span className="bg-gradient-to-r from-[#ffffff] via-[#ff94e4] to-[#fe00b6] bg-clip-text text-transparent drop-shadow-[0_4px_12px_rgba(254,0,182,0.3)]">
+                    Shape Your Future.
+                  </span>
+                </h1>
+              </Reveal>
 
-              <p className="mt-7 max-w-lg text-base leading-8 text-white/80 sm:text-lg">
-                Ghana&apos;s premier cosmetology academy empowering aspiring beauty artists with hands-on training, industry certifications, and entrepreneurial excellence.
-              </p>
+              <Reveal delay={0.16}>
+                <p className="mt-7 max-w-lg text-base leading-8 text-white/80 sm:text-lg">
+                  Ghana&apos;s premier cosmetology academy empowering aspiring beauty artists with hands-on training, industry certifications, and entrepreneurial excellence.
+                </p>
+              </Reveal>
 
-              <div className="mt-10 flex flex-wrap items-center gap-4">
+              <Reveal delay={0.24}>
+                <div className="mt-10 flex flex-wrap items-center gap-4">
                 <Link href="/apply">
                   <Button
                     size="lg"
@@ -129,20 +137,23 @@ export default function Home() {
                   </Button>
                 </Link>
               </div>
+              </Reveal>
 
-              <div className="hero-rule mt-12 h-px w-full max-w-lg" />
+              <Reveal delay={0.32}>
+                <div className="hero-rule mt-12 h-px w-full max-w-lg" />
 
-              <dl className="mt-8 grid max-w-lg grid-cols-3 gap-6">
-                {heroStats.map(stat => (
-                  <div key={stat.label}>
-                    <dt className="text-3xl font-extrabold tracking-tight text-white">{stat.value}</dt>
-                    <dd className="mt-1.5 text-[11px] font-semibold uppercase tracking-[.14em] text-[#ffc2ee]">{stat.label}</dd>
-                  </div>
-                ))}
-              </dl>
+                <dl className="mt-8 grid max-w-lg grid-cols-3 gap-6">
+                  {heroStats.map(stat => (
+                    <div key={stat.label}>
+                      <dt className="text-3xl font-extrabold tracking-tight text-white">{stat.value}</dt>
+                      <dd className="mt-1.5 text-[11px] font-semibold uppercase tracking-[.14em] text-[#ffc2ee]">{stat.label}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </Reveal>
             </div>
 
-            <div className="relative mx-auto w-full max-w-md lg:max-w-lg">
+            <Reveal delay={0.2} y={30} className="relative mx-auto w-full max-w-md lg:max-w-lg">
               <HeroCarousel slides={heroSlides} />
 
               <div className="mt-4 grid grid-cols-2 gap-3">
@@ -155,7 +166,7 @@ export default function Home() {
                   <span className="text-xs font-medium leading-snug text-white/90">Studio-Led Practice</span>
                 </div>
               </div>
-            </div>
+            </Reveal>
           </div>
         </section>
 
@@ -164,37 +175,41 @@ export default function Home() {
         {/* Philosophy / Approach */}
         <section className="container py-24">
           <div className="grid gap-12 lg:grid-cols-[.8fr_1.2fr]">
-            <div>
+            <Reveal>
               <p className="eyebrow">The BWT Academy Experience</p>
               <h2 className="mt-5 font-serif text-4xl font-bold leading-tight text-[#8f0d6b] sm:text-5xl">
                 Where passion meets precision and craft.
               </h2>
-            </div>
-            <p className="max-w-2xl self-end text-lg leading-8 text-[#5c1c4b]">
-              At BWT School of Cosmetology, we blend technical mastery, creative innovation, and professional client etiquette. You will graduate with the portfolio, confidence, and skill set to excel in the competitive global beauty market.
-            </p>
+            </Reveal>
+            <Reveal delay={0.12}>
+              <p className="max-w-2xl self-end text-lg leading-8 text-[#5c1c4b]">
+                At BWT School of Cosmetology, we blend technical mastery, creative innovation, and professional client etiquette. You will graduate with the portfolio, confidence, and skill set to excel in the competitive global beauty market.
+              </p>
+            </Reveal>
           </div>
 
-          <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <RevealGroup className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {pathways.map(path => (
-              <article
-                key={path.number}
-                className="group relative rounded-3xl border border-[#8f0d6b]/15 bg-white/80 p-8 shadow-[0_12px_36px_rgba(143,13,107,.07)] transition-all duration-300 hover:-translate-y-1.5 hover:border-[#fe00b6]/40 hover:shadow-[0_20px_45px_rgba(254,0,182,.14)]"
-              >
-                <span className="inline-block rounded-full bg-[#faeaf6] px-3.5 py-1 text-xs font-bold tracking-[.18em] text-[#8f0d6b] group-hover:bg-[#fe00b6] group-hover:text-white transition-colors">
-                  {path.number}
-                </span>
-                <h3 className="mt-8 font-serif text-2xl font-bold text-[#8f0d6b]">{path.title}</h3>
-                <p className="mt-4 text-sm leading-7 text-[#6a2557]">{path.text}</p>
-              </article>
+              <RevealItem key={path.number}>
+                <article
+                  className="group relative rounded-3xl border border-[#8f0d6b]/15 bg-white/80 p-8 shadow-[0_12px_36px_rgba(143,13,107,.07)] transition-all duration-300 hover:-translate-y-1.5 hover:border-[#fe00b6]/40 hover:shadow-[0_20px_45px_rgba(254,0,182,.14)]"
+                >
+                  <span className="inline-block rounded-full bg-[#faeaf6] px-3.5 py-1 text-xs font-bold tracking-[.18em] text-[#8f0d6b] group-hover:bg-[#fe00b6] group-hover:text-white transition-colors">
+                    {path.number}
+                  </span>
+                  <h3 className="mt-8 font-serif text-2xl font-bold text-[#8f0d6b]">{path.title}</h3>
+                  <p className="mt-4 text-sm leading-7 text-[#6a2557]">{path.text}</p>
+                </article>
+              </RevealItem>
             ))}
-          </div>
+          </RevealGroup>
         </section>
 
         {/* Programme Discovery & Studio Banner */}
         <section className="relative overflow-hidden bg-gradient-to-r from-[#faeaf6] via-[#fdf2f9] to-[#ffffff] py-24">
           <div className="container grid gap-12 lg:grid-cols-[1fr_.85fr]">
-            <div className="rounded-[2.25rem] bg-gradient-to-br from-[#8f0d6b] to-[#4d0639] p-8 text-white shadow-xl sm:p-12">
+            <Reveal>
+              <div className="rounded-[2.25rem] bg-gradient-to-br from-[#8f0d6b] to-[#4d0639] p-8 text-white shadow-xl sm:p-12">
               <p className="text-[11px] font-bold uppercase tracking-[.22em] text-[#ffb8ed]">Discover Your Pathway</p>
               <h2 className="mt-5 max-w-lg font-serif text-4xl font-bold leading-tight sm:text-5xl text-white">
                 From beginner enthusiast to certified beauty master.
@@ -207,9 +222,11 @@ export default function Home() {
                   View All Programmes <ArrowRight className="ml-2 h-4 w-4 text-[#fe00b6]" />
                 </Button>
               </Link>
-            </div>
+              </div>
+            </Reveal>
 
-            <div className="flex flex-col justify-center">
+            <Reveal delay={0.12}>
+              <div className="flex flex-col justify-center">
               <p className="eyebrow">The Salon & The Store</p>
               <h3 className="mt-4 font-serif text-3xl font-bold text-[#8f0d6b]">
                 Beauty services and professional supplies.
@@ -233,7 +250,8 @@ export default function Home() {
                   </Button>
                 </Link>
               </div>
-            </div>
+              </div>
+            </Reveal>
           </div>
         </section>
 

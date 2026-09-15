@@ -19,7 +19,9 @@ import {
 } from "lucide-react";
 import { formatPhone, telHref, whatsappHref } from "@blush/shared/contact";
 import { Button } from "@blush/ui/components/ui/button";
+import { AnimatePresence, motion } from "framer-motion";
 import { AskAssistant } from "@/components/AskAssistant";
+import { EASE, Reveal } from "@/components/motion";
 import { useSchoolProfile } from "@/hooks/useSchoolProfile";
 import { trpc } from "@/lib/trpc";
 
@@ -43,7 +45,12 @@ export default function PublicShell({ children }: { children: React.ReactNode })
   return (
     <div className="min-h-screen overflow-x-clip bg-[#fdf8fc] text-[#2d0423]">
       <AnnouncementStrip />
-      <header className="sticky top-0 z-50 w-full border-b border-[#8f0d6b]/10 bg-white shadow-[0_4px_25px_rgba(143,13,107,0.06)]">
+      <motion.header
+        initial={{ y: -18, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.55, ease: EASE }}
+        className="sticky top-0 z-50 w-full border-b border-[#8f0d6b]/10 bg-white shadow-[0_4px_25px_rgba(143,13,107,0.06)]"
+      >
         <div className="container flex h-20 items-center justify-between gap-3 xl:gap-4">
           <Link href="/" className="group flex items-center gap-3">
             <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full border border-[#fe00b6]/40 bg-white p-0.5 shadow-[0_6px_18px_rgba(143,13,107,0.14)] transition-all duration-300 group-hover:scale-105">
@@ -115,8 +122,17 @@ export default function PublicShell({ children }: { children: React.ReactNode })
           </button>
         </div>
 
-        {menuOpen && (
-          <div className="border-t border-[#8f0d6b]/15 bg-white px-5 py-6 lg:hidden">
+        <AnimatePresence>
+          {menuOpen && (
+            <motion.div
+              key="mobile-menu"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.32, ease: EASE }}
+              className="overflow-hidden lg:hidden"
+            >
+              <div className="border-t border-[#8f0d6b]/15 bg-white px-5 py-6">
             <nav className="mx-auto flex max-w-xl flex-col gap-3" aria-label="Mobile navigation">
               {links.map(link => (
                 <Link
@@ -147,14 +163,22 @@ export default function PublicShell({ children }: { children: React.ReactNode })
                 </Link>
               </div>
             </nav>
-          </div>
-        )}
-      </header>
+            </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.header>
 
-      {children}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.45, ease: "easeOut" }}
+      >
+        {children}
+      </motion.div>
 
       <footer className="mt-24 border-t border-[#8f0d6b]/15 bg-gradient-to-b from-white to-[#fbf0f8]">
-        <div className="container grid gap-10 py-16 md:grid-cols-[1.2fr_.8fr_.8fr_1fr]">
+        <Reveal className="container grid gap-10 py-16 md:grid-cols-[1.2fr_.8fr_.8fr_1fr]">
           <div>
             <div className="flex items-center gap-3">
               <div className="relative h-9 w-9 overflow-hidden rounded-full border border-[#fe00b6]/40 bg-white p-0.5 shadow-sm">
@@ -235,14 +259,17 @@ export default function PublicShell({ children }: { children: React.ReactNode })
             </div>
             <SocialLinks social={school?.social} />
           </div>
-        </div>
+        </Reveal>
 
         <div className="border-t border-[#8f0d6b]/10 bg-white/60 py-6">
           <div className="container flex flex-col items-center justify-between gap-3 text-xs text-[#8f0d6b]/80 sm:flex-row">
-            <p>© {new Date().getFullYear()} Blush With Tee (BWT) School of Cosmetology. All rights reserved.</p>
+            <p>© {new Date().getFullYear()} Blush With Tee Artistry. All rights reserved.</p>
             <div className="flex items-center gap-4">
               <Link href="/terms" className="underline underline-offset-2 hover:text-[#fe00b6] transition-colors font-semibold">
                 Terms & Conditions
+              </Link>
+              <Link href="" className="underline underline-offset-2 hover:text-[#fe00b6] transition-colors font-semibold">
+                Designed by Eckintosh  
               </Link>
               <span className="text-[#8f0d6b]/30">·</span>
               <p className="flex items-center gap-1 font-medium">
