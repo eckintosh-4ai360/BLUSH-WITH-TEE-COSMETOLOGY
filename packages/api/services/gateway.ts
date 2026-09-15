@@ -158,6 +158,21 @@ export function getGateway(): PaymentGateway {
   return manualGateway;
 }
 
+// Whether a payment can be taken online here: a real provider ("live"), the development
+// stand-in that a test button confirms ("test"), or neither in a production without keys ("off").
+export function onlinePaymentMode(): "live" | "test" | "off" {
+  if (process.env.PAYSTACK_SECRET_KEY) return "live";
+  return ENV.isProduction ? "off" : "test";
+}
+
+// Where the provider sends the payer back to. Built here from the site's own address, never
+// taken from the browser, so a crafted request cannot turn the checkout into a redirect.
+export function callbackUrlFor(request: Request, path: string): string {
+  const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  const origin = configured ? new URL(configured).origin : new URL(request.url).origin;
+  return new URL(path, origin).toString();
+}
+
 // Development-only.
 export function confirmManualPayment(providerReference: string, amountMinor: number) {
   if (ENV.isProduction) {

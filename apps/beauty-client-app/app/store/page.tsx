@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { Minus, Plus, ShoppingBag, X, Sparkles } from "lucide-react";
 import { Button } from "@blush/ui/components/ui/button";
 import PublicShell from "@/components/PublicShell";
+import { OrderPayment } from "@/components/store/OrderPayment";
 import { trpc } from "@/lib/trpc";
 
 function createSessionToken() {
@@ -89,22 +90,35 @@ export default function StorePage() {
     },
   });
   const [notice, setNotice] = useState("");
+  // The order just placed, so the page can say how to pay for it.
+  const [placed, setPlaced] = useState<{
+    orderNumber: string;
+    email: string;
+    total: number;
+  } | null>(null);
 
   async function submitCheckout(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
+    const customerEmail = String(form.get("customerEmail"));
     try {
       const result = await checkout.mutateAsync({
         sessionToken: sessionToken ?? "",
         customerName: String(form.get("customerName")),
-        customerEmail: String(form.get("customerEmail")),
+        customerEmail,
         customerPhone: String(form.get("customerPhone")),
         deliveryAddress: String(form.get("deliveryAddress") || "") || undefined,
       });
+      setPlaced({
+        orderNumber: result.orderNumber,
+        email: customerEmail.trim().toLowerCase(),
+        total: result.total,
+      });
       setNotice(
-        `Order ${result.orderNumber} placed successfully. Our team will verify and prepare your beauty supplies.`
+        `Order ${result.orderNumber} placed. Keep your order number: you can track the order below with it and your email.`
       );
     } catch (error) {
+      setPlaced(null);
       setNotice(
         error instanceof Error
           ? error.message
@@ -135,6 +149,16 @@ export default function StorePage() {
                 {notice}
               </p>
             )}
+
+            {placed ? (
+              <div className="mt-4 max-w-xl">
+                <OrderPayment
+                  orderNumber={placed.orderNumber}
+                  email={placed.email}
+                  total={placed.total}
+                />
+              </div>
+            ) : null}
 
             <div className="mt-12 grid gap-6 sm:grid-cols-2">
               {isLoading
@@ -411,6 +435,19 @@ export default function StorePage() {
                 />
               </div>
             )}
+            {orderLookup.data &&
+            lookupInput &&
+            orderLookup.data.paymentStatus === "pending" &&
+            orderLookup.data.fulfillmentStatus !== "cancelled" ? (
+              <div className="mt-3">
+                <OrderPayment
+                  orderNumber={orderLookup.data.orderNumber}
+                  email={lookupInput.email}
+                  total={orderLookup.data.total}
+                  onPaid={() => void orderLookup.refetch()}
+                />
+              </div>
+            ) : null}
             {orderLookup.error && (
               <p className="mt-3 text-xs font-semibold text-[#e01a4f]">
                 {orderLookup.error.message}

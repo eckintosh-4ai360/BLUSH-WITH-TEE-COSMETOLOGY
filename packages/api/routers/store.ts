@@ -7,17 +7,27 @@ import {
   inventoryItems,
   orderAddresses,
   orderItems,
+  paymentIntents,
   storeOrders,
 } from "@blush/db/schema";
-import { dbOrThrow } from "../dbOrThrow";
+import { ENV } from "@blush/env";
+import { dbOrThrow, type Database } from "../dbOrThrow";
 import {
   buildReference,
   calculateOrderTotal,
   money,
 } from "../platform.utils";
+import { captureVerifiedPayment } from "../services/capture";
+import {
+  callbackUrlFor,
+  confirmManualPayment,
+  getGateway,
+  onlinePaymentMode,
+} from "../services/gateway";
 import { alertLowStockInBackground } from "../services/lowStock";
+import { toAmountString, toMinor } from "../services/money";
 import { bestEffort } from "../services/notify";
-import { alertStaffToOrder } from "../services/orderAlerts";
+import { alertStaffToOrder, messageCustomerAboutOrder } from "../services/orderAlerts";
 import { ensureCustomer, resolvePerson } from "../services/people";
 import { applyStockMovement } from "../services/stock";
 import { storageGet } from "@blush/storage";
@@ -26,6 +36,9 @@ import { publicProcedure, router, throttledPublicProcedure } from "../trpc";
 // Order number plus email is a guessable pair worth brute-forcing.
 const lookupLimit = throttledPublicProcedure({ bucket: "store.lookupOrder", limit: 30, windowMs: 10 * 60_000 });
 const checkoutLimit = throttledPublicProcedure({ bucket: "store.checkout", limit: 15, windowMs: 60 * 60_000 });
+// Opening a charge talks to the provider, and confirming one asks it again.
+const payLimit = throttledPublicProcedure({ bucket: "store.payOrder", limit: 20, windowMs: 60 * 60_000 });
+const confirmLimit = throttledPublicProcedure({ bucket: "store.confirmPayment", limit: 30, windowMs: 10 * 60_000 });
 
 const LOCAL_PRODUCT_IMAGES_BY_SKU = new Map<string, string>([
   ["BWT-SERUM-01", "/products/lumina-serum.jpg"],
@@ -473,6 +486,7 @@ export const storeRouter = router({
 
       // After the commit, so a message can only ever describe an order that exists.
       await bestEffort("web order alert", () => alertStaffToOrder(db, placed.orderId));
+      await bestEffort("order confirmation", () => messageCustomerAboutOrder(db, placed.orderId));
 
       return {
         orderNumber: placed.orderNumber,
@@ -480,4 +494,164 @@ export const storeRouter = router({
         paymentStatus: placed.paymentStatus,
       };
     }),
+
+  // Whether this site can take a card or mobile-money payment online right now.
+  paymentOptions: publicProcedure.query(() => ({ online: onlinePaymentMode() })),
+
+  // Opens an online payment for a web order. The order number and the email it was placed with
+  // stand in for a sign-in, exactly as they do for tracking it.
+  payOrder: payLimit
+    .input(
+      z.object({
+        orderNumber: z.string().trim().min(6).max(40),
+        email: z.string().trim().email().max(320),
+        // A retried click reuses the intent it opened instead of starting a second charge.
+        idempotencyKey: z.string().min(8).max(96),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+      const [order] = await db
+        .select()
+        .from(storeOrders)
+        .where(
+          and(
+            eq(storeOrders.orderNumber, input.orderNumber.toUpperCase()),
+            eq(storeOrders.customerEmail, input.email.toLowerCase())
+          )
+        )
+        .limit(1);
+      if (!order)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "No order matches that reference and email.",
+        });
+      if (order.paymentStatus === "paid")
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "This order has already been paid.",
+        });
+      if (order.paymentStatus !== "pending" || order.fulfillmentStatus === "cancelled")
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "This order can no longer be paid online. Please contact the school.",
+        });
+
+      const [existing] = await db
+        .select()
+        .from(paymentIntents)
+        .where(eq(paymentIntents.idempotencyKey, input.idempotencyKey))
+        .limit(1);
+      if (existing) {
+        if (existing.storeOrderId !== order.id)
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "That payment belongs to another order.",
+          });
+        return {
+          reference: existing.reference,
+          checkoutUrl: null,
+          provider: existing.provider,
+          reused: true,
+        };
+      }
+
+      const gateway = getGateway();
+      const amountMinor = toMinor(order.total);
+      const reference = buildReference("PI");
+
+      const [intent] = await db
+        .insert(paymentIntents)
+        .values({
+          reference,
+          purpose: "store_order",
+          storeOrderId: order.id,
+          initiatedByUserId: ctx.user?.id ?? null,
+          provider: gateway.name,
+          idempotencyKey: input.idempotencyKey,
+          amount: toAmountString(amountMinor),
+          currency: "GHS",
+          status: "initiated",
+        })
+        .returning({ id: paymentIntents.id });
+
+      const opened = await gateway.initiate({
+        reference,
+        amountMinor,
+        currency: "GHS",
+        email: order.customerEmail,
+        callbackUrl: callbackUrlFor(ctx.req, "/store/payment"),
+      });
+
+      await db
+        .update(paymentIntents)
+        .set({ providerReference: opened.providerReference, status: "pending" })
+        .where(eq(paymentIntents.id, intent!.id));
+
+      return {
+        reference,
+        checkoutUrl: opened.checkoutUrl,
+        provider: gateway.name,
+        reused: false,
+      };
+    }),
+
+  // Where the payer lands back from the provider. The server asks the provider what happened
+  // before anything is recorded, so calling this with a reference cannot mark an order paid.
+  confirmPayment: confirmLimit
+    .input(z.object({ reference: z.string().trim().min(6).max(64) }))
+    .mutation(async ({ input }) => {
+      const db = await dbOrThrow();
+      const intent = await storeIntent(db, input.reference);
+
+      const result = await captureVerifiedPayment(db, {
+        intentReference: intent.reference,
+        actor: null,
+      });
+
+      const [order] = await db
+        .select({ orderNumber: storeOrders.orderNumber })
+        .from(storeOrders)
+        .where(eq(storeOrders.id, intent.storeOrderId))
+        .limit(1);
+
+      return {
+        status: result.status,
+        paymentReference: result.paymentReference,
+        amount: result.amount,
+        orderNumber: order?.orderNumber ?? null,
+      };
+    }),
+
+  // Development only: stands in for the provider confirming a store payment.
+  simulatePayment: confirmLimit
+    .input(z.object({ reference: z.string().trim().min(6).max(64) }))
+    .mutation(async ({ input }) => {
+      if (ENV.isProduction || onlinePaymentMode() !== "test") {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Simulated payments are only available in test mode.",
+        });
+      }
+      const db = await dbOrThrow();
+      const intent = await storeIntent(db, input.reference);
+      if (!intent.providerReference)
+        throw new TRPCError({ code: "NOT_FOUND", message: "That payment could not be found." });
+
+      confirmManualPayment(intent.providerReference, toMinor(intent.amount));
+      return { success: true };
+    }),
 });
+
+// A store-order payment intent by reference, or not found: student fee intents are not
+// reachable from these public procedures.
+async function storeIntent(db: Database, reference: string) {
+  const [intent] = await db
+    .select()
+    .from(paymentIntents)
+    .where(eq(paymentIntents.reference, reference))
+    .limit(1);
+  if (!intent || intent.purpose !== "store_order" || !intent.storeOrderId)
+    throw new TRPCError({ code: "NOT_FOUND", message: "That payment could not be found." });
+  return { ...intent, storeOrderId: intent.storeOrderId };
+}

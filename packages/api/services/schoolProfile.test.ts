@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { paymentInstructions } from "./orderAlerts";
 import { toPublicSchoolProfile } from "./schoolProfile";
 
 describe("toPublicSchoolProfile", () => {
@@ -40,5 +41,19 @@ describe("toPublicSchoolProfile", () => {
     expect(profile.name).toBe("Blush With Tee");
     expect(profile.phone).toBeNull();
     expect(profile.address).toBeNull();
+  });
+});
+
+describe("paymentInstructions", () => {
+  it("offers online payment only when it is available", () => {
+    expect(paymentInstructions({ online: true, phone: "0545563536" })).toMatch(/pay online/i);
+    expect(paymentInstructions({ online: false, phone: "0545563536" })).not.toMatch(/online/i);
+  });
+
+  it("always says how to pay at the school, with a number to call when there is one", () => {
+    const text = paymentInstructions({ online: false, phone: "0545563536" });
+    expect(text).toMatch(/cash or mobile money/);
+    expect(text).toMatch(/0545563536/);
+    expect(paymentInstructions({ online: false, phone: null })).not.toMatch(/call/i);
   });
 });
