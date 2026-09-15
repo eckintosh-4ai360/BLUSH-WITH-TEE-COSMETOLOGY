@@ -114,6 +114,11 @@ function WebsiteContent() {
     onError: error => toast.error(error.message),
   });
 
+  const deleteTestimonial = trpc.cms.deleteTestimonial.useMutation({
+    onSuccess: saved("Testimonial deleted.", testimonials.refetch),
+    onError: error => toast.error(error.message),
+  });
+
   return (
     <div className="mx-auto max-w-[1100px] space-y-6 pb-10">
       <header className="flex flex-wrap items-end justify-between gap-4 border-b border-border/60 pb-5">
@@ -302,6 +307,15 @@ function WebsiteContent() {
                 ]}
                 detail={`“${row.quote}”`}
                 onEdit={() => setTestimonialEdit(row)}
+                onDelete={() => {
+                  if (
+                    window.confirm(
+                      `Delete the testimonial from ${row.authorName}? It will be removed from the website.`,
+                    )
+                  ) {
+                    deleteTestimonial.mutate({ id: row.id });
+                  }
+                }}
                 onChanged={() => void testimonials.refetch()}
               />
             ))}

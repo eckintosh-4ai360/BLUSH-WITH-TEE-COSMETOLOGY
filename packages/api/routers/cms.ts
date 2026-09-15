@@ -475,6 +475,27 @@ export const cmsRouter = router({
       return { id: input.id };
     }),
 
+  deleteTestimonial: permissionProcedure("cms.write")
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+      const [removed] = await db
+        .delete(testimonials)
+        .where(eq(testimonials.id, input.id))
+        .returning({ id: testimonials.id, authorName: testimonials.authorName });
+      if (!removed) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "That testimonial could not be found." });
+      }
+      await recordAudit(db, ctx.actor, {
+        action: "delete",
+        entity: "testimonial",
+        entityId: input.id,
+        entityLabel: removed.authorName,
+        summary: `${ctx.actor.name ?? "Staff"} deleted a testimonial from ${removed.authorName}`,
+      });
+      return { id: input.id };
+    }),
+
   // Publishes, unpublishes or archives one entry without reopening its form.
   setStatus: permissionProcedure("cms.write")
     .input(
