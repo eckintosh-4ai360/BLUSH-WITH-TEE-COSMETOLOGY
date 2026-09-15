@@ -11,3 +11,4 @@ export * from "./finance";
 export * from "./staff";
 export * from "./operations";
 export * from "./cms";
+export * from "./enquiries";

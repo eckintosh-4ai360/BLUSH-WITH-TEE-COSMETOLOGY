@@ -5,9 +5,11 @@ import {
   clinicServices,
   courseModules,
   courses,
+  enquiries,
   events,
   faqs,
   galleryItems,
+  intakes,
   systemSettings,
   testimonials,
 } from "@blush/db/schema";
@@ -15,7 +17,9 @@ import { storageGet } from "@blush/storage";
 import { dbOrThrow } from "../dbOrThrow";
 import { safeHref } from "../platform.utils";
 import { readSchoolProfile } from "../services/schoolProfile";
-import { publicProcedure, router } from "../trpc";
+import { readMessagingConfig } from "../services/messaging/config";
+import { sendEmail } from "../services/messaging/email";
+import { publicProcedure, router, throttledPublicProcedure } from "../trpc";
 
 async function imageUrl(key: string | null | undefined): Promise<string | null> {
   return key ? (await storageGet(key)).url : null;
@@ -173,6 +177,67 @@ export const contentRouter = router({
       .from(clinicServices)
       .where(and(eq(clinicServices.isActive, true), eq(clinicServices.isBookable, true)));
   }),
+  // Open intakes, soonest start first, so the apply form offers the school's real
+  // start dates instead of a free date picker.
+  intakes: publicProcedure.query(async () => {
+    const db = await dbOrThrow();
+    return db
+      .select({
+        id: intakes.id,
+        courseId: intakes.courseId,
+        title: intakes.title,
+        startDate: intakes.startDate,
+        applicationDeadline: intakes.applicationDeadline,
+      })
+      .from(intakes)
+      .where(eq(intakes.status, "open"))
+      .orderBy(asc(intakes.startDate));
+  }),
+  // The contact page enquiry form. The message is stored and also emailed to the
+  // school's published inbox; a missing SMTP setup never loses the enquiry.
+  sendEnquiry: throttledPublicProcedure({ bucket: "content.enquiry", limit: 5, windowMs: 60 * 60_000 })
+    .input(
+      z.object({
+        name: z.string().trim().min(2).max(160),
+        email: z.string().trim().email().max(320),
+        phone: z.string().trim().max(40).optional().or(z.literal("")),
+        subject: z.string().trim().max(180).optional().or(z.literal("")),
+        message: z.string().trim().min(5).max(3000),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      const db = await dbOrThrow();
+      await db.insert(enquiries).values({
+        name: input.name,
+        email: input.email.toLowerCase(),
+        phone: input.phone?.trim() || null,
+        subject: input.subject?.trim() || null,
+        message: input.message,
+      });
+
+      const profile = await readSchoolProfile(db);
+      const config = await readMessagingConfig(db);
+      let emailed = false;
+      if (profile.email) {
+        const body = [
+          `Name: ${input.name}`,
+          `Email: ${input.email}`,
+          input.phone?.trim() ? `Phone: ${input.phone.trim()}` : null,
+          "",
+          input.message,
+        ]
+          .filter(line => line !== null)
+          .join("\n");
+        const result = await sendEmail(
+          config.email,
+          profile.email,
+          input.subject?.trim() || `Website enquiry from ${input.name}`,
+          body,
+        );
+        emailed = result.ok;
+      }
+      return { received: true, emailed };
+    }),
   // The contact details and social links the school keeps in Settings, for the site's header,
   // footer, contact page and printed forms.
   schoolProfile: publicProcedure.query(async () => {
