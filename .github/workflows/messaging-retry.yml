@@ -1,0 +1,38 @@
+# Retries texts and emails that did not send, by calling the dashboard's flush route.
+#
+# Only needed when the dashboard runs on a serverless host such as Vercel. A normal Node server
+# retries on its own (see MESSAGING_RETRY_INTERVAL_MINUTES in apps/admin-dashboard/.env.example).
+#
+# To switch it on, add two repository secrets under Settings → Secrets and variables → Actions:
+#   ADMIN_URL              the dashboard's address, for example https://admin.example.com
+#   MESSAGING_CRON_SECRET  the same value as the dashboard's MESSAGING_CRON_SECRET
+# Until both are set, every run finishes straight away without calling anything.
+#
+# GitHub runs scheduled workflows on a best-effort basis, so a run can start a few minutes late.
+
+name: Retry unsent messages
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  flush:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call the flush route
+        env:
+          ADMIN_URL: ${{ secrets.ADMIN_URL }}
+          MESSAGING_CRON_SECRET: ${{ secrets.MESSAGING_CRON_SECRET }}
+        run: |
+          if [ -z "$ADMIN_URL" ] || [ -z "$MESSAGING_CRON_SECRET" ]; then
+            echo "ADMIN_URL or MESSAGING_CRON_SECRET is not set; nothing to do."
+            exit 0
+          fi
+          curl --fail-with-body --silent --show-error --max-time 120 \
+            --header "Authorization: Bearer $MESSAGING_CRON_SECRET" \
+            "${ADMIN_URL%/}/api/messaging/flush"

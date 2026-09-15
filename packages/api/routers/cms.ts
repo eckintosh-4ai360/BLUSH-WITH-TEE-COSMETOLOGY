@@ -1,7 +1,18 @@
-import { asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, ne } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { banners, enquiries, events, faqs, galleryItems, testimonials } from "@blush/db/schema";
+import {
+  banners,
+  blogCategories,
+  blogPosts,
+  enquiries,
+  events,
+  faqs,
+  galleryItems,
+  pages,
+  testimonials,
+  users,
+} from "@blush/db/schema";
 import { storageGet, storagePut } from "@blush/storage";
 import { dbOrThrow } from "../dbOrThrow";
 import {
@@ -44,7 +55,23 @@ const KINDS = {
   gallery: galleryItems,
   testimonial: testimonials,
   faq: faqs,
+  page: pages,
+  blogPost: blogPosts,
 } as const;
+
+// A web address slug: lower-case words joined by hyphens.
+const slugInput = z
+  .string()
+  .trim()
+  .max(120)
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Use lower-case letters, numbers and hyphens, for example fees-and-funding.")
+  .optional()
+  .or(z.literal(""));
+
+// Today's date in Ghana, which keeps GMT all year.
+function today(): Date {
+  return new Date(`${new Date().toISOString().slice(0, 10)}T00:00:00Z`);
+}
 
 // The proxy path an image is served from, public for keys under media/gallery and media/site.
 async function imageUrl(key: string | null | undefined): Promise<string | null> {
@@ -95,6 +122,199 @@ export const cmsRouter = router({
     const db = await dbOrThrow();
     return db.select().from(faqs).orderBy(asc(faqs.sortOrder), asc(faqs.id));
   }),
+
+  // Standalone website pages, such as a scholarships or refund policy page.
+  pages: permissionProcedure("cms.read").query(async () => {
+    const db = await dbOrThrow();
+    const rows = await db
+      .select({ page: pages, updatedByName: users.name })
+      .from(pages)
+      .leftJoin(users, eq(pages.updatedByUserId, users.id))
+      .orderBy(desc(pages.updatedAt));
+    return Promise.all(
+      rows.map(async row => ({
+        ...row.page,
+        updatedByName: row.updatedByName,
+        ogImageUrl: await imageUrl(row.page.ogImageKey),
+      })),
+    );
+  }),
+
+  savePage: permissionProcedure("cms.write")
+    .input(
+      z.object({
+        id: z.number().int().positive().optional(),
+        title: z.string().trim().min(2).max(180),
+        slug: slugInput,
+        content: z.string().max(50_000),
+        seoTitle: optionalText(180),
+        seoDescription: optionalText(320),
+        ogImageKey: imageKey,
+        status,
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+      const slug = input.slug || slugify(input.title).slice(0, 120);
+      await assertSlugFree(db, "page", slug, input.id);
+
+      const values = {
+        slug,
+        title: input.title,
+        content: input.content.trim() || null,
+        seoTitle: blank(input.seoTitle),
+        seoDescription: blank(input.seoDescription),
+        ogImageKey: input.ogImageKey ?? null,
+        status: input.status,
+        updatedByUserId: ctx.actor.id,
+      };
+      const id = await saveRow(db, pages, input.id, values);
+      await recordAudit(db, ctx.actor, {
+        action: input.id ? "update" : "create",
+        entity: "page",
+        entityId: id,
+        entityLabel: input.title,
+        newValue: { slug, status: input.status },
+        summary: `${ctx.actor.name ?? "Staff"} ${input.id ? "edited" : "added"} the "${input.title}" page (${input.status})`,
+      });
+      return { id, slug };
+    }),
+
+  blogCategories: permissionProcedure("cms.read").query(async () => {
+    const db = await dbOrThrow();
+    return db.select().from(blogCategories).orderBy(asc(blogCategories.name));
+  }),
+
+  saveBlogCategory: permissionProcedure("cms.write")
+    .input(
+      z.object({
+        id: z.number().int().positive().optional(),
+        name: z.string().trim().min(2).max(120),
+        description: optionalText(255),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+      const slug = slugify(input.name).slice(0, 120);
+      const [clash] = await db
+        .select({ id: blogCategories.id })
+        .from(blogCategories)
+        .where(
+          and(eq(blogCategories.slug, slug), input.id ? ne(blogCategories.id, input.id) : undefined),
+        )
+        .limit(1);
+      if (clash) {
+        throw new TRPCError({ code: "CONFLICT", message: "A blog category already has that name." });
+      }
+
+      const values = { slug, name: input.name, description: blank(input.description) };
+      let id = input.id;
+      if (id) {
+        const updated = await db
+          .update(blogCategories)
+          .set(values)
+          .where(eq(blogCategories.id, id))
+          .returning({ id: blogCategories.id });
+        if (!updated.length) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "That category could not be found." });
+        }
+      } else {
+        const [created] = await db
+          .insert(blogCategories)
+          .values(values)
+          .returning({ id: blogCategories.id });
+        id = created?.id;
+      }
+      if (!id) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "The category could not be saved." });
+      }
+      await recordAudit(db, ctx.actor, {
+        action: input.id ? "update" : "create",
+        entity: "blogCategory",
+        entityId: id,
+        entityLabel: input.name,
+        summary: `${ctx.actor.name ?? "Staff"} ${input.id ? "renamed" : "added"} the blog category "${input.name}"`,
+      });
+      return { id };
+    }),
+
+  blogPosts: permissionProcedure("cms.read").query(async () => {
+    const db = await dbOrThrow();
+    const rows = await db
+      .select({ post: blogPosts, categoryName: blogCategories.name })
+      .from(blogPosts)
+      .leftJoin(blogCategories, eq(blogPosts.categoryId, blogCategories.id))
+      .where(isNull(blogPosts.deletedAt))
+      .orderBy(desc(blogPosts.updatedAt));
+    return Promise.all(
+      rows.map(async row => ({
+        ...row.post,
+        categoryName: row.categoryName,
+        featuredImageUrl: await imageUrl(row.post.featuredImageKey),
+      })),
+    );
+  }),
+
+  saveBlogPost: permissionProcedure("cms.write")
+    .input(
+      z.object({
+        id: z.number().int().positive().optional(),
+        title: z.string().trim().min(2).max(200),
+        slug: slugInput,
+        excerpt: optionalText(400),
+        content: z.string().trim().min(1, "Write the post before saving it.").max(100_000),
+        featuredImageKey: imageKey,
+        authorName: optionalText(160),
+        categoryId: z.number().int().positive().nullable().optional(),
+        tags: optionalText(320),
+        seoTitle: optionalText(180),
+        seoDescription: optionalText(320),
+        // The date the post shows. Publishing without one uses today.
+        publishedAt: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/, "Use a date written as YYYY-MM-DD.")
+          .nullable()
+          .optional(),
+        status,
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+      const slug = input.slug || slugify(input.title).slice(0, 120);
+      await assertSlugFree(db, "blogPost", slug, input.id);
+
+      const publishedAt = input.publishedAt
+        ? new Date(`${input.publishedAt}T00:00:00Z`)
+        : input.status === "published"
+          ? today()
+          : null;
+      const values = {
+        slug,
+        title: input.title,
+        excerpt: blank(input.excerpt),
+        content: input.content,
+        featuredImageKey: input.featuredImageKey ?? null,
+        authorName: blank(input.authorName),
+        categoryId: input.categoryId ?? null,
+        tags: blank(input.tags),
+        seoTitle: blank(input.seoTitle),
+        seoDescription: blank(input.seoDescription),
+        publishedAt,
+        status: input.status,
+      };
+      const id = input.id
+        ? await saveRow(db, blogPosts, input.id, values)
+        : await saveRow(db, blogPosts, undefined, { ...values, authorUserId: ctx.actor.id });
+      await recordAudit(db, ctx.actor, {
+        action: input.id ? "update" : "create",
+        entity: "blogPost",
+        entityId: id,
+        entityLabel: input.title,
+        newValue: { slug, status: input.status, publishedAt },
+        summary: `${ctx.actor.name ?? "Staff"} ${input.id ? "edited" : "wrote"} the blog post "${input.title}" (${input.status})`,
+      });
+      return { id, slug };
+    }),
 
   // Messages sent from the public contact page, newest first.
   enquiries: permissionProcedure("cms.read").query(async () => {
@@ -390,11 +610,117 @@ export const cmsRouter = router({
       return { id };
     }),
 
+  deleteFaq: permissionProcedure("cms.write")
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+      const [removed] = await db
+        .delete(faqs)
+        .where(eq(faqs.id, input.id))
+        .returning({ id: faqs.id, question: faqs.question });
+      if (!removed) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "That question could not be found." });
+      }
+      await recordAudit(db, ctx.actor, {
+        action: "delete",
+        entity: "faq",
+        entityId: input.id,
+        entityLabel: removed.question.slice(0, 120),
+        summary: `${ctx.actor.name ?? "Staff"} deleted the FAQ "${removed.question.slice(0, 80)}"`,
+      });
+      return { id: input.id };
+    }),
+
+  deleteBanner: permissionProcedure("cms.write")
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+      const [removed] = await db
+        .delete(banners)
+        .where(eq(banners.id, input.id))
+        .returning({ id: banners.id, title: banners.title });
+      if (!removed) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "That banner could not be found." });
+      }
+      await recordAudit(db, ctx.actor, {
+        action: "delete",
+        entity: "banner",
+        entityId: input.id,
+        entityLabel: removed.title,
+        summary: `${ctx.actor.name ?? "Staff"} deleted the "${removed.title}" banner`,
+      });
+      return { id: input.id };
+    }),
+
+  deleteEvent: permissionProcedure("cms.write")
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+      const [removed] = await db
+        .delete(events)
+        .where(eq(events.id, input.id))
+        .returning({ id: events.id, title: events.title });
+      if (!removed) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "That event could not be found." });
+      }
+      await recordAudit(db, ctx.actor, {
+        action: "delete",
+        entity: "event",
+        entityId: input.id,
+        entityLabel: removed.title,
+        summary: `${ctx.actor.name ?? "Staff"} deleted the "${removed.title}" event`,
+      });
+      return { id: input.id };
+    }),
+
+  deleteGalleryItem: permissionProcedure("cms.write")
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+      const [removed] = await db
+        .delete(galleryItems)
+        .where(eq(galleryItems.id, input.id))
+        .returning({ id: galleryItems.id, title: galleryItems.title });
+      if (!removed) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "That gallery photo could not be found." });
+      }
+      const label = removed.title?.trim() || "a gallery photo";
+      await recordAudit(db, ctx.actor, {
+        action: "delete",
+        entity: "galleryItem",
+        entityId: input.id,
+        entityLabel: label,
+        summary: `${ctx.actor.name ?? "Staff"} deleted ${label}`,
+      });
+      return { id: input.id };
+    }),
+
+  deleteTestimonial: permissionProcedure("cms.write")
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+      const [removed] = await db
+        .delete(testimonials)
+        .where(eq(testimonials.id, input.id))
+        .returning({ id: testimonials.id, authorName: testimonials.authorName });
+      if (!removed) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "That testimonial could not be found." });
+      }
+      await recordAudit(db, ctx.actor, {
+        action: "delete",
+        entity: "testimonial",
+        entityId: input.id,
+        entityLabel: removed.authorName,
+        summary: `${ctx.actor.name ?? "Staff"} deleted a testimonial from ${removed.authorName}`,
+      });
+      return { id: input.id };
+    }),
+
   // Publishes, unpublishes or archives one entry without reopening its form.
   setStatus: permissionProcedure("cms.write")
     .input(
       z.object({
-        kind: z.enum(["banner", "event", "gallery", "testimonial", "faq"]),
+        kind: z.enum(["banner", "event", "gallery", "testimonial", "faq", "page", "blogPost"]),
         id: z.number().int().positive(),
         status,
       }),
@@ -410,6 +736,13 @@ export const cmsRouter = router({
       if (!updated.length) {
         throw new TRPCError({ code: "NOT_FOUND", message: "That entry could not be found." });
       }
+      // A post published from the list takes today's date if it never had one.
+      if (input.kind === "blogPost" && input.status === "published") {
+        await db
+          .update(blogPosts)
+          .set({ publishedAt: today() })
+          .where(and(eq(blogPosts.id, input.id), isNull(blogPosts.publishedAt)));
+      }
       await recordAudit(db, ctx.actor, {
         action: "set_status",
         entity: input.kind,
@@ -422,6 +755,27 @@ export const cmsRouter = router({
 });
 
 type ContentTable = (typeof KINDS)[keyof typeof KINDS];
+
+// Pages and posts are found by their slug, so two cannot share one.
+async function assertSlugFree(
+  db: Awaited<ReturnType<typeof dbOrThrow>>,
+  kind: "page" | "blogPost",
+  slug: string,
+  exceptId: number | undefined,
+): Promise<void> {
+  const table = kind === "page" ? pages : blogPosts;
+  const [clash] = await db
+    .select({ id: table.id })
+    .from(table)
+    .where(and(eq(table.slug, slug), exceptId ? ne(table.id, exceptId) : undefined))
+    .limit(1);
+  if (clash) {
+    throw new TRPCError({
+      code: "CONFLICT",
+      message: `Another ${kind === "page" ? "page" : "post"} already uses the web address "${slug}". Choose a different one.`,
+    });
+  }
+}
 
 // Inserts a new row, or updates the one named, and returns its id.
 async function saveRow<T extends ContentTable>(

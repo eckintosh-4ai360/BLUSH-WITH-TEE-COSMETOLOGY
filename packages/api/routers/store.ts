@@ -26,11 +26,11 @@ import {
 } from "../services/gateway";
 import { alertLowStockInBackground } from "../services/lowStock";
 import { toAmountString, toMinor } from "../services/money";
+import { resolveProductImageUrl } from "../services/productImages";
 import { bestEffort } from "../services/notify";
 import { alertStaffToOrder, messageCustomerAboutOrder } from "../services/orderAlerts";
 import { ensureCustomer, resolvePerson } from "../services/people";
 import { applyStockMovement } from "../services/stock";
-import { storageGet } from "@blush/storage";
 import { publicProcedure, router, throttledPublicProcedure } from "../trpc";
 
 // Order number plus email is a guessable pair worth brute-forcing.
@@ -39,68 +39,6 @@ const checkoutLimit = throttledPublicProcedure({ bucket: "store.checkout", limit
 // Opening a charge talks to the provider, and confirming one asks it again.
 const payLimit = throttledPublicProcedure({ bucket: "store.payOrder", limit: 20, windowMs: 60 * 60_000 });
 const confirmLimit = throttledPublicProcedure({ bucket: "store.confirmPayment", limit: 30, windowMs: 10 * 60_000 });
-
-const LOCAL_PRODUCT_IMAGES_BY_SKU = new Map<string, string>([
-  ["BWT-SERUM-01", "/products/lumina-serum.jpg"],
-  ["GC-SERUM-01", "/products/lumina-serum.jpg"],
-  ["BWT-KIT-01", "/products/student-essentials-kit.jpg"],
-  ["GC-KIT-01", "/products/student-essentials-kit.jpg"],
-  ["BWT-SHMP-01", "/products/hydrating-shampoo-mask.jpg"],
-  ["BWT-COND-01", "/products/hydrating-shampoo-mask.jpg"],
-  ["BWT-GEL-01", "/products/builder-gel-kit.jpg"],
-  ["BWT-POLISH-01", "/products/builder-gel-kit.jpg"],
-  ["BWT-CLNS-01", "/products/facial-cleanser.jpg"],
-  ["BWT-BRUSH-01", "/products/makeup-brush-set.jpg"],
-]);
-
-const LOCAL_PRODUCT_IMAGES_BY_NAME = new Map<string, string>([
-  ["lumina renewal serum", "/products/lumina-serum.jpg"],
-  ["student artistry essentials kit", "/products/student-essentials-kit.jpg"],
-  ["glow student essentials kit", "/products/student-essentials-kit.jpg"],
-  ["student essentials kit", "/products/student-essentials-kit.jpg"],
-  [
-    "hydrating botanical shampoo & mask duo",
-    "/products/hydrating-shampoo-mask.jpg",
-  ],
-  ["hydrating shampoo 500ml", "/products/hydrating-shampoo-mask.jpg"],
-  ["repair conditioner 500ml", "/products/hydrating-shampoo-mask.jpg"],
-  ["sculpting builder gel & uv kit", "/products/builder-gel-kit.jpg"],
-  ["builder gel kit", "/products/builder-gel-kit.jpg"],
-  ["gel polish set (12)", "/products/builder-gel-kit.jpg"],
-  ["gentle radiance facial cleanser", "/products/facial-cleanser.jpg"],
-  ["gentle facial cleanser", "/products/facial-cleanser.jpg"],
-  ["master precision makeup brush set", "/products/makeup-brush-set.jpg"],
-  ["professional brush set", "/products/makeup-brush-set.jpg"],
-]);
-
-async function resolveImageUrl(
-  imageKey: string | null | undefined,
-  product?: { sku?: string | null; name?: string | null }
-): Promise<string | null> {
-  const fallback =
-    (product?.sku ? LOCAL_PRODUCT_IMAGES_BY_SKU.get(product.sku) : undefined) ??
-    (product?.name
-      ? LOCAL_PRODUCT_IMAGES_BY_NAME.get(product.name.toLowerCase())
-      : undefined) ??
-    null;
-
-  const key = imageKey ?? fallback;
-  if (!key) return null;
-
-  if (
-    key.startsWith("/") ||
-    key.startsWith("http://") ||
-    key.startsWith("https://")
-  ) {
-    return key;
-  }
-  try {
-    const result = await storageGet(key);
-    return result.url;
-  } catch {
-    return fallback;
-  }
-}
 
 export const storeRouter = router({
   products: publicProcedure.query(async () => {
@@ -119,7 +57,7 @@ export const storeRouter = router({
         ...item,
         unitCost: money(item.unitCost),
         sellingPrice: money(item.sellingPrice),
-        imageUrl: await resolveImageUrl(item.imageKey, item),
+        imageUrl: await resolveProductImageUrl(item.imageKey, item),
       }))
     );
   }),
@@ -201,7 +139,7 @@ export const storeRouter = router({
           ...row,
           sellingPrice: money(row.sellingPrice),
           lineTotal: money(row.sellingPrice) * row.quantity,
-          imageUrl: await resolveImageUrl(row.imageKey, row),
+          imageUrl: await resolveProductImageUrl(row.imageKey, row),
         }))
       );
       return {

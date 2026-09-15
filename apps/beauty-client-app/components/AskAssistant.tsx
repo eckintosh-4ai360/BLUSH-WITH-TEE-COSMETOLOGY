@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { MessageCircle, Send, Sparkles, X } from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import { AssistantAnswer } from "./AssistantAnswer";
 
 type Turn = { role: "user" | "assistant"; content: string; failed?: boolean };
 
@@ -172,7 +172,7 @@ export function AskAssistant() {
   );
 }
 
-// Formats text responses and parses internal site links.
+// The visitor's words as typed; the assistant's reply with its formatting rendered.
 function Bubble({ role, children }: { role: "user" | "assistant"; children: string }) {
   if (role === "user") {
     return (
@@ -183,26 +183,8 @@ function Bubble({ role, children }: { role: "user" | "assistant"; children: stri
   }
 
   return (
-    <p className="w-fit max-w-[90%] whitespace-pre-wrap rounded-2xl rounded-bl-sm bg-white px-3.5 py-2.5 text-sm leading-relaxed text-[#2d0423] shadow-sm">
-      {withLinks(children)}
-    </p>
+    <div className="w-fit max-w-[92%] rounded-2xl rounded-bl-sm bg-white px-3.5 py-2.5 text-sm leading-relaxed text-[#2d0423] shadow-sm">
+      <AssistantAnswer text={children} />
+    </div>
   );
-}
-
-// Converts relative path references into router links.
-function withLinks(text: string) {
-  return text.split(/(\/(?:programs|store|appointments|apply|contact|gallery|about)(?:\/[\w-]+)?)/g)
-    .map((part, index) =>
-      /^\/(programs|store|appointments|apply|contact|gallery|about)(\/|$)/.test(part) ? (
-        <Link
-          key={index}
-          href={part}
-          className="font-semibold text-[#fe00b6] underline underline-offset-2"
-        >
-          {part}
-        </Link>
-      ) : (
-        part
-      ),
-    );
 }

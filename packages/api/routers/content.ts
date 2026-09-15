@@ -1,7 +1,9 @@
-import { and, asc, desc, eq, gte, inArray, isNull, or } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import {
   banners,
+  blogCategories,
+  blogPosts,
   clinicServices,
   courseModules,
   courses,
@@ -10,6 +12,7 @@ import {
   faqs,
   galleryItems,
   intakes,
+  pages,
   systemSettings,
   testimonials,
 } from "@blush/db/schema";
@@ -25,8 +28,131 @@ async function imageUrl(key: string | null | undefined): Promise<string | null> 
   return key ? (await storageGet(key)).url : null;
 }
 
+// A published post shows once its date has come. Ghana keeps GMT, so the UTC date is today's.
+const postIsLive = () =>
+  and(
+    eq(blogPosts.status, "published"),
+    isNull(blogPosts.deletedAt),
+    or(isNull(blogPosts.publishedAt), lte(blogPosts.publishedAt, new Date(`${new Date().toISOString().slice(0, 10)}T00:00:00Z`))),
+  );
+
+const slugParam = z.string().trim().min(1).max(180);
+
 // Public read-only content.
 export const contentRouter = router({
+  // A published website page, or null when there is none at that address.
+  page: publicProcedure.input(z.object({ slug: slugParam })).query(async ({ input }) => {
+    const db = await dbOrThrow();
+    const [row] = await db
+      .select()
+      .from(pages)
+      .where(and(eq(pages.slug, input.slug), eq(pages.status, "published")))
+      .limit(1);
+    if (!row) return null;
+    return {
+      slug: row.slug,
+      title: row.title,
+      content: row.content ?? "",
+      seoTitle: row.seoTitle,
+      seoDescription: row.seoDescription,
+      ogImageUrl: await imageUrl(row.ogImageKey),
+      updatedAt: row.updatedAt,
+    };
+  }),
+
+  // Published pages, for the footer and the sitemap.
+  pageLinks: publicProcedure.query(async () => {
+    const db = await dbOrThrow();
+    return db
+      .select({ slug: pages.slug, title: pages.title, updatedAt: pages.updatedAt })
+      .from(pages)
+      .where(eq(pages.status, "published"))
+      .orderBy(asc(pages.title));
+  }),
+
+  // Published blog posts, newest first, optionally in one category.
+  blogPosts: publicProcedure
+    .input(
+      z
+        .object({
+          category: slugParam.optional(),
+          limit: z.number().int().min(1).max(100).default(30),
+        })
+        .default({ limit: 30 }),
+    )
+    .query(async ({ input }) => {
+      const db = await dbOrThrow();
+      const rows = await db
+        .select({
+          post: blogPosts,
+          categoryName: blogCategories.name,
+          categorySlug: blogCategories.slug,
+        })
+        .from(blogPosts)
+        .leftJoin(blogCategories, eq(blogPosts.categoryId, blogCategories.id))
+        .where(and(postIsLive(), input.category ? eq(blogCategories.slug, input.category) : undefined))
+        .orderBy(sql`${blogPosts.publishedAt} desc nulls last`, desc(blogPosts.createdAt))
+        .limit(input.limit);
+      return Promise.all(
+        rows.map(async row => ({
+          slug: row.post.slug,
+          title: row.post.title,
+          excerpt: row.post.excerpt,
+          authorName: row.post.authorName,
+          publishedAt: row.post.publishedAt,
+          updatedAt: row.post.updatedAt,
+          categoryName: row.categoryName,
+          categorySlug: row.categorySlug,
+          featuredImageUrl: await imageUrl(row.post.featuredImageKey),
+        })),
+      );
+    }),
+
+  // Categories that have at least one post showing.
+  blogCategories: publicProcedure.query(async () => {
+    const db = await dbOrThrow();
+    return db
+      .selectDistinct({ slug: blogCategories.slug, name: blogCategories.name })
+      .from(blogCategories)
+      .innerJoin(blogPosts, eq(blogPosts.categoryId, blogCategories.id))
+      .where(postIsLive())
+      .orderBy(asc(blogCategories.name));
+  }),
+
+  // One published post, or null.
+  blogPost: publicProcedure.input(z.object({ slug: slugParam })).query(async ({ input }) => {
+    const db = await dbOrThrow();
+    const [row] = await db
+      .select({
+        post: blogPosts,
+        categoryName: blogCategories.name,
+        categorySlug: blogCategories.slug,
+      })
+      .from(blogPosts)
+      .leftJoin(blogCategories, eq(blogPosts.categoryId, blogCategories.id))
+      .where(and(eq(blogPosts.slug, input.slug), postIsLive()))
+      .limit(1);
+    if (!row) return null;
+    return {
+      slug: row.post.slug,
+      title: row.post.title,
+      excerpt: row.post.excerpt,
+      content: row.post.content,
+      authorName: row.post.authorName,
+      publishedAt: row.post.publishedAt,
+      updatedAt: row.post.updatedAt,
+      tags: (row.post.tags ?? "")
+        .split(",")
+        .map(tag => tag.trim())
+        .filter(Boolean),
+      seoTitle: row.post.seoTitle,
+      seoDescription: row.post.seoDescription,
+      categoryName: row.categoryName,
+      categorySlug: row.categorySlug,
+      featuredImageUrl: await imageUrl(row.post.featuredImageKey),
+    };
+  }),
+
   // Published banners for one place on the site: the homepage band, or the site-wide strip.
   banners: publicProcedure
     .input(z.object({ placement: z.enum(["homepage", "announcement"]) }))

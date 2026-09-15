@@ -93,6 +93,26 @@ function WebsiteContent() {
     onSuccess: saved("Enquiry deleted.", enquiries.refetch),
     onError: error => toast.error(error.message),
   });
+  const deleteFaq = trpc.cms.deleteFaq.useMutation({
+    onSuccess: saved("Question deleted.", faqs.refetch),
+    onError: error => toast.error(error.message),
+  });
+  const deleteBanner = trpc.cms.deleteBanner.useMutation({
+    onSuccess: saved("Banner deleted.", banners.refetch),
+    onError: error => toast.error(error.message),
+  });
+  const deleteEvent = trpc.cms.deleteEvent.useMutation({
+    onSuccess: saved("Event deleted.", events.refetch),
+    onError: error => toast.error(error.message),
+  });
+  const deleteGalleryItem = trpc.cms.deleteGalleryItem.useMutation({
+    onSuccess: saved("Photo deleted.", gallery.refetch),
+    onError: error => toast.error(error.message),
+  });
+  const deleteTestimonial = trpc.cms.deleteTestimonial.useMutation({
+    onSuccess: saved("Testimonial deleted.", testimonials.refetch),
+    onError: error => toast.error(error.message),
+  });
 
   return (
     <div className="mx-auto max-w-[1100px] space-y-6 pb-10">
@@ -158,6 +178,15 @@ function WebsiteContent() {
                 ]}
                 detail={row.subtitle}
                 onEdit={() => setBannerEdit(row)}
+                onDelete={() => {
+                  if (
+                    window.confirm(
+                      `Delete the banner "${row.title}"? It will be removed from the website.`,
+                    )
+                  ) {
+                    deleteBanner.mutate({ id: row.id });
+                  }
+                }}
                 onChanged={() => void banners.refetch()}
               />
             ))}
@@ -187,6 +216,15 @@ function WebsiteContent() {
                 meta={[GALLERY_CATEGORY_LABELS[row.category] ?? row.category]}
                 detail={row.caption}
                 onEdit={() => setGalleryEdit(row as GalleryEntry)}
+                onDelete={() => {
+                  if (
+                    window.confirm(
+                      `Delete the photo "${row.title ?? "Untitled photo"}"? It will be removed from the website.`,
+                    )
+                  ) {
+                    deleteGalleryItem.mutate({ id: row.id });
+                  }
+                }}
                 onChanged={() => void gallery.refetch()}
               />
             ))}
@@ -218,6 +256,15 @@ function WebsiteContent() {
                   meta={[WHEN.format(new Date(row.startsAt)), row.location, over ? "Finished" : null]}
                   detail={row.summary}
                   onEdit={() => setEventEdit(row)}
+                  onDelete={() => {
+                    if (
+                      window.confirm(
+                        `Delete the event "${row.title}"? It will be removed from the website.`,
+                      )
+                    ) {
+                      deleteEvent.mutate({ id: row.id });
+                    }
+                  }}
                   onChanged={() => void events.refetch()}
                 />
               );
@@ -255,6 +302,15 @@ function WebsiteContent() {
                 ]}
                 detail={`“${row.quote}”`}
                 onEdit={() => setTestimonialEdit(row)}
+                onDelete={() => {
+                  if (
+                    window.confirm(
+                      `Delete the testimonial from ${row.authorName}? It will be removed from the website.`,
+                    )
+                  ) {
+                    deleteTestimonial.mutate({ id: row.id });
+                  }
+                }}
                 onChanged={() => void testimonials.refetch()}
               />
             ))}
@@ -283,6 +339,15 @@ function WebsiteContent() {
                 meta={[row.category]}
                 detail={row.answer}
                 onEdit={() => setFaqEdit(row)}
+                onDelete={() => {
+                  if (
+                    window.confirm(
+                      `Delete the question "${row.question}"? It will be removed from the website.`,
+                    )
+                  ) {
+                    deleteFaq.mutate({ id: row.id });
+                  }
+                }}
                 onChanged={() => void faqs.refetch()}
               />
             ))}
@@ -474,6 +539,7 @@ function EntryRow({
   meta,
   detail,
   onEdit,
+  onDelete,
   onChanged,
 }: {
   kind: ContentKind;
@@ -485,6 +551,7 @@ function EntryRow({
   meta: ReactNode[];
   detail?: string | null;
   onEdit: () => void;
+  onDelete?: () => void;
   onChanged: () => void;
 }) {
   const shownMeta = meta.filter(Boolean);
@@ -514,6 +581,17 @@ function EntryRow({
       {writable ? (
         <Button variant="ghost" size="sm" className="h-8 w-8 p-0" aria-label={`Edit ${title}`} onClick={onEdit}>
           <Pencil className="h-3.5 w-3.5" />
+        </Button>
+      ) : null}
+      {onDelete && writable ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+          aria-label={`Delete ${title}`}
+          onClick={onDelete}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
         </Button>
       ) : null}
     </li>

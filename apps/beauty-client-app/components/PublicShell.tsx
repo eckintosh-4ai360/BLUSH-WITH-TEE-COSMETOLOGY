@@ -42,6 +42,8 @@ export default function PublicShell({ children }: { children: React.ReactNode })
   const { user, logout, loading } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const { data: school } = useSchoolProfile();
+  // Pages written in the dashboard are listed here, so a new one is reachable without a menu change.
+  const pageLinks = trpc.content.pageLinks.useQuery(undefined, { staleTime: 5 * 60_000 });
 
   const signOut = async () => {
     setMenuOpen(false);
@@ -227,6 +229,12 @@ export default function PublicShell({ children }: { children: React.ReactNode })
               <Link href="/programs" className="hover:text-[#fe00b6] transition-colors">Courses & Pathways</Link>
               <Link href="/apply" className="hover:text-[#fe00b6] transition-colors">Admissions Portal</Link>
               <Link href="/gallery" className="hover:text-[#fe00b6] transition-colors">Studio Showcase</Link>
+              <Link href="/blog" className="hover:text-[#fe00b6] transition-colors">Blog</Link>
+              {(pageLinks.data ?? []).map(page => (
+                <Link key={page.slug} href={`/pages/${page.slug}`} className="hover:text-[#fe00b6] transition-colors">
+                  {page.title}
+                </Link>
+              ))}
               <Link href="/terms" className="hover:text-[#fe00b6] transition-colors font-semibold">Terms & Conditions</Link>
             </div>
           </div>

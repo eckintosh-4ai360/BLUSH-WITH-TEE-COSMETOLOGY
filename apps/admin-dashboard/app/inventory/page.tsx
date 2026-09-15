@@ -59,6 +59,8 @@ type ItemRow = {
   isSellable: boolean;
   isActive: boolean;
   isLowStock: boolean;
+  imageKey: string | null;
+  imageUrl: string | null;
 };
 
 export default function InventoryPage() {
@@ -135,15 +137,20 @@ function InventoryContent() {
       key: "name",
       header: "Item",
       cell: row => (
-        <span>
-          <span className="font-medium text-foreground">{row.name}</span>
-          {row.sku ? (
-            <span className="block text-xs text-muted-foreground">
-              {row.sku}
-            </span>
-          ) : (
-            <span className="block text-xs text-muted-foreground">No SKU</span>
-          )}
+        <span className="flex items-center gap-3">
+          {row.imageUrl ? (
+            <img src={row.imageUrl} alt="" className="h-9 w-9 shrink-0 rounded-md border border-border/60 object-cover" />
+          ) : null}
+          <span>
+            <span className="font-medium text-foreground">{row.name}</span>
+            {row.sku ? (
+              <span className="block text-xs text-muted-foreground">
+                {row.sku}
+              </span>
+            ) : (
+              <span className="block text-xs text-muted-foreground">No SKU</span>
+            )}
+          </span>
         </span>
       ),
     },
