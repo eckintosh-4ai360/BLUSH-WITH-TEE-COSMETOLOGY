@@ -95,7 +95,7 @@ export const MESSAGED_EVENTS: Array<{
     label: "Booking request received",
     description:
       "Sent to the client when a salon or home-service booking is requested on the website. Bookings carry a phone number, not an email.",
-    defaultChannels: { email: false, sms: false },
+    defaultChannels: { email: false, sms: true },
   },
   {
     type: "appointment_confirmed",
@@ -107,6 +107,18 @@ export const MESSAGED_EVENTS: Array<{
     type: "appointment_cancelled",
     label: "Booking cancelled",
     description: "Sent to the client when their appointment is cancelled.",
+    defaultChannels: { email: false, sms: true },
+  },
+  {
+    type: "appointment_completed",
+    label: "Visit completed",
+    description: "Sent to the client when staff mark their appointment as completed.",
+    defaultChannels: { email: false, sms: true },
+  },
+  {
+    type: "appointment_no_show",
+    label: "Missed appointment",
+    description: "Sent to the client when their appointment is marked as a no-show.",
     defaultChannels: { email: false, sms: true },
   },
   {
@@ -205,6 +217,18 @@ export const DEFAULT_TEMPLATES: EventsConfig["templates"] = {
     email:
       "Hello {{name}},\n\nYour appointment for {{service}} on {{when}} (reference {{reference}}) has been cancelled.\n\nPlease get in touch if you would like to book another time.\n\n{{school}}",
     sms: "{{school}}: Hi {{name}}, your {{service}} appointment on {{when}} has been cancelled. Call us to rebook. Ref {{reference}}.",
+  },
+  appointment_completed: {
+    subject: "Thank you for visiting, {{name}}",
+    email:
+      "Hello {{name}},\n\nThank you for coming in for {{service}}. We hope you love the result.\n\nWe would be glad to see you again - book your next visit any time.\n\n{{school}}",
+    sms: "{{school}}: Thank you for visiting, {{name}}! We hope you love your {{service}}. Book your next appointment any time.",
+  },
+  appointment_no_show: {
+    subject: "We missed you today",
+    email:
+      "Hello {{name}},\n\nWe were expecting you for {{service}} on {{when}} (reference {{reference}}), but did not see you.\n\nPlease get in touch if you would like to book another time.\n\n{{school}}",
+    sms: "{{school}}: Hi {{name}}, we missed you for your {{service}} appointment on {{when}}. Call us to rebook. Ref {{reference}}.",
   },
   order_placed: {
     subject: "Order {{reference}} received",

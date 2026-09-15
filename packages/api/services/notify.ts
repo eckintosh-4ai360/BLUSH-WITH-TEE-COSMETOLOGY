@@ -28,7 +28,9 @@ export type NotificationType =
   | "appointment_requested"
   | "appointment_confirmed"
   | "appointment_cancelled"
-  | "order_placed";
+  | "order_placed"
+  | "appointment_completed"
+  | "appointment_no_show";
 
 export type NotifyInput = {
   userIds: number[];

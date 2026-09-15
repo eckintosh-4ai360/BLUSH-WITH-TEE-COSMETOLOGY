@@ -24,6 +24,8 @@ const NOTIFICATION_TYPES = [
   "appointment_confirmed",
   "appointment_cancelled",
   "order_placed",
+  "appointment_completed",
+  "appointment_no_show",
 ] as const;
 
 // The notification centre behind the dashboard bell.

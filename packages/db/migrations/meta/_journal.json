@@ -155,6 +155,13 @@
       "when": 1789504139763,
       "tag": "0021_famous_gamma_corps",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1789509245619,
+      "tag": "0022_add_appointment_status_messages",
+      "breakpoints": true
     }
   ]
 }

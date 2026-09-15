@@ -3,10 +3,24 @@ import {
   DEFAULT_BOOKING_RULES,
   bookingTimeProblem,
   clientMessageFor,
+  clientMessageOnCreate,
   describeAppointmentTime,
   describeOpeningHours,
   toBookingRules,
 } from "./appointments";
+
+describe("clientMessageOnCreate", () => {
+  it("messages the client for a booking the desk records", () => {
+    expect(clientMessageOnCreate("requested")).toBe("appointment_requested");
+    expect(clientMessageOnCreate("confirmed")).toBe("appointment_confirmed");
+    expect(clientMessageOnCreate("completed")).toBe("appointment_completed");
+  });
+
+  it("sends nothing for a booking entered as cancelled or missed", () => {
+    expect(clientMessageOnCreate("cancelled")).toBeNull();
+    expect(clientMessageOnCreate("no_show")).toBeNull();
+  });
+});
 
 describe("clientMessageFor", () => {
   it("tells the client when a booking is confirmed or cancelled", () => {
@@ -17,10 +31,14 @@ describe("clientMessageFor", () => {
     expect(clientMessageFor("cancelled", "confirmed")).toBe("appointment_confirmed");
   });
 
-  it("keeps the desk's own bookkeeping quiet", () => {
-    expect(clientMessageFor("confirmed", "completed")).toBeNull();
-    expect(clientMessageFor("confirmed", "no_show")).toBeNull();
+  it("tells the client when a visit is completed or missed", () => {
+    expect(clientMessageFor("confirmed", "completed")).toBe("appointment_completed");
+    expect(clientMessageFor("confirmed", "no_show")).toBe("appointment_no_show");
+  });
+
+  it("stays quiet when a booking is moved back to requested", () => {
     expect(clientMessageFor("completed", "requested")).toBeNull();
+    expect(clientMessageFor("confirmed", "requested")).toBeNull();
   });
 
   it("sends nothing when the status has not changed", () => {

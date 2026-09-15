@@ -45,15 +45,15 @@ export function render(template: string, facts: QueueInput["facts"]): string {
     .trim();
 }
 
-// Writes the outbox rows for one event.
+// Writes the outbox rows for one event, and returns the ids of those waiting to be sent.
 export async function queueMessages(
   db: DbExecutor,
   config: MessagingConfig,
   input: QueueInput,
-): Promise<void> {
+): Promise<number[]> {
   const rule = config.events.events[input.type];
   const template = config.events.templates[input.type];
-  if (!rule || !template) return;
+  if (!rule || !template) return [];
 
   const subject = render(template.subject, input.facts);
   const rows: Array<typeof notificationDeliveries.$inferInsert> = [];
@@ -108,7 +108,12 @@ export async function queueMessages(
     });
   }
 
-  if (rows.length) await db.insert(notificationDeliveries).values(rows);
+  if (!rows.length) return [];
+  const inserted = await db
+    .insert(notificationDeliveries)
+    .values(rows)
+    .returning({ id: notificationDeliveries.id, status: notificationDeliveries.status });
+  return inserted.filter(row => row.status === "queued").map(row => row.id);
 }
 
 // Sends whatever is waiting.
