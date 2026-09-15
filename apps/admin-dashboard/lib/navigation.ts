@@ -8,7 +8,9 @@ import {
   ClipboardList,
   CalendarCheck,
   CreditCard,
+  FileText,
   Globe,
+  Newspaper,
   GraduationCap,
   LayoutDashboard,
   Sparkles,
@@ -235,6 +237,18 @@ export const NAV_SECTIONS: NavSection[] = [
         label: "Website content",
         path: "/website",
         icon: Globe,
+        permissions: ["cms.read"],
+      },
+      {
+        label: "Website pages",
+        path: "/website/pages",
+        icon: FileText,
+        permissions: ["cms.read"],
+      },
+      {
+        label: "Blog",
+        path: "/website/blog",
+        icon: Newspaper,
         permissions: ["cms.read"],
       },
       {

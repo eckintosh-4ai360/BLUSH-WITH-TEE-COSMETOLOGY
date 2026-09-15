@@ -12,7 +12,7 @@ import { toast } from "@blush/ui/components/ui/sonner";
 import { trpc } from "@/lib/trpc";
 
 export type PublishStatus = "draft" | "published" | "archived";
-export type ContentKind = "banner" | "event" | "gallery" | "testimonial" | "faq";
+export type ContentKind = "banner" | "event" | "gallery" | "testimonial" | "faq" | "page" | "blogPost";
 
 export const STATUS_LABELS: Record<PublishStatus, string> = {
   draft: "Draft",
