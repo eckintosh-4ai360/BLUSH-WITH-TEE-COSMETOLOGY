@@ -17,7 +17,7 @@ const heroStats = [
 const heroSlides: HeroSlide[] = [
   {
     src: "/hero/hair.jpg",
-    alt: "A beauty student styling and finishing luxurious hair in the salon studio",
+    alt: "A professional stylist sectioning and styling a client's hair in the salon",
     label: "Hair Artistry & Design",
     meta: "24 Weeks · Professional Diploma",
     href: "/programs",
@@ -25,7 +25,7 @@ const heroSlides: HeroSlide[] = [
   },
   {
     src: "/hero/makeup.jpg",
-    alt: "Close-up of a student applying vibrant editorial blush and makeup artistry",
+    alt: "A beauty student applying face makeup with a brush and palette",
     label: "Professional Makeup Artistry",
     meta: "Masterclasses & Studio Practical",
     href: "/programs",
@@ -33,16 +33,16 @@ const heroSlides: HeroSlide[] = [
   },
   {
     src: "/hero/nails.jpg",
-    alt: "Precision nail technician crafting intricate gel manicure art",
-    label: "Nail Craft & Technology",
+    alt: "Close-up of a student blending concealer under the eye with a makeup brush",
+    label: "Face Beat & Foundation",
     meta: "12 Weeks · Studio Certification",
     href: "/programs",
     tone: "from-[#b80f8b] via-[#6e0852] to-[#1a0114]",
   },
   {
     src: "/hero/skincare.jpg",
-    alt: "A soothing aesthetic skincare facial treatment in the clinic",
-    label: "Skincare & Spa Aesthetics",
+    alt: "A student with an afro wearing striking yellow editorial eye makeup",
+    label: "Editorial & Glam Makeup",
     meta: "Supervised Clinic Practice",
     href: "/appointments",
     tone: "from-[#8f0d6b] via-[#a8107e] to-[#25021c]",

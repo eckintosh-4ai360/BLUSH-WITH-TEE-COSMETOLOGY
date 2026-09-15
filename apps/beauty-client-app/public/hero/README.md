@@ -3,12 +3,12 @@
 The homepage hero rotates through the photographs in this folder. Drop in files
 with these exact names and they appear automatically — no code change needed:
 
-| File            | Slide                  |
-| --------------- | ---------------------- |
-| `hair.jpg`      | Hair artistry          |
-| `makeup.jpg`    | Makeup artistry        |
-| `nails.jpg`     | Nail craft & design    |
-| `skincare.jpg`  | Skincare & spa therapy |
+| File           | Slide                    |
+| -------------- | ------------------------ |
+| `hair.jpg`     | Hair artistry            |
+| `makeup.jpg`   | Makeup artistry          |
+| `nails.jpg`    | Face makeup & foundation |
+| `skincare.jpg` | Editorial makeup looks   |
 
 Until a file exists, that slide falls back to a gradient wash, so the hero still
 looks intentional rather than broken.

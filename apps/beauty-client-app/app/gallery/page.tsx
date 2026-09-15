@@ -9,8 +9,8 @@ import { trpc } from "@/lib/trpc";
 const STUDIO_PHOTOS = [
   { title: "Hair Artistry & Styling", image: "/hero/hair.jpg" },
   { title: "Glamour Makeup Transformation", image: "/hero/makeup.jpg" },
-  { title: "Precision Nail Architecture", image: "/hero/nails.jpg" },
-  { title: "Rejuvenating Skin Therapy", image: "/hero/skincare.jpg" },
+  { title: "Face Beat & Foundation Work", image: "/hero/nails.jpg" },
+  { title: "Editorial Makeup Looks", image: "/hero/skincare.jpg" },
 ];
 
 const CATEGORY_LABELS: Record<string, string> = {
