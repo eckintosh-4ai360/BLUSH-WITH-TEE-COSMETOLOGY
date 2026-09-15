@@ -15,6 +15,7 @@ import {
 import { dbOrThrow } from "../dbOrThrow";
 import { buildReference } from "../platform.utils";
 import { recordAudit } from "../services/audit";
+import { refreshCustomerTotals } from "../services/customers";
 import { money, toAmountString, toMinor } from "../services/money";
 import { notify } from "../services/notify";
 import {
@@ -467,27 +468,3 @@ export const ordersRouter = router({
       });
     }),
 });
-
-// Recomputes a customer lifetime totals from their paid orders.
-async function refreshCustomerTotals(
-  tx: Parameters<Parameters<Awaited<ReturnType<typeof dbOrThrow>>["transaction"]>[0]>[0],
-  customerId: number,
-): Promise<void> {
-  const [totals] = await tx
-    .select({
-      orders: count(),
-      spent: sql<string>`coalesce(sum(${storeOrders.total}), 0)`,
-      lastOrderAt: sql<Date | null>`max(${storeOrders.createdAt})`,
-    })
-    .from(storeOrders)
-    .where(and(eq(storeOrders.customerId, customerId), eq(storeOrders.paymentStatus, "paid")));
-
-  await tx
-    .update(customers)
-    .set({
-      totalOrders: Number(totals?.orders ?? 0),
-      totalSpent: toAmountString(toMinor(totals?.spent)),
-      lastOrderAt: totals?.lastOrderAt ?? null,
-    })
-    .where(eq(customers.id, customerId));
-}
