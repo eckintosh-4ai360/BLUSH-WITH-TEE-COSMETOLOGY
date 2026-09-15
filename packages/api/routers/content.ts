@@ -1,6 +1,7 @@
 import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import { clinicServices, courseModules, courses, systemSettings } from "@blush/db/schema";
 import { dbOrThrow } from "../dbOrThrow";
+import { readSchoolProfile } from "../services/schoolProfile";
 import { publicProcedure, router } from "../trpc";
 
 // Public read-only content.
@@ -47,6 +48,12 @@ export const contentRouter = router({
       .select()
       .from(clinicServices)
       .where(and(eq(clinicServices.isActive, true), eq(clinicServices.isBookable, true)));
+  }),
+  // The contact details and social links the school keeps in Settings, for the site's header,
+  // footer, contact page and printed forms.
+  schoolProfile: publicProcedure.query(async () => {
+    const db = await dbOrThrow();
+    return readSchoolProfile(db);
   }),
   // Public: returns the school Terms & Conditions stored in system settings.
   terms: publicProcedure.query(async () => {

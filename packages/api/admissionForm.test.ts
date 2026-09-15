@@ -30,4 +30,20 @@ describe("buildAdmissionFormHtml", () => {
     expect(html).not.toContain("<b>Artistry</b>");
     expect(html).toContain("&lt;script&gt;alert(1)&lt;/script&gt;");
   });
+
+  it("prints the school's contact details from Settings when given", () => {
+    const html = buildAdmissionFormHtml(application(), "Nails", "/logo.png", undefined, {
+      address: "Akoon, Tarkwa",
+      phone: "054 556 3536",
+      whatsapp: "054 556 3536",
+    });
+    expect(html).toContain("Akoon, Tarkwa");
+    expect(html).toContain("Phone: <b>054 556 3536</b>");
+    expect(html).not.toContain("059 770 6250");
+  });
+
+  it("keeps the printed letterhead when no details are passed", () => {
+    const html = buildAdmissionFormHtml(application(), "Nails", "/logo.png");
+    expect(html).toContain("059 770 6250");
+  });
 });

@@ -19,13 +19,16 @@ import {
   Sparkles,
 } from "lucide-react";
 import { sortCourseCategories } from "@blush/shared/const";
+import { formatPhone, telHref } from "@blush/shared/contact";
 import { Badge } from "@blush/ui/components/ui/badge";
 import { Button } from "@blush/ui/components/ui/button";
 import PublicShell from "@/components/PublicShell";
+import { useSchoolProfile } from "@/hooks/useSchoolProfile";
 import { trpc } from "@/lib/trpc";
 
 export default function ProgramsPage() {
   const { data: courses = [], isLoading } = trpc.content.courses.useQuery();
+  const { data: school } = useSchoolProfile();
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
 
   const categories = useMemo(() => {
@@ -54,7 +57,7 @@ export default function ProgramsPage() {
           </h1>
           <p className="mt-4 text-base font-semibold text-[#fe00b6] flex items-center gap-2">
             <MapPin className="h-4 w-4 shrink-0" />
-            Blush With Tee Beauty School · Allied Filling Station, A&apos;koon - Tarkwa
+            Blush With Tee Beauty School{school?.address ? ` · ${school.address}` : ""}
           </p>
           <p className="mt-2 max-w-2xl text-base leading-relaxed text-[#692156]">
             Master full professional cosmetology or specialized individual beauty crafts under expert hands-on mentorship, comprehensive practical studio hours, and business readiness coaching.
@@ -256,7 +259,8 @@ export default function ProgramsPage() {
                 Ready to transform your beauty career?
               </h4>
               <p className="mt-2 text-xs leading-relaxed text-[#692156]">
-                Fill out the official online admission form in minutes or visit our Tarkwa campus inside the Allied Filling Station, A&apos;koon.
+                Fill out the official online admission form in minutes or visit our campus
+                {school?.address ? ` at ${school.address}` : ""}.
               </p>
               <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
                 <Link href="/apply" className="w-full sm:w-auto">
@@ -264,11 +268,13 @@ export default function ProgramsPage() {
                     Start Admission Form
                   </Button>
                 </Link>
-                <a href="tel:0597706250" className="w-full sm:w-auto">
-                  <Button variant="outline" className="w-full rounded-full border-[#8f0d6b]/25 text-[#8f0d6b] gap-2">
-                    <Phone className="h-4 w-4" /> Call 059 770 6250
-                  </Button>
-                </a>
+                {school?.phone ? (
+                  <a href={telHref(school.phone)} className="w-full sm:w-auto">
+                    <Button variant="outline" className="w-full rounded-full border-[#8f0d6b]/25 text-[#8f0d6b] gap-2">
+                      <Phone className="h-4 w-4" /> Call {formatPhone(school.phone)}
+                    </Button>
+                  </a>
+                ) : null}
               </div>
             </div>
           </div>

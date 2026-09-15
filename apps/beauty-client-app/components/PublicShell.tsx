@@ -4,10 +4,23 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, Sparkles, X, Phone, MapPin, Mail, Instagram } from "lucide-react";
+import {
+  Facebook,
+  Instagram,
+  Mail,
+  MapPin,
+  Menu,
+  MessageCircle,
+  Phone,
+  Sparkles,
+  X,
+  Youtube,
+} from "lucide-react";
+import { formatPhone, telHref, whatsappHref } from "@blush/shared/contact";
 import { Button } from "@blush/ui/components/ui/button";
 import { AskAssistant } from "@/components/AskAssistant";
 import { useAuth } from "@/hooks/useAuth";
+import { useSchoolProfile } from "@/hooks/useSchoolProfile";
 import { startLogin } from "@/lib/auth";
 
 const links = [
@@ -24,6 +37,7 @@ export default function PublicShell({ children }: { children: React.ReactNode })
   const pathname = usePathname();
   const { user } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+  const { data: school } = useSchoolProfile();
 
   return (
     <div className="min-h-screen overflow-x-clip bg-[#fdf8fc] text-[#2d0423]">
@@ -194,20 +208,37 @@ export default function PublicShell({ children }: { children: React.ReactNode })
 
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#8f0d6b]">Visit Us</p>
+            {/* Read from Settings, so the office changes a number in one place. */}
             <div className="mt-4 grid gap-2.5 text-sm text-[#692156]">
               <p className="flex items-start gap-2">
                 <MapPin className="h-4 w-4 shrink-0 text-[#fe00b6] mt-0.5" />
-                <span>BWT School of Cosmetology</span>
+                <span>{school?.address ?? "BWT School of Cosmetology"}</span>
               </p>
-              <p className="flex items-center gap-2">
-                <Phone className="h-4 w-4 shrink-0 text-[#fe00b6]" />
-                <span>Direct Admissions Desk</span>
-              </p>
-              <p className="flex items-center gap-2">
-                <Mail className="h-4 w-4 shrink-0 text-[#fe00b6]" />
-                <span>admissions@blushwithtee.com</span>
-              </p>
+              {school?.phone ? (
+                <a href={telHref(school.phone)} className="flex items-center gap-2 hover:text-[#fe00b6] transition-colors">
+                  <Phone className="h-4 w-4 shrink-0 text-[#fe00b6]" />
+                  <span>{formatPhone(school.phone)}</span>
+                </a>
+              ) : null}
+              {school?.whatsapp && whatsappHref(school.whatsapp) ? (
+                <a
+                  href={whatsappHref(school.whatsapp)!}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-2 hover:text-[#fe00b6] transition-colors"
+                >
+                  <MessageCircle className="h-4 w-4 shrink-0 text-[#fe00b6]" />
+                  <span>WhatsApp {formatPhone(school.whatsapp)}</span>
+                </a>
+              ) : null}
+              {school?.email ? (
+                <a href={`mailto:${school.email}`} className="flex items-center gap-2 break-all hover:text-[#fe00b6] transition-colors">
+                  <Mail className="h-4 w-4 shrink-0 text-[#fe00b6]" />
+                  <span>{school.email}</span>
+                </a>
+              ) : null}
             </div>
+            <SocialLinks social={school?.social} />
           </div>
         </div>
 
@@ -228,6 +259,41 @@ export default function PublicShell({ children }: { children: React.ReactNode })
       </footer>
 
       <AskAssistant />
+    </div>
+  );
+}
+
+type Social = {
+  instagram: string | null;
+  facebook: string | null;
+  tiktok: string | null;
+  youtube: string | null;
+};
+
+function SocialLinks({ social }: { social?: Social }) {
+  if (!social) return null;
+  const links = [
+    { href: social.instagram, label: "Instagram", icon: <Instagram className="h-4 w-4" /> },
+    { href: social.tiktok, label: "TikTok", icon: <span className="text-[10px] font-bold">TikTok</span> },
+    { href: social.facebook, label: "Facebook", icon: <Facebook className="h-4 w-4" /> },
+    { href: social.youtube, label: "YouTube", icon: <Youtube className="h-4 w-4" /> },
+  ].filter((link): link is { href: string; label: string; icon: React.ReactElement } => Boolean(link.href));
+  if (!links.length) return null;
+
+  return (
+    <div className="mt-5 flex flex-wrap items-center gap-2">
+      {links.map(link => (
+        <a
+          key={link.label}
+          href={link.href}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={`Blush With Tee on ${link.label}`}
+          className="grid h-9 min-w-9 place-items-center rounded-full border border-[#8f0d6b]/20 bg-white px-2 text-[#8f0d6b] transition-colors hover:border-[#fe00b6]/50 hover:text-[#fe00b6]"
+        >
+          {link.icon}
+        </a>
+      ))}
     </div>
   );
 }

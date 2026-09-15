@@ -7,12 +7,15 @@ import {
   ChevronRight,
   ScrollText,
 } from "lucide-react";
+import { formatPhone } from "@blush/shared/contact";
 import { Badge } from "@blush/ui/components/ui/badge";
 import PublicShell from "@/components/PublicShell";
+import { useSchoolProfile } from "@/hooks/useSchoolProfile";
 import { trpc } from "@/lib/trpc";
 
 export default function TermsPage() {
   const { data, isLoading } = trpc.content.terms.useQuery();
+  const { data: school } = useSchoolProfile();
 
   return (
     <PublicShell>
@@ -56,8 +59,17 @@ export default function TermsPage() {
           {/* School Identity Banner */}
           <div className="mb-10 rounded-2xl border border-[#8f0d6b]/20 bg-gradient-to-r from-[#fdf2fa] via-white to-[#fdf2fa] p-5 text-center shadow-sm">
             <p className="font-serif text-xl font-bold text-[#8f0d6b]">BLUSH WITH TEE</p>
-            <p className="text-sm text-[#692156] mt-0.5">Akoon inside Allied filling station, TARKWA</p>
-            <p className="text-sm text-[#692156]">+233 545563536 | +233597706250</p>
+            {school?.address ? (
+              <p className="text-sm text-[#692156] mt-0.5">{school.address}</p>
+            ) : null}
+            {school?.phone || school?.whatsapp ? (
+              <p className="text-sm text-[#692156]">
+                {[school.phone, school.whatsapp !== school.phone ? school.whatsapp : null]
+                  .filter((value): value is string => Boolean(value))
+                  .map(formatPhone)
+                  .join(" | ")}
+              </p>
+            ) : null}
           </div>
 
           {/* Loading state */}

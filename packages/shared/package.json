@@ -8,6 +8,7 @@
   "exports": {
     ".": "./index.ts",
     "./const": "./const.ts",
+    "./contact": "./contact.ts",
     "./permissions": "./permissions.ts",
     "./imports": "./imports.ts",
     "./admission-form": "./admissionForm.ts"

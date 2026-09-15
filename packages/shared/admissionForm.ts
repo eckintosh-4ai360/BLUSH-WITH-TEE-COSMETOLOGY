@@ -61,6 +61,13 @@ function d(val: string | null | undefined, fallback = "\u2014") {
   return escapeHtml(val && val.trim() ? val : fallback);
 }
 
+// The letterhead contact lines, from Settings when the caller has them.
+export type AdmissionFormSchool = {
+  address?: string | null;
+  phone?: string | null;
+  whatsapp?: string | null;
+};
+
 // Formats currency string in Ghana Cedis or returns null if empty.
 function cedis(value: number | string | null | undefined): string | null {
   if (value === null || value === undefined || value === "") return null;
@@ -77,9 +84,13 @@ export function buildAdmissionFormHtml(
   courseTitle: string,
   logoAbsUrl: string,
   fees?: { tuition?: number | string | null; productFee?: number | string | null },
+  school?: AdmissionFormSchool,
 ) {
   const tuition = cedis(fees?.tuition);
   const productFee = cedis(fees?.productFee);
+  const address = escapeHtml(school?.address?.trim() || "Allied Filling Station, A'koon – Tarkwa");
+  const phone = escapeHtml(school?.phone?.trim() || "059 770 6250");
+  const whatsapp = escapeHtml(school?.whatsapp?.trim() || "054 556 3536");
   const reference = escapeHtml(application.reference);
   const fmtDate = (v: Date | string | null | undefined) =>
     v ? new Date(v).toLocaleDateString("en-GB") : "—";
@@ -381,8 +392,8 @@ export function buildAdmissionFormHtml(
   <div class="header-text">
     <div class="header-badge">Official Student Admission File</div>
     <div class="school-name">BLUSH WITH TEE BEAUTY SCHOOL</div>
-    <div class="school-sub">Allied Filling Station, A'koon – Tarkwa</div>
-    <div class="school-contact">Phone: <b>059 770 6250</b> &nbsp;|&nbsp; WhatsApp: <b>054 556 3536</b></div>
+    <div class="school-sub">${address}</div>
+    <div class="school-contact">Phone: <b>${phone}</b> &nbsp;|&nbsp; WhatsApp: <b>${whatsapp}</b></div>
   </div>
   <div class="header-meta">
     <div class="form-title-badge">ADMISSION FORM</div>
@@ -577,7 +588,7 @@ export function buildAdmissionFormHtml(
 
 <!-- FOOTER -->
 <div class="footer">
-  BLUSH WITH TEE BEAUTY SCHOOL — Allied Filling Station, A'koon – Tarkwa &nbsp;·&nbsp; Tel: 059 770 6250 / 054 556 3536 &nbsp;·&nbsp; This document is an official school admission record.
+  BLUSH WITH TEE BEAUTY SCHOOL — ${address} &nbsp;·&nbsp; Tel: ${phone} / ${whatsapp} &nbsp;·&nbsp; This document is an official school admission record.
 </div>
 
 </div><!-- end page-wrap -->

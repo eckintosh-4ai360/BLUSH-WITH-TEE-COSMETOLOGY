@@ -33,9 +33,11 @@ import {
   User,
   Users,
 } from "lucide-react";
+import { formatPhone, telHref, whatsappHref } from "@blush/shared/contact";
 import { Badge } from "@blush/ui/components/ui/badge";
 import { Button } from "@blush/ui/components/ui/button";
 import PublicShell from "@/components/PublicShell";
+import { useSchoolProfile } from "@/hooks/useSchoolProfile";
 import { trpc } from "@/lib/trpc";
 
 async function fileToDataUrl(file: File) {
@@ -98,6 +100,7 @@ function ApplyFormContent() {
 
   const { data: courses = [], isLoading: loadingCourses } = trpc.content.courses.useQuery();
   const { data: termsData } = trpc.content.terms.useQuery();
+  const { data: school } = useSchoolProfile();
   const submit = trpc.admissions.submit.useMutation();
   const upload = trpc.admissions.uploadDocument.useMutation();
 
@@ -297,6 +300,13 @@ function ApplyFormContent() {
       courseTitle,
       `${window.location.origin}/logo.png`,
       fees,
+      school
+        ? {
+            address: school.address,
+            phone: school.phone ? formatPhone(school.phone) : null,
+            whatsapp: school.whatsapp ? formatPhone(school.whatsapp) : null,
+          }
+        : undefined,
     );
 
     const win = window.open("", "_blank", "width=850,height=1100");
@@ -323,13 +333,28 @@ function ApplyFormContent() {
           </h1>
           <p className="mt-2 text-sm font-semibold text-[#fe00b6] flex items-center justify-center gap-2">
             <MapPin className="h-4 w-4 shrink-0" />
-            Allied Filling Station, A&apos;koon - Tarkwa
+            {school?.address ?? "Tarkwa, Ghana"}
           </p>
-          <p className="mt-1 text-xs text-[#692156] flex items-center justify-center gap-4 flex-wrap">
-            <span>Phone: <b>059 770 6250</b></span>
-            <span>·</span>
-            <span>WhatsApp: <b>054 556 3536</b></span>
-          </p>
+          {school?.phone || school?.whatsapp ? (
+            <p className="mt-1 text-xs text-[#692156] flex items-center justify-center gap-4 flex-wrap">
+              {school.phone ? (
+                <a href={telHref(school.phone)} className="hover:text-[#fe00b6]">
+                  Phone: <b>{formatPhone(school.phone)}</b>
+                </a>
+              ) : null}
+              {school.phone && school.whatsapp ? <span>·</span> : null}
+              {school.whatsapp ? (
+                <a
+                  href={whatsappHref(school.whatsapp) ?? telHref(school.whatsapp)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hover:text-[#fe00b6]"
+                >
+                  WhatsApp: <b>{formatPhone(school.whatsapp)}</b>
+                </a>
+              ) : null}
+            </p>
+          ) : null}
         </div>
 
         <div className="grid gap-12 lg:grid-cols-[.75fr_1.25fr]">
