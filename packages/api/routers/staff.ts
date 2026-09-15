@@ -1,4 +1,5 @@
 import { and, asc, count, desc, eq, ilike, isNull, or, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { randomUUID } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
@@ -24,7 +25,14 @@ import {
   inventoryBalanceAfter,
   money,
 } from "../platform.utils";
+import {
+  APPOINTMENT_STATUSES,
+  clientMessageFor,
+  messageClient,
+  type AppointmentStatus,
+} from "../services/appointments";
 import { recordAudit } from "../services/audit";
+import { bestEffort } from "../services/notify";
 import { recordOneResult } from "./results";
 import {
   permissionProcedure,
@@ -517,16 +525,19 @@ export const staffRouter = router({
       const db = await dbOrThrow();
       return recordOneResult(db, { ...input, gradedByUserId: ctx.user.id });
     }),
-  appointments: staffProcedure.query(async () => {
+  appointments: permissionProcedure("appointments.read").query(async () => {
     const db = await dbOrThrow();
+    const assignee = alias(users, "assignee");
     return db
       .select({
         appointment: appointments,
         serviceName: clinicServices.name,
         durationMinutes: clinicServices.durationMinutes,
+        assignedStaffName: assignee.name,
       })
       .from(appointments)
       .innerJoin(clinicServices, eq(appointments.serviceId, clinicServices.id))
+      .leftJoin(assignee, eq(appointments.assignedStaffUserId, assignee.id))
       .orderBy(desc(appointments.startsAt));
   }),
   createAppointment: staffAccessProcedure
@@ -605,29 +616,96 @@ export const staffRouter = router({
         return { id: created?.id, reference, status: input.status };
       });
     }),
-  updateAppointment: staffProcedure
+  // Moves a booking on, or hands it to someone. Only what is sent changes: setting a status
+  // no longer quietly assigns the booking to whoever clicked.
+  updateAppointment: permissionProcedure("appointments.write")
     .input(
-      z.object({
-        appointmentId: z.number().int().positive(),
-        status: z.enum([
-          "requested",
-          "confirmed",
-          "completed",
-          "cancelled",
-          "no_show",
-        ]),
-        assignedStaffUserId: z.number().int().positive().optional(),
-      })
+      z
+        .object({
+          appointmentId: z.number().int().positive(),
+          status: z.enum(APPOINTMENT_STATUSES).optional(),
+          // Null takes the booking off whoever had it.
+          assignedStaffUserId: z.number().int().positive().nullable().optional(),
+        })
+        .refine(
+          input => input.status !== undefined || input.assignedStaffUserId !== undefined,
+          { message: "Nothing to change." }
+        )
     )
     .mutation(async ({ input, ctx }) => {
       const db = await dbOrThrow();
+
+      const [existing] = await db
+        .select()
+        .from(appointments)
+        .where(eq(appointments.id, input.appointmentId))
+        .limit(1);
+      if (!existing) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Appointment not found." });
+      }
+
+      if (input.assignedStaffUserId) {
+        const [member] = await db
+          .select({ id: users.id })
+          .from(users)
+          .where(
+            and(
+              eq(users.id, input.assignedStaffUserId),
+              eq(users.isActive, true),
+              or(eq(users.role, "staff"), eq(users.role, "admin"))
+            )
+          )
+          .limit(1);
+        if (!member) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Bookings can only be assigned to an active staff account.",
+          });
+        }
+      }
+
+      const from = existing.status as AppointmentStatus;
+      const to = input.status ?? from;
+
       await db
         .update(appointments)
         .set({
-          ...input,
-          assignedStaffUserId: input.assignedStaffUserId ?? ctx.user.id,
+          status: to,
+          ...(input.assignedStaffUserId !== undefined
+            ? { assignedStaffUserId: input.assignedStaffUserId }
+            : {}),
         })
-        .where(eq(appointments.id, input.appointmentId));
-      return { success: true };
+        .where(eq(appointments.id, existing.id));
+
+      await recordAudit(db, ctx.actor, {
+        action: "update_appointment",
+        entity: "appointment",
+        entityId: existing.id,
+        entityLabel: existing.reference,
+        oldValue: {
+          status: from,
+          assignedStaffUserId: existing.assignedStaffUserId,
+        },
+        newValue: {
+          status: to,
+          assignedStaffUserId:
+            input.assignedStaffUserId !== undefined
+              ? input.assignedStaffUserId
+              : existing.assignedStaffUserId,
+        },
+        summary:
+          from !== to
+            ? `${ctx.actor.name ?? "Staff"} moved booking ${existing.reference} (${existing.customerName}) from ${from} to ${to}`
+            : `${ctx.actor.name ?? "Staff"} changed who handles booking ${existing.reference} (${existing.customerName})`,
+      });
+
+      const message = clientMessageFor(from, to);
+      if (message) {
+        await bestEffort("booking status message", () =>
+          messageClient(db, existing.id, message)
+        );
+      }
+
+      return { success: true, status: to, clientMessaged: Boolean(message) };
     }),
 });

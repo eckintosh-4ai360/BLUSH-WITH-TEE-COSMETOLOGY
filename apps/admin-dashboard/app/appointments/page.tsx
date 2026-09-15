@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import {
+  BellRing,
   CalendarDays,
   Clock3,
   Home,
@@ -9,10 +10,16 @@ import {
   Plus,
   RefreshCw,
   Scissors,
+  UserRound,
 } from "lucide-react";
 import { Calendar } from "@blush/ui/components/ui/calendar";
 import { Button } from "@blush/ui/components/ui/button";
 import DashboardLayout from "@/components/DashboardLayout";
+import {
+  AppointmentActions,
+  type AppointmentStatus,
+  type TeamMember,
+} from "@/components/appointments/AppointmentActions";
 import { NewAppointmentDialog } from "@/components/appointments/NewAppointmentDialog";
 import { PermissionGate } from "@/components/PermissionGate";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -20,13 +27,14 @@ import { trpc } from "@/lib/trpc";
 
 type AppointmentLocation = "salon" | "home";
 type LocationFilter = "all" | AppointmentLocation;
-type AppointmentStatus =
-  | "requested"
-  | "confirmed"
-  | "completed"
-  | "cancelled"
-  | "no_show";
 type HistoryStatusFilter = "all" | AppointmentStatus;
+
+// What a booking row needs to change it: who may, who to, and what to refresh after.
+type RowControls = {
+  writable: boolean;
+  team: TeamMember[];
+  onChanged: () => void;
+};
 
 type AppointmentRow = {
   appointment: {
@@ -40,9 +48,11 @@ type AppointmentRow = {
     locationDetails: string | null;
     note: string | null;
     status: AppointmentStatus;
+    assignedStaffUserId: number | null;
   };
   serviceName: string;
   durationMinutes: number;
+  assignedStaffName: string | null;
 };
 
 const locationFilters: { value: LocationFilter; label: string }[] = [
@@ -120,8 +130,19 @@ function AppointmentsCalendar() {
   const [locationFilter, setLocationFilter] = useState<LocationFilter>("all");
   const [createOpen, setCreateOpen] = useState(false);
   const appointmentsQuery = trpc.staff.appointments.useQuery();
+  const writable = can("appointments.write");
+  const teamQuery = trpc.staff.team.useQuery(undefined, { enabled: writable });
+
+  const controls: RowControls = {
+    writable,
+    team: teamQuery.data ?? [],
+    onChanged: () => void appointmentsQuery.refetch(),
+  };
 
   const appointments = (appointmentsQuery.data ?? []) as AppointmentRow[];
+  const awaitingConfirmation = appointments.filter(
+    row => row.appointment.status === "requested"
+  ).length;
   const visibleAppointments = useMemo(
     () =>
       appointments.filter(
@@ -197,8 +218,9 @@ function AppointmentsCalendar() {
               Appointments
             </h1>
             <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-              See every salon and home-service booking by day, then plan the
-              team around what is coming up.
+              See every salon and home-service booking by day, confirm or
+              cancel website requests, and plan the team around what is coming
+              up.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -236,7 +258,13 @@ function AppointmentsCalendar() {
         </div>
       </header>
 
-      <section className="grid gap-3 sm:grid-cols-3">
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <SummaryCard
+          label="Awaiting confirmation"
+          value={awaitingConfirmation}
+          icon={BellRing}
+          tone="rose"
+        />
         <SummaryCard
           label={`${formatMonth(month)} bookings`}
           value={monthAppointments.length}
@@ -360,7 +388,11 @@ function AppointmentsCalendar() {
               ))
             ) : selectedAppointments.length ? (
               selectedAppointments.map(row => (
-                <AppointmentCard key={row.appointment.id} row={row} />
+                <AppointmentCard
+                  key={row.appointment.id}
+                  row={row}
+                  controls={controls}
+                />
               ))
             ) : (
               <div className="rounded-2xl border border-dashed border-[#9ee6ec]/70 bg-white/35 px-5 py-12 text-center dark:border-white/15 dark:bg-white/5">
@@ -380,6 +412,7 @@ function AppointmentsCalendar() {
       <AppointmentHistoryTable
         appointments={appointments}
         isLoading={appointmentsQuery.isLoading}
+        controls={controls}
       />
 
       <NewAppointmentDialog
@@ -395,9 +428,11 @@ function AppointmentsCalendar() {
 function AppointmentHistoryTable({
   appointments,
   isLoading,
+  controls,
 }: {
   appointments: AppointmentRow[];
   isLoading: boolean;
+  controls: RowControls;
 }) {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
@@ -504,7 +539,7 @@ function AppointmentHistoryTable({
       ) : null}
 
       <div className="mt-5 overflow-x-auto rounded-2xl border border-[#9ee6ec]/45 dark:border-white/10">
-        <table className="w-full min-w-[900px] border-collapse text-left text-sm">
+        <table className="w-full min-w-[1020px] border-collapse text-left text-sm">
           <thead className="bg-[#e8f7f8]/75 text-xs uppercase tracking-[0.08em] text-[#55707b] dark:bg-white/5 dark:text-[#b8d2d7]">
             <tr>
               <th className="px-4 py-3 font-semibold">Date &amp; time</th>
@@ -512,6 +547,7 @@ function AppointmentHistoryTable({
               <th className="px-4 py-3 font-semibold">Service</th>
               <th className="px-4 py-3 font-semibold">Location</th>
               <th className="px-4 py-3 font-semibold">Status</th>
+              <th className="px-4 py-3 font-semibold">Handled by</th>
               <th className="px-4 py-3 font-semibold">Reference</th>
             </tr>
           </thead>
@@ -519,19 +555,23 @@ function AppointmentHistoryTable({
             {isLoading ? (
               [0, 1, 2].map(item => (
                 <tr key={item}>
-                  <td colSpan={6} className="px-4 py-4">
+                  <td colSpan={7} className="px-4 py-4">
                     <div className="h-5 animate-pulse rounded bg-[#e8f7f8]/75 dark:bg-white/5" />
                   </td>
                 </tr>
               ))
             ) : filteredAppointments.length ? (
               filteredAppointments.map(row => (
-                <AppointmentHistoryRow key={row.appointment.id} row={row} />
+                <AppointmentHistoryRow
+                  key={row.appointment.id}
+                  row={row}
+                  controls={controls}
+                />
               ))
             ) : (
               <tr>
                 <td
-                  colSpan={6}
+                  colSpan={7}
                   className="px-4 py-10 text-center text-sm text-muted-foreground"
                 >
                   No appointments match the selected filters.
@@ -545,7 +585,13 @@ function AppointmentHistoryTable({
   );
 }
 
-function AppointmentHistoryRow({ row }: { row: AppointmentRow }) {
+function AppointmentHistoryRow({
+  row,
+  controls,
+}: {
+  row: AppointmentRow;
+  controls: RowControls;
+}) {
   const date = appointmentDate(row);
   const isHome = row.appointment.location === "home";
   const LocationIcon = isHome ? Home : MapPin;
@@ -583,11 +629,25 @@ function AppointmentHistoryRow({ row }: { row: AppointmentRow }) {
         ) : null}
       </td>
       <td className="px-4 py-4 align-top">
-        <span
-          className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusClass(row.appointment.status)}`}
-        >
-          {statusLabel(row.appointment.status)}
-        </span>
+        {controls.writable ? (
+          <AppointmentActions
+            appointment={row.appointment}
+            team={controls.team}
+            variant="compact"
+            onChanged={controls.onChanged}
+          />
+        ) : (
+          <span
+            className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusClass(row.appointment.status)}`}
+          >
+            {statusLabel(row.appointment.status)}
+          </span>
+        )}
+      </td>
+      <td className="px-4 py-4 align-top text-xs text-[#4d6974] dark:text-[#c1d9dd]">
+        {row.assignedStaffName ?? (
+          <span className="text-muted-foreground">Not assigned</span>
+        )}
       </td>
       <td className="whitespace-nowrap px-4 py-4 align-top text-xs font-medium text-muted-foreground">
         {row.appointment.reference}
@@ -605,12 +665,13 @@ function SummaryCard({
   label: string;
   value: number;
   icon: typeof CalendarDays;
-  tone: "teal" | "purple" | "amber";
+  tone: "teal" | "purple" | "amber" | "rose";
 }) {
   const colors = {
     teal: "bg-[#e1f7f8] text-[#24818a] dark:bg-[#173c44] dark:text-[#9fe4ea]",
     purple: "bg-[#f1eafb] text-[#7653a3] dark:bg-[#302340] dark:text-[#d2b7f1]",
     amber: "bg-[#fff3df] text-[#9b711e] dark:bg-[#44371e] dark:text-[#f0d494]",
+    rose: "bg-[#fbe7eb] text-[#a33e57] dark:bg-[#42232d] dark:text-[#f0a5b8]",
   }[tone];
 
   return (
@@ -630,7 +691,13 @@ function SummaryCard({
   );
 }
 
-function AppointmentCard({ row }: { row: AppointmentRow }) {
+function AppointmentCard({
+  row,
+  controls,
+}: {
+  row: AppointmentRow;
+  controls: RowControls;
+}) {
   const date = appointmentDate(row);
   const isHome = row.appointment.location === "home";
   const LocationIcon = isHome ? Home : MapPin;
@@ -665,6 +732,12 @@ function AppointmentCard({ row }: { row: AppointmentRow }) {
         </span>
         <span>{row.durationMinutes} minutes</span>
         <span>{row.appointment.customerPhone}</span>
+        {row.assignedStaffName ? (
+          <span className="inline-flex items-center gap-1.5">
+            <UserRound className="h-3.5 w-3.5" />
+            {row.assignedStaffName}
+          </span>
+        ) : null}
       </div>
 
       {isHome && row.appointment.locationDetails ? (
@@ -676,6 +749,14 @@ function AppointmentCard({ row }: { row: AppointmentRow }) {
         <p className="mt-3 text-xs italic text-muted-foreground">
           Note: {row.appointment.note}
         </p>
+      ) : null}
+
+      {controls.writable ? (
+        <AppointmentActions
+          appointment={row.appointment}
+          team={controls.team}
+          onChanged={controls.onChanged}
+        />
       ) : null}
     </article>
   );
