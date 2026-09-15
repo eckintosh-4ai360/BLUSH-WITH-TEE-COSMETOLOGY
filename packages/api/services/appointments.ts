@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { appointments, clinicServices, systemSettings } from "@blush/db/schema";
 import type { Database, DbExecutor } from "../dbOrThrow";
 import { announce } from "./messaging/announce";
-import { flushInBackground } from "./messaging/dispatch";
+import { flush } from "./messaging/dispatch";
 import { notify, recipientsWithPermission } from "./notify";
 
 export const APPOINTMENT_STATUSES = [
@@ -192,16 +192,47 @@ export function bookingTimeProblem(
   return null;
 }
 
-// The status changes a client is told about. Completed and no-show are the desk's own record.
+export type ClientMessageType =
+  | "appointment_requested"
+  | "appointment_confirmed"
+  | "appointment_cancelled"
+  | "appointment_completed"
+  | "appointment_no_show";
+
+const MESSAGE_FOR_STATUS: Record<AppointmentStatus, ClientMessageType> = {
+  requested: "appointment_requested",
+  confirmed: "appointment_confirmed",
+  cancelled: "appointment_cancelled",
+  completed: "appointment_completed",
+  no_show: "appointment_no_show",
+};
+
+// The status changes a client is told about. Which channels each one actually uses is set
+// per event on the messaging settings page.
 export function clientMessageFor(
   from: AppointmentStatus,
   to: AppointmentStatus,
-): "appointment_confirmed" | "appointment_cancelled" | null {
+): ClientMessageType | null {
   if (from === to) return null;
-  if (to === "confirmed") return "appointment_confirmed";
-  if (to === "cancelled") return "appointment_cancelled";
-  return null;
+  // Moving a booking back to "requested" is the desk undoing a step, not news for the client.
+  if (to === "requested") return null;
+  return MESSAGE_FOR_STATUS[to];
 }
+
+// What a client is told when the desk records a booking for them. A booking entered as already
+// cancelled or missed is bookkeeping, so it sends nothing.
+export function clientMessageOnCreate(status: AppointmentStatus): ClientMessageType | null {
+  if (status === "cancelled" || status === "no_show") return null;
+  return MESSAGE_FOR_STATUS[status];
+}
+
+const MESSAGE_TITLES: Record<ClientMessageType, string> = {
+  appointment_requested: "We have your booking request",
+  appointment_confirmed: "Your appointment is confirmed",
+  appointment_cancelled: "Your appointment has been cancelled",
+  appointment_completed: "Thank you for visiting",
+  appointment_no_show: "We missed you",
+};
 
 async function loadAppointment(db: Database, appointmentId: number) {
   const [row] = await db
@@ -217,7 +248,7 @@ async function loadAppointment(db: Database, appointmentId: number) {
 export async function messageClient(
   db: Database,
   appointmentId: number,
-  type: "appointment_requested" | "appointment_confirmed" | "appointment_cancelled",
+  type: ClientMessageType,
 ): Promise<void> {
   const row = await loadAppointment(db, appointmentId);
   if (!row) return;
@@ -225,19 +256,14 @@ export async function messageClient(
   const { appointment, serviceName } = row;
   const when = describeAppointmentTime(appointment.startsAt);
 
-  await announce(db, {
+  const queued = await announce(db, {
     type,
     recipient: {
       name: appointment.customerName,
       email: appointment.customerEmail,
       phone: appointment.customerPhone,
     },
-    title:
-      type === "appointment_confirmed"
-        ? "Your appointment is confirmed"
-        : type === "appointment_cancelled"
-          ? "Your appointment has been cancelled"
-          : "We have your booking request",
+    title: MESSAGE_TITLES[type],
     facts: {
       service: serviceName,
       when,
@@ -250,7 +276,10 @@ export async function messageClient(
     entityType: "appointment",
     entityId: appointment.id,
   });
-  flushInBackground(db);
+  // Sent before the request returns: on a serverless host a background send can be frozen
+  // along with the function once the response is out. Anything that fails stays queued for
+  // the retry flush.
+  await flush(db, queued.length, queued);
 }
 
 // Puts a new website booking in front of the people who handle bookings.

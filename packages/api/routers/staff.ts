@@ -28,6 +28,7 @@ import {
 import {
   APPOINTMENT_STATUSES,
   clientMessageFor,
+  clientMessageOnCreate,
   messageClient,
   type AppointmentStatus,
 } from "../services/appointments";
@@ -545,7 +546,7 @@ export const staffRouter = router({
     .mutation(async ({ input, ctx }) => {
       ctx.access.assert("appointments.write");
 
-      return ctx.db.transaction(async tx => {
+      const created = await ctx.db.transaction(async tx => {
         let serviceId: number;
         if (input.customServiceName) {
           const customServiceName = input.customServiceName.trim();
@@ -598,7 +599,7 @@ export const staffRouter = router({
         }
 
         const reference = buildReference("CLN");
-        const [created] = await tx
+        const [row] = await tx
           .insert(appointments)
           .values({
             reference,
@@ -613,8 +614,18 @@ export const staffRouter = router({
           })
           .returning({ id: appointments.id });
 
-        return { id: created?.id, reference, status: input.status };
+        return { id: row?.id, reference, status: input.status };
       });
+
+      // Tells the client once the booking has committed, so a failed message never undoes it.
+      const message = clientMessageOnCreate(created.status);
+      if (created.id && message) {
+        const db = await dbOrThrow();
+        const appointmentId = created.id;
+        await bestEffort("desk booking message", () => messageClient(db, appointmentId, message));
+      }
+
+      return created;
     }),
   // Moves a booking on, or hands it to someone. Only what is sent changes: setting a status
   // no longer quietly assigns the booking to whoever clicked.
