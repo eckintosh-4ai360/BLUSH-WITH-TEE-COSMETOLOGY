@@ -333,7 +333,7 @@ function ApplyFormContent() {
           </h1>
           <p className="mt-2 text-sm font-semibold text-[#fe00b6] flex items-center justify-center gap-2">
             <MapPin className="h-4 w-4 shrink-0" />
-            {school?.address ?? "Tarkwa, Ghana"}
+            {school?.address ?? "Akon Allied Filling Station, Tarkwa, Ghana"}
           </p>
           {school?.phone || school?.whatsapp ? (
             <p className="mt-1 text-xs text-[#692156] flex items-center justify-center gap-4 flex-wrap">

@@ -2,4 +2,5 @@
 /// <reference types="next/image-types/global" />
 /// <reference path="./.next/types/routes.d.ts" />
 
-// NOTE: Next.js auto-generated types, avoid manual edits.
+// NOTE: This file should not be edited
+// see https://nextjs.org/docs/app/api-reference/config/typescript for more information.
