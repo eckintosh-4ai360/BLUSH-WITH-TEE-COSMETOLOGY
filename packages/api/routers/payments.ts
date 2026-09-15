@@ -7,12 +7,20 @@ import { dbOrThrow } from "../dbOrThrow";
 import { buildReference } from "../platform.utils";
 import { captureVerifiedPayment, outstandingBalanceMinor } from "../services/capture";
 import { studentAccountSummary } from "../services/fees";
-import { confirmManualPayment, getGateway } from "../services/gateway";
+import {
+  callbackUrlFor,
+  confirmManualPayment,
+  getGateway,
+  onlinePaymentMode,
+} from "../services/gateway";
 import { fromMinor, money, toAmountString, toMinor } from "../services/money";
-import { router, studentProcedure } from "../trpc";
+import { publicProcedure, router, studentProcedure } from "../trpc";
 
 // The online fee payment workflow.
 export const paymentsRouter = router({
+  // Whether the portal can offer online payment: "live", "test" (development) or "off".
+  options: publicProcedure.query(() => ({ online: onlinePaymentMode() })),
+
   // What the student owes, and therefore the most they may pay.
   balance: studentProcedure.query(async ({ ctx }) => {
     const db = await dbOrThrow();
@@ -44,7 +52,6 @@ export const paymentsRouter = router({
         amount: z.number().positive().max(1_000_000),
         // Client-supplied key that makes a retried submit reuse the same intent instead of opening.
         idempotencyKey: z.string().min(8).max(96),
-        callbackUrl: z.string().url().max(500).optional(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -125,7 +132,8 @@ export const paymentsRouter = router({
         amountMinor,
         currency: "GHS",
         email,
-        callbackUrl: input.callbackUrl,
+        // Built from the site's own address rather than accepted from the browser.
+        callbackUrl: callbackUrlFor(ctx.req, "/portal/payment"),
       });
 
       await db

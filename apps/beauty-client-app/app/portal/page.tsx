@@ -3,6 +3,7 @@
 import { Badge } from "@blush/ui/components/ui/badge";
 import PortalGuard from "@/components/PortalGuard";
 import PublicShell from "@/components/PublicShell";
+import { FeePaymentCard } from "@/components/portal/FeePaymentCard";
 import { trpc } from "@/lib/trpc";
 
 function StudentPortalContent() {
@@ -45,6 +46,8 @@ function StudentPortalContent() {
           </p>
         </div>
       </div>
+
+      <FeePaymentCard />
 
       <div className="mt-7 grid gap-5 xl:grid-cols-2">
         <section className="rounded-3xl border border-[#8f0d6b]/15 bg-white/90 p-7 shadow-[0_12px_36px_rgba(143,13,107,.06)]">
