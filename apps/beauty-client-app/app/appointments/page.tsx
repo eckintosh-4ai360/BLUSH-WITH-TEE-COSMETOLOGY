@@ -10,10 +10,17 @@ import { trpc } from "@/lib/trpc";
 const priceLabel = (price: string | number) =>
   Number(price) > 0 ? `GHS ${Number(price).toFixed(2)}` : "Price on request";
 
+// The salon keeps Ghana time, which is UTC all year. The picker's value is read as Ghana time
+// so a visitor browsing from another timezone books the hour they typed.
+const fromGhanaTime = (value: string) => new Date(`${value}:00Z`);
+const toGhanaTime = (date: Date) => date.toISOString().slice(0, 16);
+
 export default function AppointmentsPage() {
   const servicesQuery = trpc.content.clinicServices.useQuery();
   const services = servicesQuery.data ?? [];
   const book = trpc.appointments.book.useMutation();
+  const rulesQuery = trpc.appointments.rules.useQuery();
+  const rules = rulesQuery.data;
   const [notice, setNotice] = useState("");
   const [location, setLocation] = useState<"salon" | "home">("salon");
 
@@ -27,7 +34,7 @@ export default function AppointmentsPage() {
         serviceId: Number(data.get("serviceId")),
         customerName: String(data.get("customerName")),
         customerPhone: String(data.get("customerPhone")),
-        startsAt: new Date(String(data.get("startsAt"))),
+        startsAt: fromGhanaTime(String(data.get("startsAt"))),
         location: String(data.get("location")) as "salon" | "home",
         locationDetails: String(data.get("locationDetails") || "") || undefined,
         note: String(data.get("note") || "") || undefined,
@@ -207,7 +214,24 @@ export default function AppointmentsPage() {
                   type="datetime-local"
                   name="startsAt"
                   className="soft-input"
+                  min={
+                    rules
+                      ? toGhanaTime(new Date(Date.now() + rules.minNoticeMinutes * 60_000))
+                      : undefined
+                  }
+                  max={
+                    rules
+                      ? toGhanaTime(new Date(Date.now() + rules.maxDaysAhead * 24 * 60 * 60_000))
+                      : undefined
+                  }
                 />
+                {rules && (
+                  <span className="mt-1 block text-xs font-normal leading-5 text-[#6a2557]">
+                    {rules.openDays.length
+                      ? `Ghana time. Bookings are taken ${rules.summary.charAt(0).toLowerCase()}${rules.summary.slice(1)}. The desk confirms every request.`
+                      : "Online booking is closed at the moment. Please contact the salon."}
+                  </span>
+                )}
               </label>
 
               <label className="field-label">

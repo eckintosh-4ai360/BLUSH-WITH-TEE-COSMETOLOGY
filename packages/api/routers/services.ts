@@ -5,9 +5,16 @@ import {
   clinicServices,
   serviceSales,
   staffProfiles,
+  systemSettings,
   users,
 } from "@blush/db/schema";
 import { dbOrThrow } from "../dbOrThrow";
+import {
+  BOOKING_RULES_KEY,
+  describeOpeningHours,
+  minutesOfDay,
+  readBookingRules,
+} from "../services/appointments";
 import { recordAudit } from "../services/audit";
 import { money, toAmountString, toMinor } from "../services/money";
 import { listInputSchema, likePattern, paginate, paginationBounds } from "../services/pagination";
@@ -340,6 +347,65 @@ export const servicesRouter = router({
       .orderBy(desc(clinicServices.isActive), asc(clinicServices.name));
     return rows.map(row => ({ ...row, price: money(row.price) }));
   }),
+
+  // When the website takes bookings.
+  bookingRules: anyPermissionProcedure("services.read", "appointments.read").query(async () => {
+    const db = await dbOrThrow();
+    const rules = await readBookingRules(db);
+    return { ...rules, summary: describeOpeningHours(rules) };
+  }),
+
+  saveBookingRules: permissionProcedure("services.write")
+    .input(
+      z
+        .object({
+          openDays: z.array(z.number().int().min(0).max(6)).max(7),
+          opensAt: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use a time written as HH:MM."),
+          closesAt: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use a time written as HH:MM."),
+          minNoticeMinutes: z.number().int().min(0).max(7 * 24 * 60),
+          maxDaysAhead: z.number().int().min(1).max(365),
+          bookingsPerSlot: z.number().int().min(1).max(50),
+        })
+        .superRefine((input, ctx) => {
+          if (minutesOfDay(input.closesAt)! <= minutesOfDay(input.opensAt)!) {
+            ctx.addIssue({
+              code: "custom",
+              path: ["closesAt"],
+              message: "Closing time must be after opening time.",
+            });
+          }
+        })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+      const before = await readBookingRules(db);
+      const value = { ...input, openDays: Array.from(new Set(input.openDays)).sort((a, b) => a - b) };
+
+      await db
+        .insert(systemSettings)
+        .values({
+          key: BOOKING_RULES_KEY,
+          category: "appointments",
+          value,
+          description: "When the website takes bookings",
+          updatedByUserId: ctx.actor.id,
+        })
+        .onConflictDoUpdate({
+          target: systemSettings.key,
+          set: { value, updatedByUserId: ctx.actor.id },
+        });
+
+      await recordAudit(db, ctx.actor, {
+        action: "update",
+        entity: "systemSetting",
+        entityLabel: BOOKING_RULES_KEY,
+        oldValue: before,
+        newValue: value,
+        summary: `${ctx.actor.name ?? "Staff"} changed online booking hours to ${describeOpeningHours(value)}`,
+      });
+
+      return { ...value, summary: describeOpeningHours(value) };
+    }),
 
   // Adds a service to the menu, or corrects one. Its price is what the website quotes.
   saveMenuItem: permissionProcedure("services.write")

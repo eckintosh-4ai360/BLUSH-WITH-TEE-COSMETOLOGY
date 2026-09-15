@@ -10,6 +10,7 @@ import { formatMoney } from "@blush/ui/lib/viz";
 import DashboardLayout from "@/components/DashboardLayout";
 import { DataTable, type Column } from "@/components/DataTable";
 import { PermissionGate } from "@/components/PermissionGate";
+import { BookingHoursCard } from "@/components/appointments/BookingHoursCard";
 import {
   SaveMenuItemDialog,
   type MenuItem,
@@ -186,6 +187,8 @@ function ServiceMenu() {
           ) : null
         }
       />
+
+      <BookingHoursCard writable={writable} />
 
       <SaveMenuItemDialog
         open={addOpen}
