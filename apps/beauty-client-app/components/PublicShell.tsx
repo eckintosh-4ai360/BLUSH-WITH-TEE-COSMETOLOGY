@@ -23,7 +23,7 @@ import { Button } from "@blush/ui/components/ui/button";
 import { AskAssistant } from "@/components/AskAssistant";
 import { useAuth } from "@/hooks/useAuth";
 import { useSchoolProfile } from "@/hooks/useSchoolProfile";
-import { startLogin } from "@/lib/auth";
+import { staffLoginUrl } from "@/lib/staffDashboard";
 import { trpc } from "@/lib/trpc";
 
 const links = [
@@ -125,11 +125,11 @@ export default function PublicShell({ children }: { children: React.ReactNode })
               </>
             ) : (
               <Button
+                asChild
                 variant="ghost"
                 className="rounded-full text-xs font-medium text-[#8f0d6b] transition-colors duration-300 hover:bg-[#faeaf6] lg:hidden xl:inline-flex"
-                onClick={() => startLogin()}
               >
-                Sign in
+                <a href={staffLoginUrl()}>Sign in</a>
               </Button>
             )}
             <Link href="/apply">
@@ -181,8 +181,10 @@ export default function PublicShell({ children }: { children: React.ReactNode })
                     </Button>
                   </>
                 ) : (
-                  <Button variant="outline" onClick={() => { setMenuOpen(false); startLogin(); }} className="rounded-xl border-[#8f0d6b]/25 bg-white py-2.5 text-sm font-semibold text-[#8f0d6b]">
-                    Sign In
+                  <Button asChild variant="outline" className="rounded-xl border-[#8f0d6b]/25 bg-white py-2.5 text-sm font-semibold text-[#8f0d6b]">
+                    <a href={staffLoginUrl()} onClick={() => setMenuOpen(false)}>
+                      Sign In
+                    </a>
                   </Button>
                 )}
                 <Link
