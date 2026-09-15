@@ -432,6 +432,27 @@ export const cmsRouter = router({
       return { id: input.id };
     }),
 
+  deleteEvent: permissionProcedure("cms.write")
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+      const [removed] = await db
+        .delete(events)
+        .where(eq(events.id, input.id))
+        .returning({ id: events.id, title: events.title });
+      if (!removed) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "That event could not be found." });
+      }
+      await recordAudit(db, ctx.actor, {
+        action: "delete",
+        entity: "event",
+        entityId: input.id,
+        entityLabel: removed.title,
+        summary: `${ctx.actor.name ?? "Staff"} deleted the "${removed.title}" event`,
+      });
+      return { id: input.id };
+    }),
+
   // Publishes, unpublishes or archives one entry without reopening its form.
   setStatus: permissionProcedure("cms.write")
     .input(

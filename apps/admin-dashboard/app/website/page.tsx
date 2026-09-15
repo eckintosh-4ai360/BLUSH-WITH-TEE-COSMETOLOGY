@@ -104,6 +104,11 @@ function WebsiteContent() {
     onError: error => toast.error(error.message),
   });
 
+  const deleteEvent = trpc.cms.deleteEvent.useMutation({
+    onSuccess: saved("Event deleted.", events.refetch),
+    onError: error => toast.error(error.message),
+  });
+
   return (
     <div className="mx-auto max-w-[1100px] space-y-6 pb-10">
       <header className="flex flex-wrap items-end justify-between gap-4 border-b border-border/60 pb-5">
@@ -237,6 +242,15 @@ function WebsiteContent() {
                   meta={[WHEN.format(new Date(row.startsAt)), row.location, over ? "Finished" : null]}
                   detail={row.summary}
                   onEdit={() => setEventEdit(row)}
+                  onDelete={() => {
+                    if (
+                      window.confirm(
+                        `Delete the event "${row.title}"? It will be removed from the website.`,
+                      )
+                    ) {
+                      deleteEvent.mutate({ id: row.id });
+                    }
+                  }}
                   onChanged={() => void events.refetch()}
                 />
               );
