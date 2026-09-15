@@ -43,67 +43,31 @@ pnpm dev                     # admin on :3000, website on :3001
 
 Then open **<http://localhost:3000>** and sign in:
 
-| | |
-|---|---|
-| Email | `admin@bwtee.com` |
-| Password | `blush@2026` |
-
 You are sent straight to a password change. That password is published here, so
 it protects nothing until you replace it — change it before the system is
 reachable from anywhere but your machine. Every other account is created from
 **Operations → Access** inside the dashboard.
 
-| Command | What it does |
-|---|---|
-| `pnpm dev` | Runs both apps |
-| `pnpm dev:admin` / `pnpm dev:client` | Runs one app |
-| `pnpm check` | Type checks every package |
-| `pnpm test` | Unit tests |
-| `pnpm build` | Production build |
-| `pnpm db:push` | Generate and apply migrations |
-| `pnpm db:seed` | Foundation data (safe everywhere) |
-| `pnpm db:seed:demo` | Realistic demo school (refuses in production) |
-| `pnpm db:reconcile` | Repair derived values from their ledgers |
-| `pnpm --filter @blush/api smoke` | Run every read endpoint against the real database |
+| Command                                    | What it does                                               |
+| ------------------------------------------ | ---------------------------------------------------------- |
+| `pnpm dev`                                 | Runs both apps                                             |
+| `pnpm dev:admin` / `pnpm dev:client`       | Runs one app                                               |
+| `pnpm check`                               | Type checks every package                                  |
+| `pnpm test`                                | Unit tests                                                 |
+| `pnpm build`                               | Production build                                           |
+| `pnpm db:push`                             | Generate and apply migrations                              |
+| `pnpm db:seed`                             | Foundation data (safe everywhere)                          |
+| `pnpm db:seed:demo`                        | Realistic demo school (refuses in production)              |
+| `pnpm db:reconcile`                        | Repair derived values from their ledgers                   |
+| `pnpm --filter @blush/api smoke`           | Run every read endpoint against the real database          |
 | `pnpm --filter @blush/api assistant-smoke` | Ask the assistant real questions against the real database |
 
 ---
 
-## The assistant
-
-Both apps carry an assistant that answers from this database rather than from a
-model's memory. It runs on Groq — `openai/gpt-oss-120b` by default — and needs
-`GROQ_API_KEY` set; without one, the dashboard panel says it is switched off and
-the website bubble is not rendered at all.
-
-It works by tool calling. The model cannot see the database; it can only ask for
-one of a fixed catalogue of read-only lookups, and **each lookup is gated by the
-same permission as the screen that shows the same figures**. The catalogue is
-filtered per caller before the model is told what exists, and checked again when
-a call comes back — so a storekeeper asking about revenue is told they cannot see
-it, rather than being told the number.
-
-| Surface | Where | Reaches |
-|---|---|---|
-| Staff | Dashboard header, `Ctrl + /` | Students, fees, payments, expenses, stock, orders, suppliers, staff, bookings — permission by permission |
-| Public | "Ask BWT" bubble on the website | Only what is already published: courses, fees, intakes, services, products, site content |
-
-Two limits are deliberate:
-
-- **It cannot write.** No tool records a payment, enrols a student or moves
-  stock. A model that misreads a question should cost a wrong sentence, never a
-  wrong payment.
-- **It does not answer money questions from memory.** Figures come from a tool
-  call or not at all, because a plausible invented number is worse than an
-  admission of ignorance — it gets acted on.
-
-Ordinary conversation still works: a greeting gets a greeting, not a refusal.
-
-Free-tier Groq keys are metered at 8,000 tokens a minute, which is roughly one
-question at a time. The client waits out a rate limit when the provider says how
-long, and says so plainly when the wait is too long to sit through.
-
----
+| Surface | Where                           | Reaches                                                                                                  |
+| ------- | ------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Staff   | Dashboard header, `Ctrl + /`    | Students, fees, payments, expenses, stock, orders, suppliers, staff, bookings — permission by permission |
+| Public  | "Ask BWT" bubble on the website | Only what is already published: courses, fees, intakes, services, products, site content                 |
 
 ## Layout
 
@@ -133,14 +97,14 @@ packages/
 
 ## Documentation
 
-| Document | Covers |
-|---|---|
+| Document                             | Covers                                           |
+| ------------------------------------ | ------------------------------------------------ |
 | [Architecture](docs/architecture.md) | How the pieces fit, request flow, key invariants |
-| [Database](docs/database.md) | Entity relationships, table map, migrations |
-| [API](docs/api.md) | The full procedure surface and how to call it |
-| [Security](docs/security.md) | RBAC, payment verification, uploads, audit |
-| [Operations](docs/operations.md) | Environments, deployment, backups, monitoring |
-| [Admin guide](docs/admin-guide.md) | Day-to-day use of the back office |
+| [Database](docs/database.md)         | Entity relationships, table map, migrations      |
+| [API](docs/api.md)                   | The full procedure surface and how to call it    |
+| [Security](docs/security.md)         | RBAC, payment verification, uploads, audit       |
+| [Operations](docs/operations.md)     | Environments, deployment, backups, monitoring    |
+| [Admin guide](docs/admin-guide.md)   | Day-to-day use of the back office                |
 
 ---
 

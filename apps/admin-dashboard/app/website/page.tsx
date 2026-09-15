@@ -93,27 +93,22 @@ function WebsiteContent() {
     onSuccess: saved("Enquiry deleted.", enquiries.refetch),
     onError: error => toast.error(error.message),
   });
-
   const deleteFaq = trpc.cms.deleteFaq.useMutation({
     onSuccess: saved("Question deleted.", faqs.refetch),
     onError: error => toast.error(error.message),
   });
-
   const deleteBanner = trpc.cms.deleteBanner.useMutation({
     onSuccess: saved("Banner deleted.", banners.refetch),
     onError: error => toast.error(error.message),
   });
-
   const deleteEvent = trpc.cms.deleteEvent.useMutation({
     onSuccess: saved("Event deleted.", events.refetch),
     onError: error => toast.error(error.message),
   });
-
   const deleteGalleryItem = trpc.cms.deleteGalleryItem.useMutation({
     onSuccess: saved("Photo deleted.", gallery.refetch),
     onError: error => toast.error(error.message),
   });
-
   const deleteTestimonial = trpc.cms.deleteTestimonial.useMutation({
     onSuccess: saved("Testimonial deleted.", testimonials.refetch),
     onError: error => toast.error(error.message),
