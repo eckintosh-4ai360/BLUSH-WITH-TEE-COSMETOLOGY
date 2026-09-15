@@ -313,6 +313,9 @@ export const notificationType = pgEnum("notification_type", [
   "appointment_confirmed",
   "appointment_cancelled",
   "order_placed",
+  // Appended by migration 0022.
+  "appointment_completed",
+  "appointment_no_show",
 ]);
 
 export const deliveryStatus = pgEnum("delivery_status", [

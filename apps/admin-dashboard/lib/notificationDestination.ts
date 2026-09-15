@@ -48,6 +48,8 @@ const BY_TYPE: Record<string, string> = {
   appointment_requested: "/appointments",
   appointment_confirmed: "/appointments",
   appointment_cancelled: "/appointments",
+  appointment_completed: "/appointments",
+  appointment_no_show: "/appointments",
   order_placed: "/orders",
 };
 
