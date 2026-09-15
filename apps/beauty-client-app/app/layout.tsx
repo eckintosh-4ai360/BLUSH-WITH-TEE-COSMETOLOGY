@@ -5,6 +5,7 @@ import { TooltipProvider } from "@blush/ui/components/ui/tooltip";
 import { Toaster } from "@blush/ui/components/ui/sonner";
 import "@blush/ui/globals.css";
 import { TrpcProvider } from "@/components/TrpcProvider";
+import { SITE_DESCRIPTION, SITE_NAME, siteUrl } from "@/lib/site";
 
 const sora = Sora({
   subsets: ["latin"],
@@ -13,8 +14,16 @@ const sora = Sora({
 });
 
 export const metadata: Metadata = {
-  title: "BWT School of Cosmetology",
-  description: "Apply to a professional cosmetology programme, book a student-clinic beauty service, and shop academy essentials at Blush With Tee School of Cosmetology.",
+  metadataBase: siteUrl(),
+  // Each section's layout names its page; the home page keeps the plain school name.
+  title: { default: SITE_NAME, template: `%s | ${SITE_NAME}` },
+  description: SITE_DESCRIPTION,
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    siteName: SITE_NAME,
+    images: ["/logo.png"],
+  },
   icons: {
     icon: "/logo.png",
     apple: "/logo.png",
