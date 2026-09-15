@@ -11,7 +11,8 @@
     "./contact": "./contact.ts",
     "./permissions": "./permissions.ts",
     "./imports": "./imports.ts",
-    "./admission-form": "./admissionForm.ts"
+    "./admission-form": "./admissionForm.ts",
+    "./markdown": "./markdown.ts"
   },
   "dependencies": {
     "@blush/db": "workspace:*"

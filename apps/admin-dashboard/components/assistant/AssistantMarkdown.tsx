@@ -1,14 +1,18 @@
 "use client";
 
 import { Fragment, useMemo } from "react";
+import { parseMarkdown, parseMarkdownInline } from "@blush/shared/markdown";
 
 // Renders the small slice of markdown the assistant actually produces.
 export function AssistantMarkdown({ text }: { text: string }) {
-  const blocks = useMemo(() => parseBlocks(text), [text]);
+  const blocks = useMemo(() => parseMarkdown(text), [text]);
 
   return (
     <div className="space-y-2 text-sm leading-relaxed">
       {blocks.map((block, index) => {
+        // The assistant has no pictures to show; a stray image line is left out.
+        if (block.kind === "image") return null;
+
         if (block.kind === "table") {
           return (
             <div key={index} className="-mx-1 overflow-x-auto">
@@ -75,117 +79,36 @@ export function AssistantMarkdown({ text }: { text: string }) {
   );
 }
 
-// Bold and inline code, which is as far as the inline grammar goes.
+// Bold, inline code and links, which is as far as the inline grammar goes.
 function Inline({ text }: { text: string }) {
-  const parts = useMemo(() => text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g).filter(Boolean), [text]);
+  const parts = useMemo(() => parseMarkdownInline(text), [text]);
 
   return (
     <>
       {parts.map((part, index) => {
-        if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
+        if (part.kind === "bold") {
           return (
             <strong key={index} className="font-semibold">
-              {part.slice(2, -2)}
+              {part.text}
             </strong>
           );
         }
-        if (part.startsWith("`") && part.endsWith("`") && part.length > 2) {
+        if (part.kind === "code") {
           return (
             <code key={index} className="rounded bg-black/8 px-1 py-0.5 text-[0.9em] dark:bg-white/12">
-              {part.slice(1, -1)}
+              {part.text}
             </code>
           );
         }
-        return <Fragment key={index}>{part}</Fragment>;
+        if (part.kind === "link" && part.href.startsWith("/")) {
+          return (
+            <a key={index} href={part.href} className="font-medium underline underline-offset-2">
+              {part.text}
+            </a>
+          );
+        }
+        return <Fragment key={index}>{part.text}</Fragment>;
       })}
     </>
   );
-}
-
-type Block =
-  | { kind: "paragraph"; text: string }
-  | { kind: "heading"; text: string }
-  | { kind: "list"; ordered: boolean; items: string[] }
-  | { kind: "table"; head: string[]; rows: string[][] };
-
-function parseBlocks(text: string): Block[] {
-  const lines = text.replace(/\r\n/g, "\n").split("\n");
-  const blocks: Block[] = [];
-  let paragraph: string[] = [];
-
-  const flush = () => {
-    if (!paragraph.length) return;
-    blocks.push({ kind: "paragraph", text: paragraph.join("\n").trim() });
-    paragraph = [];
-  };
-
-  for (let index = 0; index < lines.length; index++) {
-    const line = lines[index] ?? "";
-    const trimmed = line.trim();
-
-    if (!trimmed) {
-      flush();
-      continue;
-    }
-
-    // A table is a pipe row followed by a divider row of dashes.
-    if (trimmed.startsWith("|") && isDivider(lines[index + 1])) {
-      flush();
-      const head = splitRow(trimmed);
-      const rows: string[][] = [];
-      index += 2;
-      while (index < lines.length && (lines[index] ?? "").trim().startsWith("|")) {
-        rows.push(splitRow((lines[index] ?? "").trim()));
-        index++;
-      }
-      index--;
-      blocks.push({ kind: "table", head, rows });
-      continue;
-    }
-
-    const heading = /^#{1,6}\s+(.*)$/.exec(trimmed);
-    if (heading) {
-      flush();
-      blocks.push({ kind: "heading", text: heading[1] ?? "" });
-      continue;
-    }
-
-    const bullet = /^[-*]\s+(.*)$/.exec(trimmed);
-    const numbered = /^\d+[.)]\s+(.*)$/.exec(trimmed);
-
-    if (bullet || numbered) {
-      flush();
-      const ordered = Boolean(numbered);
-      const items: string[] = [(bullet ?? numbered)?.[1] ?? ""];
-
-      while (index + 1 < lines.length) {
-        const next = (lines[index + 1] ?? "").trim();
-        const nextItem = ordered ? /^\d+[.)]\s+(.*)$/.exec(next) : /^[-*]\s+(.*)$/.exec(next);
-        if (!nextItem) break;
-        items.push(nextItem[1] ?? "");
-        index++;
-      }
-
-      blocks.push({ kind: "list", ordered, items });
-      continue;
-    }
-
-    paragraph.push(trimmed);
-  }
-
-  flush();
-  return blocks;
-}
-
-function isDivider(line: string | undefined): boolean {
-  const trimmed = line?.trim() ?? "";
-  return trimmed.startsWith("|") && /^\|[\s:|-]+\|?$/.test(trimmed) && trimmed.includes("-");
-}
-
-function splitRow(line: string): string[] {
-  return line
-    .replace(/^\|/, "")
-    .replace(/\|$/, "")
-    .split("|")
-    .map(cell => cell.trim());
 }
