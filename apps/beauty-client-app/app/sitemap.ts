@@ -1,9 +1,11 @@
 import type { MetadataRoute } from "next";
+import { unstable_cache } from "next/cache";
 import { publicContent } from "@/lib/serverContent";
 import { siteUrl } from "@/lib/site";
 
-// Rebuilt hourly, so published pages and posts join it without a redeploy.
-export const revalidate = 3600;
+// The sitemap is always rendered on request, so a build never needs the database.
+// Published pages and posts are re-read at most once an hour.
+export const dynamic = "force-dynamic";
 
 // The public pages. Sign-in, the portal, payments and certificate lookups stay out.
 const PAGES: { path: string; changeFrequency: "daily" | "weekly" | "monthly" | "yearly"; priority: number }[] = [
@@ -19,6 +21,20 @@ const PAGES: { path: string; changeFrequency: "daily" | "weekly" | "monthly" | "
   { path: "/terms", changeFrequency: "yearly", priority: 0.3 },
 ];
 
+// Published pages and posts from the back office, cached for an hour.
+const listContent = unstable_cache(
+  async () => {
+    const content = publicContent();
+    const [pages, posts] = await Promise.all([
+      content.pageLinks(),
+      content.blogPosts({ limit: 100 }),
+    ]);
+    return { pages, posts };
+  },
+  ["sitemap-content"],
+  { revalidate: 3600 },
+);
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const origin = siteUrl();
   const entries: MetadataRoute.Sitemap = PAGES.map(page => ({
@@ -29,8 +45,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // Without the database the fixed pages are still worth listing.
   try {
-    const content = publicContent();
-    const [pages, posts] = await Promise.all([content.pageLinks(), content.blogPosts({ limit: 100 })]);
+    const { pages, posts } = await listContent();
     for (const page of pages) {
       entries.push({
         url: new URL(`/pages/${page.slug}`, origin).toString(),
