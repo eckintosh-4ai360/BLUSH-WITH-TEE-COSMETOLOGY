@@ -12,7 +12,7 @@ import { recordAudit } from "../services/audit";
 import { money, toAmountString, toMinor } from "../services/money";
 import { listInputSchema, likePattern, paginate, paginationBounds } from "../services/pagination";
 import { recordRevenue, reverseRevenue } from "../services/revenue";
-import { permissionProcedure, router } from "../trpc";
+import { anyPermissionProcedure, permissionProcedure, router } from "../trpc";
 
 // The daily services log.
 
@@ -328,5 +328,111 @@ export const servicesRouter = router({
 
         return { id: before.id, title: describe };
       });
+    }),
+
+  // The whole service menu, hidden entries included, for the screen that edits it. Bookings
+  // and the daily log only ever pick from the active part.
+  menu: anyPermissionProcedure("services.read", "appointments.read").query(async () => {
+    const db = await dbOrThrow();
+    const rows = await db
+      .select()
+      .from(clinicServices)
+      .orderBy(desc(clinicServices.isActive), asc(clinicServices.name));
+    return rows.map(row => ({ ...row, price: money(row.price) }));
+  }),
+
+  // Adds a service to the menu, or corrects one. Its price is what the website quotes.
+  saveMenuItem: permissionProcedure("services.write")
+    .input(
+      z.object({
+        id: z.number().int().positive().optional(),
+        name: z.string().trim().min(2).max(160),
+        description: z.string().trim().max(1500).optional(),
+        durationMinutes: z.number().int().min(5).max(720),
+        price: z.number().min(0).max(1_000_000),
+        // Offered for booking on the website.
+        isBookable: z.boolean(),
+        // Hidden services stay on old bookings but cannot be picked for new ones.
+        isActive: z.boolean(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+
+      const [clash] = await db
+        .select({ id: clinicServices.id })
+        .from(clinicServices)
+        .where(
+          and(
+            sql`lower(${clinicServices.name}) = ${input.name.toLowerCase()}`,
+            eq(clinicServices.isActive, true),
+            input.id ? sql`${clinicServices.id} <> ${input.id}` : undefined
+          )
+        )
+        .limit(1);
+      if (clash && input.isActive) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "An active service already has that name.",
+        });
+      }
+
+      const values = {
+        name: input.name,
+        description: input.description?.trim() || null,
+        durationMinutes: input.durationMinutes,
+        price: toAmountString(toMinor(input.price)),
+        isBookable: input.isBookable,
+        isActive: input.isActive,
+      };
+
+      if (input.id) {
+        const [before] = await db
+          .select()
+          .from(clinicServices)
+          .where(eq(clinicServices.id, input.id))
+          .limit(1);
+        if (!before) throw new TRPCError({ code: "NOT_FOUND", message: "Service not found." });
+
+        await db.update(clinicServices).set(values).where(eq(clinicServices.id, before.id));
+
+        await recordAudit(db, ctx.actor, {
+          action: "update",
+          entity: "clinicService",
+          entityId: before.id,
+          entityLabel: input.name,
+          oldValue: {
+            name: before.name,
+            price: money(before.price),
+            durationMinutes: before.durationMinutes,
+            isBookable: before.isBookable,
+            isActive: before.isActive,
+          },
+          newValue: {
+            name: input.name,
+            price: input.price,
+            durationMinutes: input.durationMinutes,
+            isBookable: input.isBookable,
+            isActive: input.isActive,
+          },
+          summary: `${ctx.actor.name ?? "Staff"} updated the ${input.name} service`,
+        });
+        return { id: before.id };
+      }
+
+      const [created] = await db
+        .insert(clinicServices)
+        .values(values)
+        .returning({ id: clinicServices.id });
+
+      await recordAudit(db, ctx.actor, {
+        action: "create",
+        entity: "clinicService",
+        entityId: created?.id,
+        entityLabel: input.name,
+        newValue: { price: input.price, durationMinutes: input.durationMinutes, isBookable: input.isBookable },
+        summary: `${ctx.actor.name ?? "Staff"} added the ${input.name} service at GHS ${input.price.toFixed(2)}`,
+      });
+      return { id: created?.id };
     }),
 });
