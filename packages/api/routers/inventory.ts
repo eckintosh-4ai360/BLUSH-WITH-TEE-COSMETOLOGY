@@ -23,10 +23,18 @@ import {
   suppliers,
   users,
 } from "@blush/db/schema";
+import { storageGet, storagePut } from "@blush/storage";
 import { dbOrThrow } from "../dbOrThrow";
-import { buildReference, slugify } from "../platform.utils";
+import {
+  MAX_UPLOAD_BASE64_LENGTH,
+  buildReference,
+  safeFileName,
+  slugify,
+  validateDocumentUpload,
+} from "../platform.utils";
 import { recordAudit } from "../services/audit";
 import { money, toAmountString, toMinor } from "../services/money";
+import { PRODUCT_IMAGE_PREFIX, isProductImageKey } from "../services/productImages";
 import {
   alertLowStock,
   alertLowStockInBackground,
@@ -115,14 +123,19 @@ export const inventoryRouter = router({
 
       return {
         ...paginate(
-          rows.map(row => ({
+          await Promise.all(rows.map(async row => ({
             ...row.item,
+            // Only uploaded photos are served here; ones the site shipped with live on the website.
+            imageUrl:
+              row.item.imageKey && isProductImageKey(row.item.imageKey)
+                ? (await storageGet(row.item.imageKey)).url
+                : null,
             unitCost: money(row.item.unitCost),
             sellingPrice: money(row.item.sellingPrice),
             categoryName: row.categoryName,
             supplierName: row.supplierName,
             isLowStock: row.item.quantityOnHand <= row.item.reorderLevel,
-          })),
+          }))),
           Number(total?.total ?? 0),
           input
         ),
@@ -221,6 +234,34 @@ export const inventoryRouter = router({
       return { id: created.id, name: input.name, restored: false };
     }),
 
+  // Stores a product photo for the store. It is attached to the item when the item is saved.
+  uploadProductImage: permissionProcedure("inventory.write")
+    .input(
+      z.object({
+        fileName: z.string().min(1).max(255),
+        mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]),
+        base64Data: z.string().min(8).max(MAX_UPLOAD_BASE64_LENGTH),
+      })
+    )
+    .mutation(async ({ input }) => {
+      let buffer: Buffer;
+      try {
+        buffer = validateDocumentUpload(input.mimeType, input.base64Data);
+      } catch (error) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: error instanceof Error ? error.message : "That image could not be read.",
+        });
+      }
+
+      const stored = await storagePut(
+        `${PRODUCT_IMAGE_PREFIX}/${Date.now()}-${safeFileName(input.fileName)}`,
+        buffer,
+        input.mimeType
+      );
+      return { key: stored.key, url: stored.url };
+    }),
+
   saveItem: permissionProcedure("inventory.write")
     .input(
       z.object({
@@ -236,6 +277,14 @@ export const inventoryRouter = router({
         sellingPrice: z.number().min(0),
         isSellable: z.boolean(),
         isActive: z.boolean().default(true),
+        // A photo from uploadProductImage; null removes it, and leaving it out keeps the current one.
+        imageKey: z
+          .string()
+          .trim()
+          .max(512)
+          .refine(isProductImageKey, "Upload the product photo again.")
+          .nullable()
+          .optional(),
         // Only accepted on create; later changes must go through a movement.
         openingQuantity: z.number().int().min(0).optional(),
       })
@@ -256,6 +305,7 @@ export const inventoryRouter = router({
         sellingPrice: toAmountString(toMinor(input.sellingPrice)),
         isSellable: input.isSellable,
         isActive: input.isActive,
+        ...(input.imageKey !== undefined ? { imageKey: input.imageKey } : {}),
       };
 
       if (input.id) {

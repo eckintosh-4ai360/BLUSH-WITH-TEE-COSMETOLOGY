@@ -30,14 +30,17 @@ export function ImageUploadField({
   required,
 }: {
   label: string;
-  area: "gallery" | "site";
+  // Product photos are stored by the stock screen, under its own permission.
+  area: "gallery" | "site" | "product";
   value: UploadedImage | null;
   onChange: (image: UploadedImage | null) => void;
   required?: boolean;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
-  const upload = trpc.cms.uploadImage.useMutation();
+  const siteUpload = trpc.cms.uploadImage.useMutation();
+  const productUpload = trpc.inventory.uploadProductImage.useMutation();
+  const upload = area === "product" ? productUpload : siteUpload;
 
   const pick = async (file: File | undefined) => {
     if (!file) return;
@@ -51,12 +54,15 @@ export function ImageUploadField({
       return;
     }
     try {
-      const uploaded = await upload.mutateAsync({
-        area,
+      const payload = {
         fileName: file.name,
         mimeType: file.type as "image/jpeg" | "image/png" | "image/webp",
         base64Data: await fileToDataUrl(file),
-      });
+      };
+      const uploaded =
+        area === "product"
+          ? await productUpload.mutateAsync(payload)
+          : await siteUpload.mutateAsync({ ...payload, area });
       onChange(uploaded);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "The photo could not be uploaded.");

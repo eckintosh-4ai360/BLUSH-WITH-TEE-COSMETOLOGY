@@ -24,6 +24,7 @@ import { Switch } from "@blush/ui/components/ui/switch";
 import { Textarea } from "@blush/ui/components/ui/textarea";
 import { formatMoney } from "@blush/ui/lib/viz";
 import { SaveCategoryDialog } from "@/components/inventory/SaveCategoryDialog";
+import { ImageUploadField, type UploadedImage } from "@/components/website/ImageUploadField";
 import { SaveSupplierDialog } from "@/components/suppliers/SaveSupplierDialog";
 import { usePermissions } from "@/hooks/usePermissions";
 import { trpc } from "@/lib/trpc";
@@ -44,6 +45,8 @@ export type SaveableItem = {
   sellingPrice: number;
   isSellable: boolean;
   isActive: boolean;
+  imageKey: string | null;
+  imageUrl: string | null;
 };
 
 // Creates or edits a stock item.
@@ -71,6 +74,8 @@ export function SaveItemDialog({
   const [openingQuantity, setOpeningQuantity] = useState("0");
   const [isSellable, setIsSellable] = useState(true);
   const [isActive, setIsActive] = useState(true);
+  const [image, setImage] = useState<UploadedImage | null>(null);
+  const [imageChanged, setImageChanged] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [supplierDialogOpen, setSupplierDialogOpen] = useState(false);
@@ -87,6 +92,8 @@ export function SaveItemDialog({
     setOpeningQuantity("0");
     setIsSellable(editing?.isSellable ?? true);
     setIsActive(editing?.isActive ?? true);
+    setImage(editing?.imageKey && editing.imageUrl ? { key: editing.imageKey, url: editing.imageUrl } : null);
+    setImageChanged(false);
     setError(null);
   }, [open, editing]);
 
@@ -195,6 +202,21 @@ export function SaveItemDialog({
               onChange={event => setDescription(event.target.value)}
               rows={2}
             />
+          </div>
+
+          <div className="space-y-1.5">
+            <ImageUploadField
+              label="Store photo"
+              area="product"
+              value={image}
+              onChange={next => {
+                setImage(next);
+                setImageChanged(true);
+              }}
+            />
+            <p className="text-xs text-muted-foreground">
+              Shown on the website store. A square photo on a plain background looks best.
+            </p>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -403,6 +425,8 @@ export function SaveItemDialog({
                 sellingPrice: parsedPrice,
                 isSellable,
                 isActive,
+                // Sent only when the photo changed, so a photo the site shipped with is left alone.
+                imageKey: imageChanged ? (image?.key ?? null) : undefined,
                 openingQuantity: editing ? undefined : parsedOpening,
               });
             }}
