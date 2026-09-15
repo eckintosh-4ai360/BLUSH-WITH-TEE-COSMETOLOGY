@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, lt, or, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { notificationDeliveries } from "@blush/db/schema";
 import type { DbExecutor } from "../../dbOrThrow";
 import type { NotificationType } from "../notify";
@@ -11,6 +11,11 @@ const MAX_ATTEMPTS = 3;
 
 // One flush handles at most this many, so a backlog cannot stall a request.
 const BATCH_SIZE = 25;
+
+// A send is marked "Sending..." while it is out. One still marked after this long was cut off,
+// for example by the server stopping mid-request, and goes back in the queue.
+const STALLED_AFTER_MINUTES = 15;
+const SENDING = "Sending...";
 
 export type MessageRecipient = {
   name: string;
@@ -120,6 +125,9 @@ export async function flush(
   // An explicit empty list means "these rows", of which there are none - not "everything.
   if (named && !named.length) return tally;
 
+  const now = new Date();
+  if (!named) await releaseStalledSends(db, now);
+
   const pending = await db
     .select()
     .from(notificationDeliveries)
@@ -129,6 +137,15 @@ export async function flush(
         inArray(notificationDeliveries.channel, ["email", "sms"]),
         lt(notificationDeliveries.attempts, MAX_ATTEMPTS),
         named ? inArray(notificationDeliveries.id, named) : undefined,
+        // A failed send waits attempts² × 5 minutes (5, then 20) before its next try, so a provider
+        // that is down for a few minutes does not use up every try at once. Rows named for an
+        // immediate send have not failed yet.
+        named
+          ? undefined
+          : or(
+              isNull(notificationDeliveries.lastAttemptAt),
+              sql`${notificationDeliveries.lastAttemptAt} < ${now.toISOString()}::timestamp - make_interval(mins => ${notificationDeliveries.attempts} * ${notificationDeliveries.attempts} * 5)`,
+            ),
       ),
     )
     .orderBy(asc(notificationDeliveries.createdAt))
@@ -142,7 +159,7 @@ export async function flush(
         status: "failed",
         attempts: row.attempts + 1,
         lastAttemptAt: new Date(),
-        error: "Sending...",
+        error: SENDING,
       })
       .where(
         and(
@@ -184,6 +201,25 @@ export async function flush(
   }
 
   return tally;
+}
+
+// Puts sends that were cut off back in the queue, or closes them if they had no tries left.
+async function releaseStalledSends(db: DbExecutor, now: Date): Promise<void> {
+  const stalledBefore = new Date(now.getTime() - STALLED_AFTER_MINUTES * 60_000);
+  const stalled = and(
+    eq(notificationDeliveries.status, "failed"),
+    eq(notificationDeliveries.error, SENDING),
+    lt(notificationDeliveries.lastAttemptAt, stalledBefore),
+  );
+
+  await db
+    .update(notificationDeliveries)
+    .set({ status: "queued", error: "Interrupted while sending; trying again." })
+    .where(and(stalled, lt(notificationDeliveries.attempts, MAX_ATTEMPTS)));
+  await db
+    .update(notificationDeliveries)
+    .set({ error: "Interrupted while sending, with no tries left." })
+    .where(stalled);
 }
 
 // Sends in the background, without making the caller wait or fail.

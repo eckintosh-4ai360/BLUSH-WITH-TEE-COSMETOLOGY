@@ -6,7 +6,8 @@ import { flush } from "@blush/api/messaging-flush";
 export const dynamic = "force-dynamic";
 
 async function run(request: Request) {
-  const secret = process.env.MESSAGING_CRON_SECRET;
+  // Vercel Cron signs its calls with CRON_SECRET, so either name works.
+  const secret = process.env.MESSAGING_CRON_SECRET?.trim() || process.env.CRON_SECRET?.trim();
   if (!secret) {
     return NextResponse.json(
       { error: "MESSAGING_CRON_SECRET is not configured." },
