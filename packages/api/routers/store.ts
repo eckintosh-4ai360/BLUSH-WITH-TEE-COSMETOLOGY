@@ -15,6 +15,8 @@ import {
   money,
 } from "../platform.utils";
 import { alertLowStockInBackground } from "../services/lowStock";
+import { bestEffort } from "../services/notify";
+import { alertStaffToOrder } from "../services/orderAlerts";
 import { applyStockMovement } from "../services/stock";
 import { storageGet } from "@blush/storage";
 import { publicProcedure, router, throttledPublicProcedure } from "../trpc";
@@ -435,12 +437,19 @@ export const storeRouter = router({
           .update(carts)
           .set({ status: "converted" })
           .where(eq(carts.id, cart.id));
-        return { orderNumber, total, paymentStatus: "pending" as const };
+        return { orderId: order.id, orderNumber, total, paymentStatus: "pending" as const };
       });
 
       // Nothing is awaited.
       if (stockWentLow) alertLowStockInBackground(db);
 
-      return placed;
+      // After the commit, so a message can only ever describe an order that exists.
+      await bestEffort("web order alert", () => alertStaffToOrder(db, placed.orderId));
+
+      return {
+        orderNumber: placed.orderNumber,
+        total: placed.total,
+        paymentStatus: placed.paymentStatus,
+      };
     }),
 });

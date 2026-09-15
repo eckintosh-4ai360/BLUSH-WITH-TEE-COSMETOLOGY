@@ -4,6 +4,8 @@ import { z } from "zod";
 import { clinicServices, appointments } from "@blush/db/schema";
 import { dbOrThrow } from "../dbOrThrow";
 import { buildReference } from "../platform.utils";
+import { alertStaffToBooking, messageClient } from "../services/appointments";
+import { bestEffort } from "../services/notify";
 import { router, throttledPublicProcedure } from "../trpc";
 
 const bookLimit = throttledPublicProcedure({
@@ -54,9 +56,18 @@ export const appointmentsRouter = router({
           message: "Clinic service is unavailable.",
         });
       const reference = buildReference("CLN");
-      await db
+      const [created] = await db
         .insert(appointments)
-        .values({ ...input, reference, status: "requested" });
+        .values({ ...input, reference, status: "requested" })
+        .returning({ id: appointments.id });
+
+      if (created) {
+        await bestEffort("booking alert", () => alertStaffToBooking(db, created.id));
+        await bestEffort("booking acknowledgement", () =>
+          messageClient(db, created.id, "appointment_requested"),
+        );
+      }
+
       return { reference, status: "requested" as const };
     }),
 });
