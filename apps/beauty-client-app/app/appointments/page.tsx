@@ -6,8 +6,13 @@ import { Button } from "@blush/ui/components/ui/button";
 import PublicShell from "@/components/PublicShell";
 import { trpc } from "@/lib/trpc";
 
+// A service added from the desk can carry no price yet; "GHS 0.00" would read as free.
+const priceLabel = (price: string | number) =>
+  Number(price) > 0 ? `GHS ${Number(price).toFixed(2)}` : "Price on request";
+
 export default function AppointmentsPage() {
-  const { data: services = [] } = trpc.content.clinicServices.useQuery();
+  const servicesQuery = trpc.content.clinicServices.useQuery();
+  const services = servicesQuery.data ?? [];
   const book = trpc.appointments.book.useMutation();
   const [notice, setNotice] = useState("");
   const [location, setLocation] = useState<"salon" | "home">("salon");
@@ -72,7 +77,7 @@ export default function AppointmentsPage() {
                       </p>
                     </div>
                     <p className="whitespace-nowrap font-serif text-xl font-bold text-[#fe00b6]">
-                      GHS {Number(service.price).toFixed(2)}
+                      {priceLabel(service.price)}
                     </p>
                   </div>
                   <p className="mt-4 flex items-center gap-1.5 text-xs font-semibold text-[#8f0d6b]">
@@ -108,14 +113,42 @@ export default function AppointmentsPage() {
             <form className="mt-8 grid gap-5" onSubmit={submit}>
               <label className="field-label">
                 Service
-                <select required name="serviceId" className="soft-input">
-                  <option value="">Select a service</option>
+                {/* Loading, failing and empty each say so, rather than all looking like an empty menu. */}
+                <select
+                  required
+                  name="serviceId"
+                  className="soft-input"
+                  disabled={servicesQuery.isLoading}
+                >
+                  <option value="">
+                    {servicesQuery.isLoading
+                      ? "Loading services…"
+                      : services.length
+                        ? "Select a service"
+                        : "No services available"}
+                  </option>
                   {services.map(service => (
                     <option key={service.id} value={service.id}>
-                      {service.name} — GHS {Number(service.price).toFixed(2)}
+                      {service.name} — {priceLabel(service.price)}
                     </option>
                   ))}
                 </select>
+                {servicesQuery.isError ? (
+                  <span className="text-xs font-semibold normal-case tracking-normal text-[#e01a4f]">
+                    The services could not be loaded.{" "}
+                    <button
+                      type="button"
+                      onClick={() => void servicesQuery.refetch()}
+                      className="underline underline-offset-2"
+                    >
+                      Try again
+                    </button>
+                  </span>
+                ) : !servicesQuery.isLoading && !services.length ? (
+                  <span className="text-xs font-medium normal-case tracking-normal text-[#692156]">
+                    No services are open for online booking right now. Please contact the school to book.
+                  </span>
+                ) : null}
               </label>
 
               <label className="field-label">
