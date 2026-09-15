@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { GraduationCap, Pencil, Plus, Trash2, Upload } from "lucide-react";
+import { GraduationCap, KeyRound, Pencil, Plus, Trash2, Upload } from "lucide-react";
 import { STUDENT_IMPORT_COLUMNS } from "@blush/shared/imports";
 import { Button } from "@blush/ui/components/ui/button";
 import { toast } from "@blush/ui/components/ui/sonner";
@@ -32,6 +32,7 @@ import {
   GraduateStudentDialog,
   type GraduatingStudent,
 } from "@/components/students/GraduateStudentDialog";
+import { PortalAccessDialog } from "@/components/students/PortalAccessCard";
 import { SaveStudentDialog } from "@/components/students/SaveStudentDialog";
 import { usePermissions } from "@/hooks/usePermissions";
 import { collectAllPages } from "@/lib/exportAll";
@@ -91,6 +92,7 @@ function StudentsContent() {
   const [editing, setEditing] = useState<StudentRow | null>(null);
   const [removing, setRemoving] = useState<StudentRow | null>(null);
   const [graduating, setGraduating] = useState<GraduatingStudent | null>(null);
+  const [portalFor, setPortalFor] = useState<StudentRow | null>(null);
   const importStudents = trpc.imports.students.useMutation();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -237,6 +239,18 @@ function StudentsContent() {
                 >
                   <Pencil className="h-3.5 w-3.5" />
                   Edit
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={event => {
+                    event.stopPropagation();
+                    setPortalFor(row);
+                  }}
+                >
+                  <KeyRound className="h-3.5 w-3.5" />
+                  Portal
                 </Button>
                 {can("certificates.write") ? (
                   <Button
@@ -424,6 +438,11 @@ function StudentsContent() {
           );
           query.refetch();
         }}
+      />
+
+      <PortalAccessDialog
+        student={portalFor}
+        onOpenChange={open => !open && setPortalFor(null)}
       />
 
       <GraduateStudentDialog

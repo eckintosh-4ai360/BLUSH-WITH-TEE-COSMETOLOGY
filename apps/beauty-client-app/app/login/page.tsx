@@ -24,17 +24,19 @@ function LoginForm() {
   const params = useSearchParams();
   const utils = trpc.useUtils();
 
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const next = params.get("next");
+  // Only a path on this site, so a crafted link cannot bounce a signed-in student elsewhere.
+  const requested = params.get("next");
+  const next = requested?.startsWith("/") && !requested.startsWith("//") ? requested : "/portal";
 
   const login = trpc.auth.login.useMutation({
     onSuccess: async () => {
       await utils.invalidate();
-      router.replace(next ?? "/portal");
+      router.replace(next);
       router.refresh();
     },
     onError: mutationError => setError(mutationError.message),
@@ -52,22 +54,25 @@ function LoginForm() {
         onSubmit={event => {
           event.preventDefault();
           setError(null);
-          login.mutate({ email: email.trim(), password });
+          login.mutate({ identifier: identifier.trim(), password });
         }}
         className="mt-8 space-y-4"
       >
         <div className="space-y-2">
-          <label htmlFor="email" className="block text-sm font-medium text-[#3d0a2f]">
-            Email
+          <label htmlFor="identifier" className="block text-sm font-medium text-[#3d0a2f]">
+            Email or student number
           </label>
           <input
-            id="email"
-            type="email"
+            id="identifier"
+            type="text"
             autoComplete="username"
+            autoCapitalize="none"
+            spellCheck={false}
             required
-            value={email}
-            onChange={event => setEmail(event.target.value)}
-            className="w-full rounded-2xl border border-[#8f0d6b]/20 bg-white/90 px-4 py-3 text-sm text-[#3d0a2f] outline-none focus:border-[#8f0d6b]/50 focus:ring-2 focus:ring-[#8f0d6b]/20"
+            placeholder="you@example.com or STU-2026-XXXXXX"
+            value={identifier}
+            onChange={event => setIdentifier(event.target.value)}
+            className="w-full rounded-2xl border border-[#8f0d6b]/20 bg-white/90 px-4 py-3 text-sm text-[#3d0a2f] outline-none placeholder:text-[#b284a6] focus:border-[#8f0d6b]/50 focus:ring-2 focus:ring-[#8f0d6b]/20"
           />
         </div>
 
@@ -113,8 +118,9 @@ function LoginForm() {
       </form>
 
       <p className="mt-8 text-xs leading-6 text-[#6a2557]">
-        Your account is created once your application is approved. If you have applied and cannot
-        sign in, contact the school office.
+        Once your admission is approved, the school office sets up your portal sign-in and gives
+        you your password. You can sign in with your student number, or with your email if you
+        gave one. If you have been admitted and cannot sign in, contact the school office.
       </p>
     </div>
   );

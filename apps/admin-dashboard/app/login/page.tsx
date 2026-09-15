@@ -47,7 +47,7 @@ function LoginForm() {
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
-    login.mutate({ email: email.trim(), password });
+    login.mutate({ identifier: email.trim(), password });
   };
 
   return (

@@ -26,7 +26,7 @@ import { trpc } from "@/lib/trpc";
 // Unambiguous characters only, so a password read aloud is transcribed right.
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
 
-function suggestPassword(length = 14): string {
+export function suggestPassword(length = 14): string {
   const values = new Uint32Array(length);
   crypto.getRandomValues(values);
   return Array.from(values, value => ALPHABET[value % ALPHABET.length]).join("");

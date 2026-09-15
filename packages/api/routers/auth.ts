@@ -32,11 +32,11 @@ export const authRouter = router({
     return safe;
   }),
 
-  // Email and password sign-in.
+  // Sign-in with an email, or a student number, and a password.
   login: loginLimit
     .input(
       z.object({
-        email: z.string().trim().email().max(320),
+        identifier: z.string().trim().min(3).max(320),
         password: z.string().min(1).max(MAX_PASSWORD_LENGTH),
       }),
     )
@@ -44,15 +44,16 @@ export const authRouter = router({
       const db = await dbOrThrow();
       await ensureDefaultAdmin();
 
-      const result = await signInWithPassword(input.email, input.password);
+      const result = await signInWithPassword(input.identifier, input.password);
+      const attempted = input.identifier.trim().toLowerCase();
 
       if (!result.ok) {
         await recordAudit(db, null, {
           action: "login_failed",
           entity: "user",
-          entityLabel: input.email.trim().toLowerCase(),
+          entityLabel: attempted,
           newValue: { reason: result.reason },
-          summary: `Failed sign-in for ${input.email.trim().toLowerCase()}`,
+          summary: `Failed sign-in for ${attempted}`,
         }).catch(() => {
           // An audit failure must not become a login error.
         });

@@ -24,7 +24,14 @@ import {
   feeCharges,
   people,
   studentProfiles,
+  users,
 } from "@blush/db/schema";
+import {
+  MAX_PASSWORD_LENGTH,
+  MIN_PASSWORD_LENGTH,
+  createAccount,
+  setPassword,
+} from "@blush/auth";
 import { dbOrThrow } from "../dbOrThrow";
 import { buildReference } from "../platform.utils";
 import { syncStudentCharges } from "../services/billing";
@@ -835,7 +842,173 @@ export const studentsRouter = router({
         };
       });
     }),
+
+  // Whether a student can sign in to the website portal, and with what.
+  portalAccess: permissionProcedure("students.read")
+    .input(z.object({ studentId: z.number().int().positive() }))
+    .query(async ({ input }) => {
+      const db = await dbOrThrow();
+      const student = await activeStudent(db, input.studentId);
+
+      const [account] = student.userId
+        ? await db
+            .select({
+              email: users.email,
+              role: users.role,
+              isActive: users.isActive,
+              mustChangePassword: users.mustChangePassword,
+              createdAt: users.createdAt,
+              lastSignedIn: users.lastSignedIn,
+            })
+            .from(users)
+            .where(eq(users.id, student.userId))
+            .limit(1)
+        : [];
+
+      return {
+        studentNumber: student.studentNumber,
+        email: student.email,
+        account: account
+          ? {
+              email: account.email,
+              isActive: account.isActive,
+              mustChangePassword: account.mustChangePassword,
+              // lastSignedIn starts at the creation time, so equal means never.
+              lastSignedIn:
+                account.lastSignedIn.getTime() - account.createdAt.getTime() > 1000
+                  ? account.lastSignedIn
+                  : null,
+              // Only a student's own portal account is reset from here.
+              resettable: account.role === "student",
+            }
+          : null,
+      };
+    }),
+
+  // Opens the website portal for a student, with a password the office hands to them. The email
+  // is optional: a student without one signs in with their student number.
+  createPortalAccess: permissionProcedure("students.write")
+    .input(
+      z.object({
+        studentId: z.number().int().positive(),
+        email: z.string().trim().email().max(320).optional().or(z.literal("")),
+        password: z.string().min(MIN_PASSWORD_LENGTH).max(MAX_PASSWORD_LENGTH),
+        mustChangePassword: z.boolean().default(false),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+      const student = await activeStudent(db, input.studentId);
+      if (student.userId) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: `${student.fullName} can already sign in. Reset their password instead.`,
+        });
+      }
+
+      const email = input.email?.trim().toLowerCase() || null;
+      const created = await createAccount({
+        name: student.fullName,
+        email,
+        password: input.password,
+        role: "student",
+        personId: student.personId,
+        mustChangePassword: input.mustChangePassword,
+        openId: email ? undefined : `local:student:${student.studentNumber.toLowerCase()}`,
+      });
+      if (!created.ok) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: created.message });
+      }
+
+      // Claimed only while still unclaimed, so two desks doing this at once cannot both win.
+      const claimed = await db
+        .update(studentProfiles)
+        .set({ userId: created.userId })
+        .where(and(eq(studentProfiles.id, student.id), isNull(studentProfiles.userId)))
+        .returning({ id: studentProfiles.id });
+      if (!claimed.length) {
+        // The losing account is switched off rather than removed.
+        await db.update(users).set({ isActive: false }).where(eq(users.id, created.userId));
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "Someone else opened this student's sign-in at the same moment.",
+        });
+      }
+
+      await recordAudit(db, ctx.actor, {
+        action: "create_portal_access",
+        entity: "student",
+        entityId: student.id,
+        entityLabel: student.studentNumber,
+        newValue: { userId: created.userId, email, mustChangePassword: input.mustChangePassword },
+        summary: `${ctx.actor.name ?? "Staff"} opened the student portal for ${student.fullName} (${student.studentNumber})`,
+      });
+
+      return { signIn: email ?? student.studentNumber, studentNumber: student.studentNumber };
+    }),
+
+  // Sets a new portal password for a student who has lost theirs, and lifts any lockout.
+  resetPortalPassword: permissionProcedure("students.write")
+    .input(
+      z.object({
+        studentId: z.number().int().positive(),
+        password: z.string().min(MIN_PASSWORD_LENGTH).max(MAX_PASSWORD_LENGTH),
+        mustChangePassword: z.boolean().default(false),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+      const student = await activeStudent(db, input.studentId);
+      if (!student.userId) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: `${student.fullName} has no sign-in yet.`,
+        });
+      }
+
+      const [account] = await db
+        .select({ id: users.id, role: users.role, email: users.email })
+        .from(users)
+        .where(eq(users.id, student.userId))
+        .limit(1);
+
+      // A staff account that happens to hold a student record is reset from Access, by
+      // someone allowed to manage staff sign-ins.
+      if (!account || account.role !== "student") {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "This sign-in is not a student portal account. Reset it from Access.",
+        });
+      }
+
+      const result = await setPassword(account.id, input.password, {
+        mustChange: input.mustChangePassword,
+      });
+      if (!result.ok) throw new TRPCError({ code: "BAD_REQUEST", message: result.message });
+
+      await recordAudit(db, ctx.actor, {
+        action: "reset_portal_password",
+        entity: "student",
+        entityId: student.id,
+        entityLabel: student.studentNumber,
+        newValue: { mustChangePassword: input.mustChangePassword },
+        summary: `${ctx.actor.name ?? "Staff"} reset the portal password for ${student.fullName} (${student.studentNumber})`,
+      });
+
+      return { signIn: account.email ?? student.studentNumber };
+    }),
 });
+
+// A student still on the register, or not found.
+async function activeStudent(db: Awaited<ReturnType<typeof dbOrThrow>>, studentId: number) {
+  const [student] = await db
+    .select()
+    .from(studentProfiles)
+    .where(and(eq(studentProfiles.id, studentId), isNull(studentProfiles.deletedAt)))
+    .limit(1);
+  if (!student) throw new TRPCError({ code: "NOT_FOUND", message: "Student was not found." });
+  return student;
+}
 
 
 // What a student still owes, across every fee charge on their account.

@@ -23,6 +23,7 @@ import { AddChargeDialog } from "@/components/finance/AddChargeDialog";
 import { AdjustAccountDialog } from "@/components/finance/AdjustAccountDialog";
 import { EditAccountDialog } from "@/components/finance/EditAccountDialog";
 import { RecordPaymentDialog } from "@/components/finance/RecordPaymentDialog";
+import { PortalAccessCard } from "@/components/students/PortalAccessCard";
 import { useDocuments } from "@/hooks/useDocuments";
 import { usePermissions } from "@/hooks/usePermissions";
 import { trpc } from "@/lib/trpc";
@@ -201,6 +202,10 @@ function StudentDetailContent({ studentId }: { studentId: number }) {
           </div>
         </dl>
       </Card>
+
+      {can("students.read") ? (
+        <PortalAccessCard studentId={student.id} fullName={student.fullName} />
+      ) : null}
 
       <Card className="overflow-hidden p-0">
         <div className="border-b border-border/60 px-5 py-4">

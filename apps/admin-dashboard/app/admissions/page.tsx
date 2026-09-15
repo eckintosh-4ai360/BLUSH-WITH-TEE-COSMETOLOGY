@@ -144,8 +144,16 @@ function AdmissionsContent() {
   });
 
   const review = trpc.admin.reviewApplication.useMutation({
-    onSuccess: () => {
-      toast.success("Application updated.");
+    onSuccess: (_result, variables) => {
+      if (variables.status === "approved") {
+        // Approval opens the student record, not a sign-in: the office hands out the password.
+        toast.success("Application approved.", {
+          description:
+            "To let them use the student portal, open Students and choose Portal on their row to create a sign-in.",
+        });
+      } else {
+        toast.success("Application updated.");
+      }
       utils.admin.applications.invalidate();
       utils.admin.dashboard.invalidate();
     },

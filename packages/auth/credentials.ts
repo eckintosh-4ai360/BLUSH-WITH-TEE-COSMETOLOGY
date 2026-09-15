@@ -1,5 +1,5 @@
-import { eq, sql } from "drizzle-orm";
-import { getDb, users, type User } from "@blush/db";
+import { and, eq, isNull, sql } from "drizzle-orm";
+import { getDb, studentProfiles, users, type User } from "@blush/db";
 import { checkPasswordStrength, hashPassword, verifyPassword } from "./password";
 
 // Email and password authentication with rate limiting and lockout.
@@ -16,9 +16,47 @@ export type SignInResult =
   | { ok: false; reason: "invalid" | "locked" | "inactive"; message: string };
 
 const GENERIC_FAILURE = "Invalid email or password.";
+const STUDENT_NUMBER_FAILURE = "Invalid student number or password.";
 
+// Whether a sign-in name is an email; anything else is read as a student number.
+export function isEmailIdentifier(identifier: string): boolean {
+  return identifier.includes("@");
+}
+
+type Db = NonNullable<Awaited<ReturnType<typeof getDb>>>;
+
+// Many students enrol without an email, so a student may sign in with the student number
+// printed on their admission instead.
+async function findAccount(db: Db, identifier: string): Promise<User | undefined> {
+  const normalised = identifier.trim().toLowerCase();
+  if (!normalised) return undefined;
+
+  if (isEmailIdentifier(normalised)) {
+    const [account] = await db
+      .select()
+      .from(users)
+      .where(sql`lower(${users.email}) = ${normalised}`)
+      .limit(1);
+    return account;
+  }
+
+  const [row] = await db
+    .select({ account: users })
+    .from(studentProfiles)
+    .innerJoin(users, eq(studentProfiles.userId, users.id))
+    .where(
+      and(
+        sql`lower(${studentProfiles.studentNumber}) = ${normalised}`,
+        isNull(studentProfiles.deletedAt),
+      ),
+    )
+    .limit(1);
+  return row?.account;
+}
+
+// Signs in with an email, or a student number, and a password.
 export async function signInWithPassword(
-  email: string,
+  identifier: string,
   password: string,
 ): Promise<SignInResult> {
   const db = await getDb();
@@ -26,17 +64,12 @@ export async function signInWithPassword(
     return { ok: false, reason: "invalid", message: "The service is unavailable right now." };
   }
 
-  const normalised = email.trim().toLowerCase();
-
-  const [account] = await db
-    .select()
-    .from(users)
-    .where(sql`lower(${users.email}) = ${normalised}`)
-    .limit(1);
+  const failure = isEmailIdentifier(identifier) ? GENERIC_FAILURE : STUDENT_NUMBER_FAILURE;
+  const account = await findAccount(db, identifier);
 
   if (!account) {
     await verifyPassword(password, DUMMY_HASH);
-    return { ok: false, reason: "invalid", message: GENERIC_FAILURE };
+    return { ok: false, reason: "invalid", message: failure };
   }
 
   if (account.lockedUntil && account.lockedUntil > new Date()) {
@@ -65,7 +98,7 @@ export async function signInWithPassword(
       })
       .where(eq(users.id, account.id));
 
-    return { ok: false, reason: "invalid", message: GENERIC_FAILURE };
+    return { ok: false, reason: "invalid", message: failure };
   }
 
   // Verify account is active after password confirmation to prevent probing.
@@ -144,12 +177,15 @@ export async function changePassword(
 }
 
 export type CreateAccountInput = {
-  email: string;
+  // Optional only for a student, who can sign in with their student number instead.
+  email?: string | null;
   password: string;
   name: string;
   role: "user" | "student" | "staff" | "admin";
   personId?: number | null;
   mustChangePassword?: boolean;
+  // The unique login key; defaults to one derived from the email.
+  openId?: string;
 };
 
 // Creates a new user credentials account.
@@ -159,22 +195,33 @@ export async function createAccount(
   const db = await getDb();
   if (!db) return { ok: false, message: "The service is unavailable right now." };
 
-  const email = input.email.trim().toLowerCase();
+  const email = input.email?.trim().toLowerCase() || null;
+  const openId = input.openId ?? (email ? `local:${email}` : null);
+  if (!openId) return { ok: false, message: "An email address is required for this account." };
 
   const strength = checkPasswordStrength(input.password, { email, name: input.name });
   if (!strength.ok) return { ok: false, message: strength.message };
 
-  const [existing] = await db
+  if (email) {
+    const [existing] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(sql`lower(${users.email}) = ${email}`)
+      .limit(1);
+    if (existing) return { ok: false, message: "An account with that email already exists." };
+  }
+
+  const [takenKey] = await db
     .select({ id: users.id })
     .from(users)
-    .where(sql`lower(${users.email}) = ${email}`)
+    .where(eq(users.openId, openId))
     .limit(1);
-  if (existing) return { ok: false, message: "An account with that email already exists." };
+  if (takenKey) return { ok: false, message: "An account for this person already exists." };
 
   const [created] = await db
     .insert(users)
     .values({
-      openId: `local:${email}`,
+      openId,
       email,
       name: input.name.trim(),
       role: input.role,
