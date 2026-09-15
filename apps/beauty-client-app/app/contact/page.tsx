@@ -12,6 +12,7 @@ import {
 } from "@blush/ui/components/ui/accordion";
 import { Button } from "@blush/ui/components/ui/button";
 import PublicShell from "@/components/PublicShell";
+import { Reveal } from "@/components/motion";
 import { useSchoolProfile } from "@/hooks/useSchoolProfile";
 import { trpc } from "@/lib/trpc";
 
@@ -236,6 +237,43 @@ export default function ContactPage() {
             </div>
           </aside>
         </div>
+
+        <Reveal className="mt-20">
+          <section className="overflow-hidden rounded-[2.25rem] border border-[#8f0d6b]/15 bg-white/90 shadow-[0_12px_36px_rgba(143,13,107,.06)]">
+            <div className="grid gap-0 lg:grid-cols-[.9fr_1.1fr]">
+              <div className="p-8 sm:p-10">
+                <p className="eyebrow">Find us</p>
+                <h2 className="mt-4 font-serif text-4xl font-bold text-[#8f0d6b]">Visit the academy</h2>
+                <p className="mt-4 text-sm leading-7 text-[#692156]">
+                  {school?.address ?? "Tarkwa, Ghana"} — come by the school, salon and store, or open the map for turn-by-turn directions.
+                </p>
+                <a
+                  href="https://maps.app.goo.gl/RNZR5iAha4qVkRQq7"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-8 inline-block"
+                >
+                  <Button
+                    variant="outline"
+                    className="rounded-full border-[#8f0d6b]/25 bg-white px-6 text-xs font-semibold text-[#8f0d6b] hover:bg-[#faeaf6]"
+                  >
+                    <MapPin className="mr-2 h-4 w-4 text-[#fe00b6]" /> Open in Google Maps
+                  </Button>
+                </a>
+              </div>
+              <div className="min-h-[22rem]">
+                <iframe
+                  title="Blush With Tee on Google Maps"
+                  src="https://maps.google.com/maps?q=5.3148462,-1.9894148&z=16&output=embed"
+                  className="h-full w-full border-0"
+                  loading="lazy"
+                  allowFullScreen
+                  referrerPolicy="no-referrer-when-downgrade"
+                />
+              </div>
+            </div>
+          </section>
+        </Reveal>
 
         {faqs.length ? (
           <section className="mt-20 max-w-3xl">
