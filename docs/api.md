@@ -111,6 +111,37 @@ Each group is permission-filtered: an accountant gets `finance` and `null` for
 | `settings` | `settings.read` |
 | `updateSetting` | `settings.write` |
 
+### `cms` — website content
+| Procedure | Permission |
+|---|---|
+| `banners`, `gallery`, `events`, `testimonials`, `faqs` | `cms.read` |
+| `saveBanner`, `saveGalleryItem`, `saveEvent`, `saveTestimonial`, `saveFaq`, `setStatus`, `uploadImage` | `cms.write` |
+
+Nothing is deleted: `setStatus` archives. `uploadImage` stores under
+`media/gallery/` or `media/site/`, which the storage proxy serves without a
+session.
+
+### `staff` — appointments
+| Procedure | Permission |
+|---|---|
+| `appointments` | `appointments.read` |
+| `createAppointment`, `updateAppointment` | `appointments.write` |
+
+`updateAppointment` changes only what it is sent, is audited, and messages the
+client on confirmation or cancellation.
+
+### `services` — service menu
+| Procedure | Permission |
+|---|---|
+| `menu` | `services.read` or `appointments.read` |
+| `saveMenuItem` | `services.write` |
+
+### `students` — portal sign-in
+| Procedure | Permission |
+|---|---|
+| `portalAccess` | `students.read` |
+| `createPortalAccess`, `resetPortalPassword` | `students.write` |
+
 ### `notifications`
 `list`, `unreadCount`, `markRead`, `markAllRead`, `preferences`,
 `updatePreference` — all scoped to the caller, who cannot read or dismiss
@@ -132,11 +163,27 @@ what the caller could have opened a screen to see. No tool writes.
 ### `payments` — online fee payment
 | Procedure | Notes |
 |---|---|
+| `options` | Public. `live`, `test` (development stand-in) or `off` |
 | `balance` | Outstanding balance, and the ceiling on what may be paid |
-| `initiate` | Opens a charge. Writes an intent only — no payment, no balance change |
+| `initiate` | Opens a charge. Writes an intent only — no payment, no balance change. The return address is built server-side |
 | `verify` | Verifies with the provider, then captures. Idempotent |
 | `history` | The student's own payment attempts |
 | `simulateProviderSuccess` | Development only; refuses in production |
+
+### `store` — orders and online order payment
+| Procedure | Notes |
+|---|---|
+| `products`, `cart`, `addItem`, `updateItem`, `lookupOrder` | As before |
+| `checkout` | Files the order against a customer, keeps the address, alerts orders staff, messages the customer |
+| `paymentOptions` | `live`, `test` or `off` |
+| `payOrder` | Order number + email. Opens a charge for the order total; a repeated idempotency key reuses the intent |
+| `confirmPayment` | Where the provider returns the payer. Verifies, then captures; refuses student fee intents |
+| `simulatePayment` | Test mode only |
+
+### `content`
+`courses`, `clinicServices`, `terms`, `schoolProfile` (contact details and safe
+social links from Settings), `banners`, `upcomingEvents`, `gallery`,
+`testimonials`, `faqs` — published entries only.
 
 ### `certificates`
 `verify` takes a certificate number or a QR token and returns
@@ -155,8 +202,8 @@ and stock are not withheld by a permission check here; they are simply not in
 the catalogue this surface is given.
 
 ### Others
-`store` (products, cart, checkout, order lookup), `admissions`, `appointments`,
-`portal`, `content`, `auth`.
+`admissions`, `appointments` (a booking alerts the booking desk), `portal`,
+`auth` (`login` takes an email or a student number as `identifier`).
 
 ## Webhook
 

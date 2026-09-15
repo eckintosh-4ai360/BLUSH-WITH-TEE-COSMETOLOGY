@@ -92,6 +92,25 @@ Graduates keep their portal sign-in, their fee history and their results.
 *Remove* is a different thing entirely: it takes somebody off the register
 without their having finished.
 
+### The student portal
+
+Approving an application puts the student on the register, but it does not give
+them a sign-in. **Portal** beside a student (or the *Website portal sign-in*
+card on their account) creates one: keep the generated password or type one,
+and give it to the student in person. The details are shown once, with a
+*Copy details* button.
+
+The email is optional. Every student can sign in on the website with their
+student number, so someone who applied without an email is not left out.
+
+**Reset password** sets a new one and lifts any lockout from wrong guesses.
+Tick *Ask for a new password on first sign-in* if you want them to replace
+yours; it is off by default. A staff account that happens to hold a student
+record is reset from *Access* instead.
+
+In the portal a student sees attendance, results, fees and store orders, can
+change their password, and can pay fees online where online payment is set up.
+
 ## Money
 
 ### Recording a payment
@@ -122,9 +141,38 @@ expense is held as pending and finance is notified. Approvers see Approve and
 Reject beside pending rows. Rejected expenses are excluded from reports but not
 deleted.
 
+## Appointments and the service menu
+
+*Salon → Appointments* shows every salon and home-service booking by day. A
+booking made on the website arrives as *Requested*, the bell tells whoever
+handles bookings, and *Awaiting confirmation* counts them.
+
+**Confirm** or **Cancel booking** on the booking itself. The client is sent a
+text when a booking is confirmed or cancelled, once messaging is switched on in
+*Settings → Messaging & Alerts*. After the visit, mark it **Completed** or
+**No-show**; those stay on the desk's record and do not message anyone. The
+*Handled by* picker assigns a booking to a member of staff. Every change is in
+the audit log.
+
+*Salon → Service menu* is what the website offers for booking, and at what
+price. **Bookable on the website** switched off keeps a service for staff use
+only; switching a service off the menu hides it everywhere new, while past
+bookings keep it. Nothing is deleted.
+
 ## Orders
 
-*Orders* lists everything from the storefront. Click a row to open it.
+*Orders* lists everything from the storefront. Click a row to open it. A new web
+order puts a notice in the bell for whoever can see orders, and once messaging
+is switched on the customer is emailed their order number and how to pay. Each
+web order is also filed against
+a customer record, so a returning buyer's orders and totals collect in one
+place.
+
+**Online payment.** Where a payment provider is set up, a customer can pay from
+the store page with their order number and email. The payment is checked with
+the provider before the order is marked paid, and it appears on the order like
+any other. Without a provider, customers are told to pay at the school, and you
+record the payment as before.
 
 The order page shows the customer, the items, the totals, the payment history
 and a timeline of everything that has happened.
@@ -170,6 +218,27 @@ link. **Verify** opens the public page an employer would see.
 **Revoke** marks a certificate withdrawn. The record is kept and the public
 page shows it as withdrawn rather than pretending it never existed.
 
+## Website content
+
+*Administration → Website content* is what the public website shows beyond
+courses, products and services:
+
+| Tab | Where it shows |
+|---|---|
+| Banners | A homepage banner under the opening photo, or an announcement strip across the top of every page |
+| Gallery | The gallery page. Once one photo is published, yours replace the placeholder pictures |
+| Events | The homepage, until each event is over |
+| Testimonials | The homepage; the section stays hidden while there are none |
+| FAQs | The contact page, and the website assistant answers from them |
+
+Each entry is **Published** (on the site), **Draft** (saved, not shown) or
+**Archived** (kept, not shown). Change it from the list without opening the
+form. Nothing is deleted: archive an entry to take it down, and tick *Show
+archived* to find it again.
+
+Use real photos and real words. A testimonial should come from a real student or
+client who has agreed to it being published.
+
 ## Access
 
 *Operations → Access* shows every account and its roles. Grant a role from the
@@ -192,6 +261,15 @@ Entries cannot be edited or deleted, by anyone. That is the point of them.
 configuration, delivery rules, grading bands, attendance rules and certificate
 numbering. These feed receipts, letters, certificates and the rules the system
 applies, so a change here changes behaviour everywhere.
+
+The school's phone, WhatsApp, email, address and social links are also what the
+public website shows, in its footer, contact page, admission form and
+programmes page. Change a number here and the website follows.
+
+*Messaging & Alerts* lists every message the system can send. Booking received,
+booking confirmed, booking cancelled and store order received are there
+alongside the admissions and payment messages, each with its own wording and
+channels.
 
 ## When something looks wrong
 

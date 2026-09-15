@@ -34,9 +34,9 @@ the letterhead is set from `school.profile` but renders the name as type rather
 than an uploaded mark.
 
 ### Content management (§39, §40, §41)
-Tables exist for pages, banners, services, events, gallery, testimonials, FAQs
-and blog posts, and the seed populates several. Missing: the admin screens to
-edit them, and the public pages that read them rather than hard-coded copy.
+Banners, gallery, events, testimonials and FAQs are edited under *Website
+content* and read by the public site, and the salon's service menu has its own
+screen. Missing: pages and the blog, which have tables but no screens.
 
 ### Academic screens (§22, §23)
 Course modules, classes, class sessions, attendance records and assessment
@@ -44,19 +44,19 @@ results are modelled and seeded. Missing: the timetable, the attendance
 register, and the score-entry screen instructors would use.
 
 ### Customer CRM (§34)
-`customers` and `customerAddresses` exist and orders link to them. Missing: the
-customer list, the profile with purchase history and favourite products, and
-notes.
+`customers` and `customerAddresses` exist, and web checkout files every order
+against a customer and keeps their totals. Missing: the customer list, the
+profile with purchase history and favourite products, and notes.
 
 ### Staff management (§32)
 Staff profiles and assignments exist, with salary behind its own permission.
 Missing: the profile screens and course assignment interface.
 
 ### Student and instructor portals (§35, §36)
-The student portal shows profile, attendance, results, fees and orders. Missing:
-online fee payment on the page (the API is complete and verified), certificate
-download, admission letter download, and the instructor portal for attendance
-and scores.
+The student portal shows profile, attendance, results, fees and orders, takes
+fee payments online, and students sign in with their student number or email.
+Missing: certificate download, admission letter download, and the instructor
+portal for attendance and scores.
 
 ## Cross-cutting
 

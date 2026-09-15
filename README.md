@@ -183,7 +183,7 @@ Built and verified:
 
 Not yet built — see [docs/roadmap.md](docs/roadmap.md) for the detail:
 
-- CMS screens for pages, banners, blog, gallery, testimonials, FAQs and events
+- CMS screens for pages and the blog
 - PDF and Excel report exports, printable receipts and admission letters
 - Student and instructor portal screens for the newer modules
 - Timetable, class scheduling and the customer CRM screens
