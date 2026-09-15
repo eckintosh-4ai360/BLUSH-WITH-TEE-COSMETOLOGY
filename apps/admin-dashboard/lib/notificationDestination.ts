@@ -3,6 +3,7 @@ const ADMIN_SECTIONS = new Set([
   "academics",
   "account",
   "admissions",
+  "appointments",
   "audit",
   "finance",
   "inventory",
@@ -20,6 +21,7 @@ const ADMIN_SECTIONS = new Set([
 // The back-office screen that shows the record a notification is about.
 const BY_ENTITY: Record<string, (entityId: number | null) => string> = {
   application: () => "/admissions",
+  appointment: () => "/appointments",
   certificate: () => "/students/certificates",
   payment: () => "/finance/payments",
   expense: () => "/finance/expenses",
@@ -43,6 +45,10 @@ const BY_TYPE: Record<string, string> = {
   low_stock: "/inventory?filter=low",
   new_expense: "/finance/expenses",
   certificate_issued: "/students/certificates",
+  appointment_requested: "/appointments",
+  appointment_confirmed: "/appointments",
+  appointment_cancelled: "/appointments",
+  order_placed: "/orders",
 };
 
 type NotificationRow = {

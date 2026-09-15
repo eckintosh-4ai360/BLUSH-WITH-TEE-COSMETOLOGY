@@ -46,6 +46,17 @@ describe("notificationDestination", () => {
     ).toBe("/orders");
   });
 
+  it("opens the appointments calendar for a booking alert", () => {
+    expect(
+      notificationDestination(
+        row({ link: "/appointments", type: "appointment_requested", entityType: "appointment", entityId: 3 }),
+      ),
+    ).toBe("/appointments");
+    expect(
+      notificationDestination(row({ type: "appointment_requested", entityType: "appointment" })),
+    ).toBe("/appointments");
+  });
+
   it("uses the notification type when there is no entity to point at", () => {
     expect(notificationDestination(row({ link: "/portal", type: "payment_received" })))
       .toBe("/finance/payments");

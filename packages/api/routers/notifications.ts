@@ -20,6 +20,10 @@ const NOTIFICATION_TYPES = [
   "new_expense",
   "certificate_issued",
   "general",
+  "appointment_requested",
+  "appointment_confirmed",
+  "appointment_cancelled",
+  "order_placed",
 ] as const;
 
 // The notification centre behind the dashboard bell.

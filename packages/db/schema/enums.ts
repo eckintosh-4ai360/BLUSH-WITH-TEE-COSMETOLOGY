@@ -298,6 +298,11 @@ export const notificationType = pgEnum("notification_type", [
   "new_expense",
   "certificate_issued",
   "general",
+  // Appended by migration 0019; Postgres adds enum values at the end.
+  "appointment_requested",
+  "appointment_confirmed",
+  "appointment_cancelled",
+  "order_placed",
 ]);
 
 export const deliveryStatus = pgEnum("delivery_status", [

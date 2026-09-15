@@ -91,6 +91,32 @@ export const MESSAGED_EVENTS: Array<{
     description: "Sent when a certificate is awarded.",
   },
   {
+    type: "appointment_requested",
+    label: "Booking request received",
+    description:
+      "Sent to the client when a salon or home-service booking is requested on the website. Bookings carry a phone number, not an email.",
+    defaultChannels: { email: false, sms: false },
+  },
+  {
+    type: "appointment_confirmed",
+    label: "Booking confirmed",
+    description: "Sent to the client when staff confirm their appointment.",
+    defaultChannels: { email: false, sms: true },
+  },
+  {
+    type: "appointment_cancelled",
+    label: "Booking cancelled",
+    description: "Sent to the client when their appointment is cancelled.",
+    defaultChannels: { email: false, sms: true },
+  },
+  {
+    type: "order_placed",
+    label: "Store order received",
+    description:
+      "Sent to the customer when an order is placed on the website, with the order number and how to pay.",
+    defaultChannels: { email: true, sms: false },
+  },
+  {
     type: "low_stock",
     label: "Low stock alert",
     description:
@@ -161,6 +187,30 @@ export const DEFAULT_TEMPLATES: EventsConfig["templates"] = {
     email:
       "Hello {{name}},\n\nYour certificate for {{course}} has been issued. Certificate number {{reference}}.\n\nCongratulations on completing your programme.\n\n{{school}}",
     sms: "{{school}}: Congratulations {{name}}, your certificate for {{course}} is ready. Number {{reference}}.",
+  },
+  appointment_requested: {
+    subject: "We have your booking request, {{name}}",
+    email:
+      "Hello {{name}},\n\nThank you for booking {{service}} for {{when}}. Your reference is {{reference}}.\n\nWe will confirm your appointment shortly.\n\n{{school}}",
+    sms: "{{school}}: Hi {{name}}, we received your booking for {{service}} on {{when}}. Ref {{reference}}. We will confirm shortly.",
+  },
+  appointment_confirmed: {
+    subject: "Your appointment is confirmed",
+    email:
+      "Hello {{name}},\n\nYour appointment for {{service}} on {{when}} is confirmed. Reference {{reference}}.\n\n{{location}}\n\n{{school}}",
+    sms: "{{school}}: Hi {{name}}, your {{service}} appointment on {{when}} is confirmed. Ref {{reference}}.",
+  },
+  appointment_cancelled: {
+    subject: "Your appointment has been cancelled",
+    email:
+      "Hello {{name}},\n\nYour appointment for {{service}} on {{when}} (reference {{reference}}) has been cancelled.\n\nPlease get in touch if you would like to book another time.\n\n{{school}}",
+    sms: "{{school}}: Hi {{name}}, your {{service}} appointment on {{when}} has been cancelled. Call us to rebook. Ref {{reference}}.",
+  },
+  order_placed: {
+    subject: "Order {{reference}} received",
+    email:
+      "Hello {{name}},\n\nThank you for your order {{reference}} of {{amount}}.\n\n{{payment}}\n\nKeep your order number: you can track the order on our store page with it and this email address.\n\n{{school}}",
+    sms: "{{school}}: Hi {{name}}, order {{reference}} ({{amount}}) received. {{payment}}",
   },
   // Written for someone reading a phone.
   low_stock: {
