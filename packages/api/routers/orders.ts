@@ -1,8 +1,9 @@
-import { and, count, desc, eq, gte, ilike, lte, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, ilike, inArray, lte, or, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
   customers,
+  inventoryItems,
   orderAddresses,
   orderItems,
   orderStatusEvents,
@@ -15,7 +16,14 @@ import {
 import { dbOrThrow } from "../dbOrThrow";
 import { buildReference } from "../platform.utils";
 import { recordAudit } from "../services/audit";
+import {
+  COUNTER_HANDOVER,
+  mergeLines,
+  priceCounterOrder,
+  startingStatus,
+} from "../services/counterOrders";
 import { refreshCustomerTotals } from "../services/customers";
+import { ensureCustomer, resolvePerson } from "../services/people";
 import { money, toAmountString, toMinor } from "../services/money";
 import { notify } from "../services/notify";
 import {
@@ -42,7 +50,246 @@ const FULFILLMENT = [
 
 const PAYMENT_METHODS = ["cash", "mobile_money", "bank", "card", "online"] as const;
 
+const HANDOVER_NOTE: Record<(typeof COUNTER_HANDOVER)[number], string> = {
+  collected: "Recorded in the dashboard and handed over",
+  pickup: "Recorded in the dashboard for collection",
+  delivery: "Recorded in the dashboard for delivery",
+};
+
 export const ordersRouter = router({
+  // Products that can go on a recorded order, with what is on the shelf.
+  sellableItems: permissionProcedure("orders.write").query(async () => {
+    const db = await dbOrThrow();
+    const rows = await db
+      .select({
+        id: inventoryItems.id,
+        sku: inventoryItems.sku,
+        name: inventoryItems.name,
+        sellingPrice: inventoryItems.sellingPrice,
+        quantityOnHand: inventoryItems.quantityOnHand,
+      })
+      .from(inventoryItems)
+      .where(and(eq(inventoryItems.isSellable, true), eq(inventoryItems.isActive, true)))
+      .orderBy(asc(inventoryItems.name));
+    return rows.map(row => ({ ...row, sellingPrice: money(row.sellingPrice) }));
+  }),
+
+  // Records an order taken in person or by phone. Stock comes off the shelf straight away, and a
+  // paid order books its payment and revenue in the same transaction.
+  record: permissionProcedure("orders.write")
+    .input(
+      z
+        .object({
+          customerName: z.string().trim().max(160).optional(),
+          customerPhone: z.string().trim().max(40).optional(),
+          customerEmail: z.string().trim().email("Enter a valid email address.").max(320).optional().or(z.literal("")),
+          items: z
+            .array(
+              z.object({
+                inventoryItemId: z.number().int().positive(),
+                quantity: z.number().int().min(1).max(10_000),
+              }),
+            )
+            .min(1, "Add at least one product.")
+            .max(100),
+          discount: z.number().min(0).max(1_000_000).default(0),
+          handover: z.enum(COUNTER_HANDOVER),
+          deliveryAddress: z.string().trim().max(1500).optional(),
+          deliveryFee: z.number().min(0).max(1_000_000).default(0),
+          paid: z.boolean(),
+          paymentMethod: z.enum(PAYMENT_METHODS).optional(),
+          transactionReference: z.string().trim().max(120).optional(),
+          notes: z.string().trim().max(2000).optional(),
+        })
+        .superRefine((input, ctx) => {
+          if (input.handover === "delivery" && !input.deliveryAddress) {
+            ctx.addIssue({ code: "custom", path: ["deliveryAddress"], message: "Add the delivery address." });
+          }
+          if (input.paid && !input.paymentMethod) {
+            ctx.addIssue({ code: "custom", path: ["paymentMethod"], message: "Choose how the customer paid." });
+          }
+        }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      if (input.paid) ctx.access.assert("payments.write");
+      const db = await dbOrThrow();
+      let stockWentLow = false;
+
+      const recorded = await db.transaction(async tx => {
+        const lines = mergeLines(input.items);
+        const products = await tx
+          .select({
+            id: inventoryItems.id,
+            name: inventoryItems.name,
+            sellingPrice: inventoryItems.sellingPrice,
+            isSellable: inventoryItems.isSellable,
+            isActive: inventoryItems.isActive,
+          })
+          .from(inventoryItems)
+          .where(inArray(inventoryItems.id, lines.map(line => line.inventoryItemId)));
+        const byId = new Map(products.map(product => [product.id, product]));
+
+        // Prices come from the stock list, never from the browser.
+        const priced = lines.map(line => {
+          const product = byId.get(line.inventoryItemId);
+          if (!product || !product.isActive || !product.isSellable) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: product
+                ? `${product.name} is not for sale. Mark it as sold online on the stock list first.`
+                : "One of the products is no longer on the stock list.",
+            });
+          }
+          return { ...line, name: product.name, unitPriceMinor: toMinor(product.sellingPrice) };
+        });
+
+        let totals;
+        try {
+          totals = priceCounterOrder(priced, {
+            discountMinor: toMinor(input.discount),
+            deliveryFeeMinor: input.handover === "delivery" ? toMinor(input.deliveryFee) : 0,
+          });
+        } catch (error) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: error instanceof Error ? error.message : "The order total could not be worked out.",
+          });
+        }
+
+        const name = input.customerName || "Walk-in customer";
+        const email = input.customerEmail?.toLowerCase() || null;
+        const phone = input.customerPhone || null;
+        const deliveryAddress = input.handover === "delivery" ? input.deliveryAddress || null : null;
+
+        // A customer with contact details gets a record, so repeat buyers build up a history.
+        let customerId: number | null = null;
+        if (email || phone) {
+          const personId = await resolvePerson(tx, {
+            fullName: name,
+            email,
+            phone,
+            address: deliveryAddress,
+          });
+          customerId = await ensureCustomer(tx, { personId });
+        }
+
+        const orderNumber = buildReference("ORD");
+        const status = startingStatus(input.handover);
+
+        const [order] = await tx
+          .insert(storeOrders)
+          .values({
+            orderNumber,
+            customerId,
+            customerName: name,
+            customerEmail: email ?? "",
+            customerPhone: phone ?? "",
+            deliveryAddress,
+            subtotal: toAmountString(totals.subtotalMinor),
+            discount: toAmountString(totals.discountMinor),
+            deliveryFee: toAmountString(totals.deliveryFeeMinor),
+            total: toAmountString(totals.totalMinor),
+            paymentStatus: input.paid ? "paid" : "pending",
+            fulfillmentStatus: status,
+            stockDeductedAt: new Date(),
+            notes: input.notes || null,
+          })
+          .returning({ id: storeOrders.id });
+        if (!order) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "The order could not be recorded." });
+        }
+
+        await tx.insert(orderItems).values(
+          priced.map(line => ({
+            orderId: order.id,
+            inventoryItemId: line.inventoryItemId,
+            itemName: line.name,
+            unitPrice: toAmountString(line.unitPriceMinor),
+            quantity: line.quantity,
+            lineTotal: toAmountString(line.unitPriceMinor * line.quantity),
+          })),
+        );
+
+        if (deliveryAddress) {
+          await tx.insert(orderAddresses).values({
+            orderId: order.id,
+            addressType: "shipping",
+            line1: deliveryAddress.slice(0, 255),
+          });
+        }
+
+        await tx.insert(orderStatusEvents).values({
+          orderId: order.id,
+          fromStatus: null,
+          toStatus: status,
+          note: HANDOVER_NOTE[input.handover],
+          createdByUserId: ctx.user.id,
+        });
+
+        for (const line of priced) {
+          const movement = await applyStockMovement(tx, {
+            inventoryItemId: line.inventoryItemId,
+            movementType: "retail_sale",
+            quantityDelta: -line.quantity,
+            referenceType: "store_order",
+            referenceId: order.id,
+            note: `Sold on ${orderNumber}`,
+            performedByUserId: ctx.user.id,
+          });
+          if (movement.crossedReorderLevel) stockWentLow = true;
+        }
+
+        if (input.paid && totals.totalMinor > 0) {
+          const [payment] = await tx
+            .insert(payments)
+            .values({
+              reference: buildReference("SALE"),
+              storeOrderId: order.id,
+              amount: toAmountString(totals.totalMinor),
+              paymentMethod: input.paymentMethod ?? "cash",
+              status: "completed",
+              transactionReference: input.transactionReference || null,
+              receivedByUserId: ctx.user.id,
+              recordedByUserId: ctx.user.id,
+            })
+            .returning({ id: payments.id });
+
+          await recordRevenue(tx, {
+            source: "product_sale",
+            sourceType: "payment",
+            sourceId: payment?.id,
+            paymentId: payment?.id,
+            storeOrderId: order.id,
+            amountMinor: totals.totalMinor,
+            description: `Store sale ${orderNumber}`,
+            recordedByUserId: ctx.user.id,
+          });
+        }
+
+        if (customerId) await refreshCustomerTotals(tx, customerId);
+
+        await recordAudit(tx, ctx.actor, {
+          action: "record_order",
+          entity: "storeOrder",
+          entityId: order.id,
+          entityLabel: orderNumber,
+          newValue: {
+            total: toAmountString(totals.totalMinor),
+            items: priced.map(line => ({ item: line.name, quantity: line.quantity })),
+            handover: input.handover,
+            paid: input.paid,
+            paymentMethod: input.paid ? input.paymentMethod : null,
+          },
+          summary: `${ctx.actor.name ?? "Staff"} recorded order ${orderNumber} for ${name} (GHS ${toAmountString(totals.totalMinor)}, ${input.paid ? "paid" : "not paid yet"})`,
+        });
+
+        return { id: order.id, orderNumber };
+      });
+
+      if (stockWentLow) alertLowStockInBackground(db, ctx.actor);
+      return recorded;
+    }),
+
   list: permissionProcedure("orders.read")
     .input(
       listInputSchema.extend({

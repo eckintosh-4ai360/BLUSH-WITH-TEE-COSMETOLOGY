@@ -272,14 +272,19 @@ function OrderDetail({ orderId }: { orderId: number }) {
             <h2 className="text-sm font-semibold tracking-tight text-foreground">Customer</h2>
             <p className="mt-3 text-sm font-medium text-foreground">{order.customerName}</p>
             <ul className="mt-2 space-y-1.5 text-sm text-muted-foreground">
-              <li className="flex items-center gap-2">
-                <Mail className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                <span className="truncate">{order.customerEmail}</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <Phone className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                {order.customerPhone}
-              </li>
+              {/* Orders recorded for a walk-in customer can have neither. */}
+              {order.customerEmail ? (
+                <li className="flex items-center gap-2">
+                  <Mail className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  <span className="truncate">{order.customerEmail}</span>
+                </li>
+              ) : null}
+              {order.customerPhone ? (
+                <li className="flex items-center gap-2">
+                  <Phone className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  {order.customerPhone}
+                </li>
+              ) : null}
               {order.deliveryAddress ? (
                 <li className="flex items-start gap-2">
                   <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
@@ -296,6 +301,13 @@ function OrderDetail({ orderId }: { orderId: number }) {
               </p>
             ) : null}
           </section>
+
+          {order.notes ? (
+            <section className="rounded-2xl border border-border/60 bg-card p-5">
+              <h2 className="text-sm font-semibold tracking-tight text-foreground">Notes</h2>
+              <p className="mt-3 whitespace-pre-wrap text-sm text-muted-foreground">{order.notes}</p>
+            </section>
+          ) : null}
 
           <section className="rounded-2xl border border-border/60 bg-card p-5">
             <h2 className="text-sm font-semibold tracking-tight text-foreground">Payments</h2>

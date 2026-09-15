@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Plus } from "lucide-react";
 import { Badge } from "@blush/ui/components/ui/badge";
+import { Button } from "@blush/ui/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -10,10 +12,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@blush/ui/components/ui/select";
+import { toast } from "@blush/ui/components/ui/sonner";
 import { formatMoney } from "@blush/ui/lib/viz";
 import DashboardLayout from "@/components/DashboardLayout";
 import { DataTable, type Column } from "@/components/DataTable";
 import { PermissionGate } from "@/components/PermissionGate";
+import { RecordOrderDialog } from "@/components/orders/RecordOrderDialog";
+import { usePermissions } from "@/hooks/usePermissions";
 import { collectAllPages } from "@/lib/exportAll";
 import { FULFILLMENT_TONE } from "@/lib/orderStatus";
 import { trpc } from "@/lib/trpc";
@@ -58,6 +63,8 @@ function OrdersContent() {
   const [page, setPage] = useState(1);
   const [fulfillment, setFulfillment] = useState("all");
   const [payment, setPayment] = useState("all");
+  const [recording, setRecording] = useState(false);
+  const { can } = usePermissions();
 
   const utils = trpc.useUtils();
 
@@ -129,7 +136,7 @@ function OrdersContent() {
     <div className="mx-auto max-w-[1400px]">
       <DataTable
         title="Orders"
-        description="Storefront orders, from placement through to delivery."
+        description="Website orders and orders recorded here, from placement through to delivery."
         columns={columns}
         data={query.data}
         isLoading={query.isLoading}
@@ -152,6 +159,14 @@ function OrdersContent() {
           )
         }
         emptyMessage="No orders match these filters."
+        actions={
+          can("orders.write") ? (
+            <Button className="gap-2" onClick={() => setRecording(true)}>
+              <Plus className="h-4 w-4" />
+              Record order
+            </Button>
+          ) : null
+        }
         footer={
           query.data ? (
             <span className="mr-2 text-xs text-muted-foreground">
@@ -205,6 +220,16 @@ function OrdersContent() {
             </Select>
           </>
         }
+      />
+
+      <RecordOrderDialog
+        open={recording}
+        onOpenChange={setRecording}
+        onRecorded={order => {
+          toast.success(`Order ${order.orderNumber} recorded.`);
+          void utils.orders.list.invalidate();
+          router.push(`/orders/${order.id}`);
+        }}
       />
     </div>
   );
