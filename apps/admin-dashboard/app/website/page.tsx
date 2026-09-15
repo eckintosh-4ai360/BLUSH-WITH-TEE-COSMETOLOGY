@@ -109,6 +109,11 @@ function WebsiteContent() {
     onError: error => toast.error(error.message),
   });
 
+  const deleteGalleryItem = trpc.cms.deleteGalleryItem.useMutation({
+    onSuccess: saved("Photo deleted.", gallery.refetch),
+    onError: error => toast.error(error.message),
+  });
+
   return (
     <div className="mx-auto max-w-[1100px] space-y-6 pb-10">
       <header className="flex flex-wrap items-end justify-between gap-4 border-b border-border/60 pb-5">
@@ -211,6 +216,15 @@ function WebsiteContent() {
                 meta={[GALLERY_CATEGORY_LABELS[row.category] ?? row.category]}
                 detail={row.caption}
                 onEdit={() => setGalleryEdit(row as GalleryEntry)}
+                onDelete={() => {
+                  if (
+                    window.confirm(
+                      `Delete the photo "${row.title ?? "Untitled photo"}"? It will be removed from the website.`,
+                    )
+                  ) {
+                    deleteGalleryItem.mutate({ id: row.id });
+                  }
+                }}
                 onChanged={() => void gallery.refetch()}
               />
             ))}

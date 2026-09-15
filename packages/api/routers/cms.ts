@@ -453,6 +453,28 @@ export const cmsRouter = router({
       return { id: input.id };
     }),
 
+  deleteGalleryItem: permissionProcedure("cms.write")
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+      const [removed] = await db
+        .delete(galleryItems)
+        .where(eq(galleryItems.id, input.id))
+        .returning({ id: galleryItems.id, title: galleryItems.title });
+      if (!removed) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "That gallery photo could not be found." });
+      }
+      const label = removed.title?.trim() || "a gallery photo";
+      await recordAudit(db, ctx.actor, {
+        action: "delete",
+        entity: "galleryItem",
+        entityId: input.id,
+        entityLabel: label,
+        summary: `${ctx.actor.name ?? "Staff"} deleted ${label}`,
+      });
+      return { id: input.id };
+    }),
+
   // Publishes, unpublishes or archives one entry without reopening its form.
   setStatus: permissionProcedure("cms.write")
     .input(
