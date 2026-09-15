@@ -24,12 +24,13 @@ export type AnnounceInput = {
   link?: string;
 };
 
-// Tells one person that something happened, on every channel they are due.
+// Tells one person that something happened, on every channel they are due. Returns the ids of
+// the messages queued, for a caller that wants to send them straight away.
 export async function announce(
   db: DbExecutor,
   input: AnnounceInput,
   config?: MessagingConfig,
-): Promise<void> {
+): Promise<number[]> {
   const resolved = config ?? (await readMessagingConfig(db));
 
   let notificationId: number | undefined;
@@ -50,7 +51,7 @@ export async function announce(
     notificationId = created?.id;
   }
 
-  await queueMessages(db, resolved, {
+  return queueMessages(db, resolved, {
     type: input.type,
     recipient: {
       name: input.recipient.name,
