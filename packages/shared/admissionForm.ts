@@ -45,9 +45,20 @@ export type AdmissionFormData = {
   productFee?: number | string | null;
 };
 
-// Formats empty fields as dashes.
+// Everything an applicant typed is text, never markup. The form opens in a window that shares
+// the page's origin, so an unescaped name would run as whoever opened it, staff included.
+export function escapeHtml(value: unknown): string {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+// Formats empty fields as dashes, escaped for the page.
 function d(val: string | null | undefined, fallback = "\u2014") {
-  return val && val.trim() ? val : fallback;
+  return escapeHtml(val && val.trim() ? val : fallback);
 }
 
 // Formats currency string in Ghana Cedis or returns null if empty.
@@ -69,6 +80,7 @@ export function buildAdmissionFormHtml(
 ) {
   const tuition = cedis(fees?.tuition);
   const productFee = cedis(fees?.productFee);
+  const reference = escapeHtml(application.reference);
   const fmtDate = (v: Date | string | null | undefined) =>
     v ? new Date(v).toLocaleDateString("en-GB") : "—";
 
@@ -77,7 +89,7 @@ export function buildAdmissionFormHtml(
       ? new Date(v).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
       : "—";
 
-  const status = (application.status ?? "submitted").replaceAll("_", " ");
+  const status = escapeHtml((application.status ?? "submitted").replaceAll("_", " "));
   const submitted = fmtLong(application.createdAt);
   const dob = fmtDate(application.birthDate);
   const startDate = fmtDate(application.startDate);
@@ -87,7 +99,7 @@ export function buildAdmissionFormHtml(
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<title>Admission Form – ${application.reference}</title>
+<title>Admission Form – ${reference}</title>
 <style>
   @page {
     size: A4 portrait;
@@ -365,7 +377,7 @@ export function buildAdmissionFormHtml(
 
 <!-- HEADER -->
 <div class="header">
-  <img src="${logoAbsUrl}" alt="Blush With Tee Logo" />
+  <img src="${escapeHtml(logoAbsUrl)}" alt="Blush With Tee Logo" />
   <div class="header-text">
     <div class="header-badge">Official Student Admission File</div>
     <div class="school-name">BLUSH WITH TEE BEAUTY SCHOOL</div>
@@ -375,7 +387,7 @@ export function buildAdmissionFormHtml(
   <div class="header-meta">
     <div class="form-title-badge">ADMISSION FORM</div>
     <div class="ref-meta">
-      Ref: <b class="mono">${application.reference}</b><br/>
+      Ref: <b class="mono">${reference}</b><br/>
       Date: <b>${submitted}</b><br/>
       <span class="status-badge">${status}</span>
     </div>
@@ -410,7 +422,7 @@ export function buildAdmissionFormHtml(
     </div>
     <div class="field">
       <span class="field-label">Age</span>
-      <span class="field-value">${application.age ? application.age + " yrs" : "—"}</span>
+      <span class="field-value">${application.age ? escapeHtml(application.age) + " yrs" : "—"}</span>
     </div>
 
     <div class="field">
@@ -473,7 +485,7 @@ export function buildAdmissionFormHtml(
   <div class="grid g4">
     <div class="field span2">
       <span class="field-label">Enrolled Programme</span>
-      <span class="field-value accent" style="font-weight:800">${courseTitle}</span>
+      <span class="field-value accent" style="font-weight:800">${escapeHtml(courseTitle)}</span>
     </div>
     <div class="field">
       <span class="field-label">Course Duration</span>
@@ -560,7 +572,7 @@ export function buildAdmissionFormHtml(
       <div class="stamp-box">BLUSH WITH TEE<br/>ACADEMIC BOARD</div>
     </div>
   </div>
-  ${application.decisionNote ? `<div style="margin-top:4pt;font-size:7.5pt;color:#333"><b>Decision Note:</b> ${application.decisionNote}</div>` : ""}
+  ${application.decisionNote ? `<div style="margin-top:4pt;font-size:7.5pt;color:#333"><b>Decision Note:</b> ${escapeHtml(application.decisionNote)}</div>` : ""}
 </div>
 
 <!-- FOOTER -->
