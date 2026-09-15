@@ -100,6 +100,7 @@ function ApplyFormContent() {
 
   const { data: courses = [], isLoading: loadingCourses } = trpc.content.courses.useQuery();
   const { data: termsData } = trpc.content.terms.useQuery();
+  const { data: intakes = [] } = trpc.content.intakes.useQuery();
   const { data: school } = useSchoolProfile();
   const submit = trpc.admissions.submit.useMutation();
   const upload = trpc.admissions.uploadDocument.useMutation();
@@ -130,7 +131,7 @@ function ApplyFormContent() {
   const [otherSocialMedia, setOtherSocialMedia] = useState("");
   const [educationalLevel, setEducationalLevel] = useState("SHS");
   const [paymentPlan, setPaymentPlan] = useState("Full Payment");
-  const [startDate, setStartDate] = useState("");
+  const [intakeId, setIntakeId] = useState("");
   const [guardianName, setGuardianName] = useState("");
   const [guardianAddress, setGuardianAddress] = useState("");
   const [guardianPhone, setGuardianPhone] = useState("");
@@ -165,6 +166,19 @@ function ApplyFormContent() {
     if (!selectedCourseId) return null;
     return courses.find(c => String(c.id) === selectedCourseId) || null;
   }, [selectedCourseId, courses]);
+
+  const openIntakes = useMemo(
+    () => intakes.filter(intake => String(intake.courseId) === selectedCourseId),
+    [intakes, selectedCourseId],
+  );
+
+  const selectedIntake = useMemo(() => {
+    if (!intakeId) return null;
+    return intakes.find(intake => String(intake.id) === intakeId) || null;
+  }, [intakeId, intakes]);
+
+  const formatIntakeDate = (value: Date | string) =>
+    new Date(value).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -204,9 +218,10 @@ function ApplyFormContent() {
         otherSocialMedia: otherSocialMedia.trim() || undefined,
         educationalLevel: educationalLevel || undefined,
         courseId: Number(selectedCourseId),
+        intakeId: intakeId ? Number(intakeId) : undefined,
         paymentPlan: paymentPlan || undefined,
         duration: selectedCourse ? `${selectedCourse.durationWeeks} weeks` : undefined,
-        startDate: startDate ? new Date(startDate) : undefined,
+        startDate: selectedIntake ? new Date(selectedIntake.startDate) : undefined,
         guardianName: guardianName.trim() || undefined,
         guardianAddress: guardianAddress.trim() || undefined,
         guardianPhone: guardianPhone.trim() || undefined,
@@ -267,7 +282,7 @@ function ApplyFormContent() {
           educationalLevel: educationalLevel || null,
           paymentPlan: paymentPlan || null,
           duration: selectedCourse ? `${selectedCourse.durationWeeks} weeks` : null,
-          startDate: startDate || null,
+          startDate: selectedIntake ? formatIntakeDate(selectedIntake.startDate) : null,
           guardianName: guardianName.trim() || null,
           guardianAddress: guardianAddress.trim() || null,
           guardianPhone: guardianPhone.trim() || null,
@@ -459,22 +474,24 @@ function ApplyFormContent() {
               <div className="flex items-center gap-2 text-[#8f0d6b]">
                 <Clock className="h-5 w-5 text-[#fe00b6]" />
                 <h3 className="text-sm font-bold uppercase tracking-wider">
-                  Class Hours & Schedule
+                  Class Hours &amp; Schedule
                 </h3>
               </div>
               <ul className="mt-3 space-y-2 text-xs text-[#692156]">
-                <li className="flex items-start gap-2">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#fe00b6] mt-1.5 shrink-0" />
-                  <span><b>Regular Classes:</b> Monday – Saturday (8:00 AM – 5:00 PM)</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#fe00b6] mt-1.5 shrink-0" />
-                  <span><b>Weekday Beginners:</b> Tuesday – Friday (9:00 AM – 2:00 PM)</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#fe00b6] mt-1.5 shrink-0" />
-                  <span><b>Weekday Advanced:</b> Tuesday – Friday (9:00 AM – 5:00 PM)</span>
-                </li>
+                {selectedCourse ? (
+                  <li className="flex items-start gap-2">
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#fe00b6] mt-1.5 shrink-0" />
+                    <span>
+                      <b>Schedule:</b>{" "}
+                      {selectedCourse.schedule || "Monday – Saturday (8:00 AM – 5:00 PM)"}
+                    </span>
+                  </li>
+                ) : (
+                  <li className="flex items-start gap-2">
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#fe00b6] mt-1.5 shrink-0" />
+                    <span>Select a programme to see its class hours and schedule.</span>
+                  </li>
+                )}
                 <li className="flex items-start gap-2 text-[#8f0d6b] font-medium">
                   <span className="h-1.5 w-1.5 rounded-full bg-[#fe00b6] mt-1.5 shrink-0" />
                   <span><b>Reporting Time:</b> 8:00 AM sharp</span>
@@ -487,16 +504,26 @@ function ApplyFormContent() {
                   Toiletries to be Brought (Day 1)
                 </p>
                 <div className="mt-2 rounded-2xl bg-white/80 p-3 text-xs leading-relaxed text-[#692156] border border-[#8f0d6b]/10">
-                  <p>• One big size Omo</p>
-                  <p>• One big size Dettol</p>
-                  <p>• One big size Paper Roll</p>
-                  <p>• 2 big wet wipes</p>
-                  <p>• 1 full pack of razor blades</p>
+                  {selectedCourse?.toiletries ? (
+                    <ul className="list-disc pl-4 space-y-0.5">
+                      {selectedCourse.toiletries
+                        .split(/[,;\n]/)
+                        .map(item => item.trim())
+                        .filter(Boolean)
+                        .map((item, index) => (
+                          <li key={index}>{item}</li>
+                        ))}
+                    </ul>
+                  ) : selectedCourse ? (
+                    <p>The school will confirm this programme&apos;s Day 1 toiletries list on enrolment.</p>
+                  ) : (
+                    <p>Your selected programme&apos;s Day 1 toiletries list will appear here.</p>
+                  )}
                 </div>
               </div>
 
               <div className="mt-4 rounded-2xl bg-amber-500/10 p-3 text-xs text-amber-900 border border-amber-500/20">
-                <b>Tools & Products:</b> All training products and tools are purchased at the school store to guarantee authentic quality and uniformity.
+                <b>Tools &amp; Products:</b> All training products and tools are purchased at the school store to guarantee authentic quality and uniformity.
               </div>
             </div>
 
@@ -949,13 +976,31 @@ function ApplyFormContent() {
                     </label>
 
                     <label className="field-label">
-                      Preferred Start Date
-                      <input
-                        type="date"
-                        value={startDate}
-                        onChange={e => setStartDate(e.target.value)}
+                      Next Intake
+                      <select
+                        value={intakeId}
+                        onChange={e => setIntakeId(e.target.value)}
                         className="soft-input"
-                      />
+                        disabled={!selectedCourseId || !openIntakes.length}
+                      >
+                        {!selectedCourseId ? (
+                          <option value="">Select a programme first</option>
+                        ) : openIntakes.length ? (
+                          <>
+                            <option value="">Choose an intake</option>
+                            {openIntakes.map(intake => (
+                              <option key={intake.id} value={String(intake.id)}>
+                                {intake.title} — starts {formatIntakeDate(intake.startDate)}
+                                {intake.applicationDeadline
+                                  ? ` (apply by ${formatIntakeDate(intake.applicationDeadline)})`
+                                  : ""}
+                              </option>
+                            ))}
+                          </>
+                        ) : (
+                          <option value="">No intake open yet — contact the school</option>
+                        )}
+                      </select>
                     </label>
                   </div>
                 </div>

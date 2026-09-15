@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Mail, MapPin, MessageCircle, Phone } from "lucide-react";
+import { FormEvent, useState } from "react";
+import { ArrowRight, CheckCircle2, Mail, MapPin, MessageCircle, Phone, Send } from "lucide-react";
 import { formatPhone, telHref, whatsappHref } from "@blush/shared/contact";
 import {
   Accordion,
@@ -17,6 +18,45 @@ import { trpc } from "@/lib/trpc";
 export default function ContactPage() {
   const { data: school, isLoading } = useSchoolProfile();
   const { data: faqs = [] } = trpc.content.faqs.useQuery(undefined, { staleTime: 5 * 60_000 });
+  const sendEnquiry = trpc.content.sendEnquiry.useMutation();
+
+  const [enquiry, setEnquiry] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    subject: "",
+    message: "",
+  });
+  const [enquiryNotice, setEnquiryNotice] = useState<{ ok: boolean; text: string } | null>(null);
+
+  async function submitEnquiry(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setEnquiryNotice(null);
+    try {
+      const result = await sendEnquiry.mutateAsync({
+        name: enquiry.name.trim(),
+        email: enquiry.email.trim(),
+        phone: enquiry.phone.trim(),
+        subject: enquiry.subject.trim(),
+        message: enquiry.message.trim(),
+      });
+      setEnquiryNotice({
+        ok: true,
+        text: result.emailed
+          ? "Thank you! Your message has been sent to the school."
+          : "Thank you! Your message has been received and the school will get back to you shortly.",
+      });
+      setEnquiry({ name: "", email: "", phone: "", subject: "", message: "" });
+    } catch (error) {
+      setEnquiryNotice({
+        ok: false,
+        text:
+          error instanceof Error
+            ? error.message
+            : "Your message could not be sent. Please try again or call the school.",
+      });
+    }
+  }
 
   const whatsapp = school?.whatsapp ? whatsappHref(school.whatsapp) : null;
 
@@ -73,6 +113,100 @@ export default function ContactPage() {
                   />
                 </>
               )}
+            </div>
+
+            {/* Enquiry form */}
+            <div className="mt-12">
+              <p className="eyebrow">Send us a message</p>
+              <h2 className="mt-4 font-serif text-3xl font-bold text-[#8f0d6b]">
+                How can we help you?
+              </h2>
+
+              <form
+                onSubmit={submitEnquiry}
+                className="mt-6 grid gap-4 rounded-[2rem] border border-[#8f0d6b]/15 bg-white/85 p-6 shadow-[0_12px_36px_rgba(143,13,107,.06)]"
+              >
+                {enquiryNotice ? (
+                  <p
+                    className={`rounded-2xl p-3 text-sm font-semibold border ${
+                      enquiryNotice.ok
+                        ? "bg-[#faeaf6] text-[#8f0d6b] border-[#fe00b6]/30"
+                        : "bg-[#fff0f4] text-[#e01a4f] border-[#e01a4f]/20"
+                    }`}
+                  >
+                    {enquiryNotice.ok && (
+                      <CheckCircle2 className="mr-2 inline h-4 w-4 text-[#fe00b6]" />
+                    )}
+                    {enquiryNotice.text}
+                  </p>
+                ) : null}
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="field-label">
+                    Your name
+                    <input
+                      required
+                      value={enquiry.name}
+                      onChange={e => setEnquiry({ ...enquiry, name: e.target.value })}
+                      placeholder="e.g. Ama Darko"
+                      className="soft-input"
+                    />
+                  </label>
+                  <label className="field-label">
+                    Email address
+                    <input
+                      required
+                      type="email"
+                      value={enquiry.email}
+                      onChange={e => setEnquiry({ ...enquiry, email: e.target.value })}
+                      placeholder="you@example.com"
+                      className="soft-input"
+                    />
+                  </label>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="field-label">
+                    Phone (optional)
+                    <input
+                      value={enquiry.phone}
+                      onChange={e => setEnquiry({ ...enquiry, phone: e.target.value })}
+                      placeholder="+233…"
+                      className="soft-input"
+                    />
+                  </label>
+                  <label className="field-label">
+                    Subject (optional)
+                    <input
+                      value={enquiry.subject}
+                      onChange={e => setEnquiry({ ...enquiry, subject: e.target.value })}
+                      placeholder="Admissions, student clinic…"
+                      className="soft-input"
+                    />
+                  </label>
+                </div>
+
+                <label className="field-label">
+                  Message
+                  <textarea
+                    required
+                    rows={4}
+                    value={enquiry.message}
+                    onChange={e => setEnquiry({ ...enquiry, message: e.target.value })}
+                    placeholder="Tell us how we can help."
+                    className="soft-input resize-none"
+                  />
+                </label>
+
+                <Button
+                  type="submit"
+                  disabled={sendEnquiry.isPending}
+                  className="justify-center rounded-full bg-gradient-to-r from-[#fe00b6] to-[#8f0d6b] py-5 font-bold text-white shadow-[0_10px_28px_rgba(254,0,182,.3)] hover:scale-[1.01] transition-transform disabled:opacity-60"
+                >
+                  <Send className="mr-2 h-4 w-4" />
+                  {sendEnquiry.isPending ? "Sending…" : "Send message"}
+                </Button>
+              </form>
             </div>
           </div>
 

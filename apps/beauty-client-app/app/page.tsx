@@ -10,8 +10,8 @@ import { HomeBanners, Testimonials, UpcomingEvents } from "@/components/home/Con
 
 const heroStats = [
   { value: "12+", label: "Cosmetology Programs" },
-  { value: "600+", label: "Certified Alumni" },
-  { value: "98%", label: "Employment Rate" },
+  { value: "6", label: "Training Days a Week" },
+  { value: "Open", label: "Student Clinic to the Public" },
 ];
 
 const heroSlides: HeroSlide[] = [

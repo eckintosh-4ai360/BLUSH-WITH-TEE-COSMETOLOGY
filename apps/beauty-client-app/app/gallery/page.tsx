@@ -1,17 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Image from "next/image";
 import PublicShell from "@/components/PublicShell";
 import { trpc } from "@/lib/trpc";
-
-// Shown until the school publishes its own photos from Website content.
-const STUDIO_PHOTOS = [
-  { title: "Hair Artistry & Styling", image: "/hero/hair.jpg" },
-  { title: "Glamour Makeup Transformation", image: "/hero/makeup.jpg" },
-  { title: "Face Beat & Foundation Work", image: "/hero/nails.jpg" },
-  { title: "Editorial Makeup Looks", image: "/hero/skincare.jpg" },
-];
 
 const CATEGORY_LABELS: Record<string, string> = {
   student_work: "Student work",
@@ -98,21 +89,18 @@ export default function GalleryPage() {
                     />
                   </GalleryTile>
                 ))
-              : STUDIO_PHOTOS.map((moment, index) => (
-                  <GalleryTile
-                    key={moment.image}
-                    title={moment.title}
-                    label="BWT Studio Work"
-                    span={tileSpan(index)}
-                  >
-                    <Image
-                      src={moment.image}
-                      alt={moment.title}
-                      fill
-                      className="object-cover transition-transform duration-700 group-hover:scale-110"
-                    />
-                  </GalleryTile>
-                ))}
+              : (
+                  <div className="col-span-full flex min-h-[320px] flex-col items-center justify-center rounded-[2rem] border border-dashed border-[#8f0d6b]/25 bg-white/60 p-10 text-center">
+                    <p className="eyebrow">Coming soon</p>
+                    <h2 className="mt-4 font-serif text-2xl font-bold text-[#8f0d6b]">
+                      Photos from our studios will appear here.
+                    </h2>
+                    <p className="mt-3 max-w-md text-sm leading-7 text-[#692156]">
+                      The school has not published gallery photos yet. Check back soon for real
+                      student work, graduations and studio moments.
+                    </p>
+                  </div>
+                )}
         </section>
       </main>
     </PublicShell>
