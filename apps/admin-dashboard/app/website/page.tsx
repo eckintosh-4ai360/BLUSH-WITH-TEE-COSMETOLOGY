@@ -99,6 +99,11 @@ function WebsiteContent() {
     onError: error => toast.error(error.message),
   });
 
+  const deleteBanner = trpc.cms.deleteBanner.useMutation({
+    onSuccess: saved("Banner deleted.", banners.refetch),
+    onError: error => toast.error(error.message),
+  });
+
   return (
     <div className="mx-auto max-w-[1100px] space-y-6 pb-10">
       <header className="flex flex-wrap items-end justify-between gap-4 border-b border-border/60 pb-5">
@@ -163,6 +168,15 @@ function WebsiteContent() {
                 ]}
                 detail={row.subtitle}
                 onEdit={() => setBannerEdit(row)}
+                onDelete={() => {
+                  if (
+                    window.confirm(
+                      `Delete the banner "${row.title}"? It will be removed from the website.`,
+                    )
+                  ) {
+                    deleteBanner.mutate({ id: row.id });
+                  }
+                }}
                 onChanged={() => void banners.refetch()}
               />
             ))}

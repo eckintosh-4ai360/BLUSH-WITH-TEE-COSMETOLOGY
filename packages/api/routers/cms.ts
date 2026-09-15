@@ -411,6 +411,27 @@ export const cmsRouter = router({
       return { id: input.id };
     }),
 
+  deleteBanner: permissionProcedure("cms.write")
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+      const [removed] = await db
+        .delete(banners)
+        .where(eq(banners.id, input.id))
+        .returning({ id: banners.id, title: banners.title });
+      if (!removed) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "That banner could not be found." });
+      }
+      await recordAudit(db, ctx.actor, {
+        action: "delete",
+        entity: "banner",
+        entityId: input.id,
+        entityLabel: removed.title,
+        summary: `${ctx.actor.name ?? "Staff"} deleted the "${removed.title}" banner`,
+      });
+      return { id: input.id };
+    }),
+
   // Publishes, unpublishes or archives one entry without reopening its form.
   setStatus: permissionProcedure("cms.write")
     .input(
