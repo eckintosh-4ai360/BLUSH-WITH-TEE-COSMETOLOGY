@@ -3,14 +3,19 @@
 import { useState, type ReactNode } from "react";
 import {
   CalendarDays,
+  CheckCircle2,
   HelpCircle,
   ImageIcon,
+  Inbox,
   Megaphone,
   MessageSquareQuote,
   Pencil,
   Plus,
+  RotateCcw,
   Star,
+  Trash2,
 } from "lucide-react";
+import { Badge } from "@blush/ui/components/ui/badge";
 import { Button } from "@blush/ui/components/ui/button";
 import { Card } from "@blush/ui/components/ui/card";
 import { Skeleton } from "@blush/ui/components/ui/skeleton";
@@ -64,6 +69,7 @@ function WebsiteContent() {
   const events = trpc.cms.events.useQuery();
   const testimonials = trpc.cms.testimonials.useQuery();
   const faqs = trpc.cms.faqs.useQuery();
+  const enquiries = trpc.cms.enquiries.useQuery();
 
   const [bannerEdit, setBannerEdit] = useState<BannerEntry | null | "new">(null);
   const [galleryEdit, setGalleryEdit] = useState<GalleryEntry | null | "new">(null);
@@ -78,6 +84,15 @@ function WebsiteContent() {
     toast.success(message);
     void refetch();
   };
+
+  const setEnquiryStatus = trpc.cms.setEnquiryStatus.useMutation({
+    onSuccess: saved("Enquiry updated.", enquiries.refetch),
+    onError: error => toast.error(error.message),
+  });
+  const deleteEnquiry = trpc.cms.deleteEnquiry.useMutation({
+    onSuccess: saved("Enquiry deleted.", enquiries.refetch),
+    onError: error => toast.error(error.message),
+  });
 
   return (
     <div className="mx-auto max-w-[1100px] space-y-6 pb-10">
@@ -111,6 +126,9 @@ function WebsiteContent() {
           </TabsTrigger>
           <TabsTrigger value="faqs" className="gap-1.5">
             <HelpCircle className="h-3.5 w-3.5" /> FAQs
+          </TabsTrigger>
+          <TabsTrigger value="enquiries" className="gap-1.5">
+            <Inbox className="h-3.5 w-3.5" /> Enquiries
           </TabsTrigger>
         </TabsList>
 
@@ -269,6 +287,95 @@ function WebsiteContent() {
               />
             ))}
           </Section>
+        </TabsContent>
+        <TabsContent value="enquiries" className="mt-4">
+          <Card className="p-6">
+            <h2 className="text-lg font-semibold">Enquiries</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Messages sent from the contact page on the public site. The sender also receives a copy
+              by email when the mailbox is configured.
+            </p>
+            {enquiries.isLoading ? (
+              <div className="mt-4 space-y-3">
+                {[0, 1, 2].map(index => (
+                  <Skeleton key={index} className="h-20 w-full" />
+                ))}
+              </div>
+            ) : enquiries.error ? (
+              <p className="mt-4 text-sm text-destructive">{enquiries.error.message}</p>
+            ) : !enquiries.data?.length ? (
+              <p className="mt-4 text-sm text-muted-foreground">No enquiries yet.</p>
+            ) : (
+              <ul className="mt-4 divide-y divide-border">
+                {enquiries.data.map(row => (
+                  <li
+                    key={row.id}
+                    className="flex flex-col gap-3 py-4 sm:flex-row sm:items-start sm:justify-between"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-semibold">{row.name}</span>
+                        <span className="text-sm text-muted-foreground">{row.email}</span>
+                        {row.phone ? (
+                          <span className="text-sm text-muted-foreground">{row.phone}</span>
+                        ) : null}
+                        <Badge variant={row.status === "new" ? "default" : "secondary"}>
+                          {row.status}
+                        </Badge>
+                      </div>
+                      {row.subject ? (
+                        <p className="mt-1 text-sm font-medium">{row.subject}</p>
+                      ) : null}
+                      <p className="mt-1 whitespace-pre-line text-sm text-muted-foreground">
+                        {row.message}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {WHEN.format(new Date(row.createdAt))}
+                      </p>
+                    </div>
+                    {writable ? (
+                      <div className="flex shrink-0 gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={setEnquiryStatus.isPending}
+                          onClick={() =>
+                            setEnquiryStatus.mutate({
+                              id: row.id,
+                              status: row.status === "new" ? "handled" : "new",
+                            })
+                          }
+                        >
+                          {row.status === "new" ? (
+                            <>
+                              <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" /> Mark handled
+                            </>
+                          ) : (
+                            <>
+                              <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Mark new
+                            </>
+                          )}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-destructive"
+                          disabled={deleteEnquiry.isPending}
+                          onClick={() => {
+                            if (window.confirm(`Delete the enquiry from ${row.name}?`)) {
+                              deleteEnquiry.mutate({ id: row.id });
+                            }
+                          }}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" /> Delete
+                        </Button>
+                      </div>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
         </TabsContent>
       </Tabs>
 
