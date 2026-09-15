@@ -1,0 +1,7 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "installCommand": "pnpm install --no-frozen-lockfile",
+  "buildCommand": "pnpm turbo run build --filter=beauty-client-app",
+  "outputDirectory": "apps/beauty-client-app/.next"
+}
