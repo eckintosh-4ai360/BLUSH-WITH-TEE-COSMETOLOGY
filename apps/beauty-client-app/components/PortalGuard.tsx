@@ -2,18 +2,31 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { startLogin } from "@/lib/auth";
 
 type AllowedRole = "student" | "staff" | "admin";
 
 export default function PortalGuard({ allowedRoles, children }: { allowedRoles: AllowedRole[]; children: React.ReactNode }) {
+  const router = useRouter();
   const { user, loading } = useAuth();
+  const mustChangePassword = Boolean(user?.mustChangePassword);
+
   useEffect(() => {
     if (!loading && !user) startLogin();
   }, [loading, user]);
+
+  // When the office asks for a new password on first use, the portal waits until it is chosen.
+  useEffect(() => {
+    if (loading || !mustChangePassword) return;
+    const here = `${window.location.pathname}${window.location.search}`;
+    router.replace(`/account/password?next=${encodeURIComponent(here)}`);
+  }, [loading, mustChangePassword, router]);
+
   if (loading) return <div className="grid min-h-screen place-items-center bg-[#fdf8fc] text-sm font-semibold text-[#8f0d6b]">Opening your student portal…</div>;
   if (!user) return <div className="grid min-h-screen place-items-center bg-[#fdf8fc] text-sm font-semibold text-[#8f0d6b]">Redirecting to sign in…</div>;
+  if (mustChangePassword) return <div className="grid min-h-screen place-items-center bg-[#fdf8fc] text-sm font-semibold text-[#8f0d6b]">Taking you to choose a password…</div>;
   if (!allowedRoles.includes(user.role as AllowedRole))
     return (
       <div className="grid min-h-screen place-items-center bg-[#fdf8fc] p-6 text-center">
@@ -27,4 +40,3 @@ export default function PortalGuard({ allowedRoles, children }: { allowedRoles: 
     );
   return <>{children}</>;
 }
-

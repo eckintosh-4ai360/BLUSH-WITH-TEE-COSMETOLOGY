@@ -34,9 +34,13 @@ function LoginForm() {
   const next = requested?.startsWith("/") && !requested.startsWith("//") ? requested : "/portal";
 
   const login = trpc.auth.login.useMutation({
-    onSuccess: async () => {
+    onSuccess: async result => {
       await utils.invalidate();
-      router.replace(next);
+      router.replace(
+        result.mustChangePassword
+          ? `/account/password?next=${encodeURIComponent(next)}`
+          : next
+      );
       router.refresh();
     },
     onError: mutationError => setError(mutationError.message),

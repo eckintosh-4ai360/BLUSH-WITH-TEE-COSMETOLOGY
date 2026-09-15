@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { KeyRound } from "lucide-react";
 import { Badge } from "@blush/ui/components/ui/badge";
 import PortalGuard from "@/components/PortalGuard";
 import PublicShell from "@/components/PublicShell";
@@ -25,8 +27,18 @@ function StudentPortalContent() {
 
   return (
     <div className="mx-auto max-w-6xl">
-      <p className="eyebrow">Student Learning Portal</p>
-      <h1 className="mt-2 font-serif text-4xl font-bold text-[#8f0d6b]">Your Blush With Tee Journey</h1>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="eyebrow">Student Learning Portal</p>
+          <h1 className="mt-2 font-serif text-4xl font-bold text-[#8f0d6b]">Your Blush With Tee Journey</h1>
+        </div>
+        <Link
+          href="/account/password"
+          className="inline-flex items-center gap-2 rounded-full border border-[#8f0d6b]/20 bg-white px-4 py-2 text-xs font-semibold text-[#8f0d6b] hover:bg-[#faeaf6]"
+        >
+          <KeyRound className="h-3.5 w-3.5" /> Change password
+        </Link>
+      </div>
 
       <div className="mt-7 grid gap-4 sm:grid-cols-3">
         <div className="rounded-3xl border border-[#8f0d6b]/15 bg-white/90 p-6 shadow-sm">

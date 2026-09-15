@@ -3,10 +3,11 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Facebook,
   Instagram,
+  LogOut,
   Mail,
   MapPin,
   Menu,
@@ -35,9 +36,17 @@ const links = [
 
 export default function PublicShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { user } = useAuth();
+  const router = useRouter();
+  const { user, logout, loading } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const { data: school } = useSchoolProfile();
+
+  const signOut = async () => {
+    setMenuOpen(false);
+    await logout();
+    router.push("/");
+    router.refresh();
+  };
 
   return (
     <div className="min-h-screen overflow-x-clip bg-[#fdf8fc] text-[#2d0423]">
@@ -88,14 +97,27 @@ export default function PublicShell({ children }: { children: React.ReactNode })
           <div className="hidden items-center gap-3 sm:flex">
             {/* Action buttons and quick booking links. */}
             {user ? (
-              <Link href="/portal" className="lg:hidden xl:block">
+              <>
+                <Link href="/portal" className="lg:hidden xl:block">
+                  <Button
+                    variant="outline"
+                    className="rounded-full border-[#8f0d6b]/25 bg-white px-4 text-xs font-semibold text-[#8f0d6b] transition-all duration-300 hover:bg-[#faeaf6]"
+                  >
+                    Student Portal
+                  </Button>
+                </Link>
                 <Button
-                  variant="outline"
-                  className="rounded-full border-[#8f0d6b]/25 bg-white px-4 text-xs font-semibold text-[#8f0d6b] transition-all duration-300 hover:bg-[#faeaf6]"
+                  variant="ghost"
+                  size="icon"
+                  disabled={loading}
+                  onClick={signOut}
+                  aria-label="Sign out"
+                  title="Sign out"
+                  className="rounded-full text-[#8f0d6b] hover:bg-[#faeaf6] lg:hidden xl:inline-flex"
                 >
-                  Student Portal
+                  <LogOut className="h-4 w-4" />
                 </Button>
-              </Link>
+              </>
             ) : (
               <Button
                 variant="ghost"
@@ -140,9 +162,19 @@ export default function PublicShell({ children }: { children: React.ReactNode })
               ))}
               <div className="mt-2 flex flex-col gap-2 pt-2 border-t border-[#8f0d6b]/10">
                 {user ? (
-                  <Link href="/portal" onClick={() => setMenuOpen(false)} className="rounded-xl border border-[#8f0d6b]/25 bg-white px-4 py-2.5 text-center text-sm font-semibold text-[#8f0d6b]">
-                    Student Portal
-                  </Link>
+                  <>
+                    <Link href="/portal" onClick={() => setMenuOpen(false)} className="rounded-xl border border-[#8f0d6b]/25 bg-white px-4 py-2.5 text-center text-sm font-semibold text-[#8f0d6b]">
+                      Student Portal
+                    </Link>
+                    <Button
+                      variant="ghost"
+                      disabled={loading}
+                      onClick={signOut}
+                      className="rounded-xl py-2.5 text-sm font-semibold text-[#8f0d6b] hover:bg-[#fdf0f9]"
+                    >
+                      <LogOut className="mr-2 h-4 w-4" /> Sign out
+                    </Button>
+                  </>
                 ) : (
                   <Button variant="outline" onClick={() => { setMenuOpen(false); startLogin(); }} className="rounded-xl border-[#8f0d6b]/25 bg-white py-2.5 text-sm font-semibold text-[#8f0d6b]">
                     Sign In
