@@ -61,27 +61,27 @@ export default function AppointmentsPage() {
               educator supervision.
             </p>
 
-            <div className="mt-10 grid gap-4">
+            <div className="mt-8 grid gap-3">
               {services.map(service => (
                 <article
                   key={service.id}
-                  className="rounded-3xl border border-[#8f0d6b]/15 bg-white/85 p-6 shadow-[0_12px_36px_rgba(143,13,107,.06)] hover:border-[#fe00b6]/35 transition-colors"
+                  className="rounded-2xl border border-[#8f0d6b]/15 bg-white/85 p-4 shadow-[0_6px_20px_rgba(143,13,107,.05)] hover:border-[#fe00b6]/35 transition-colors"
                 >
-                  <div className="flex justify-between gap-4">
+                  <div className="flex justify-between gap-3">
                     <div>
-                      <h2 className="font-serif text-2xl font-bold text-[#8f0d6b]">
+                      <h2 className="font-serif text-lg font-bold leading-snug text-[#8f0d6b]">
                         {service.name}
                       </h2>
-                      <p className="mt-2 text-sm leading-6 text-[#6a2557]">
+                      <p className="mt-1 text-xs leading-5 text-[#6a2557]">
                         {service.description}
                       </p>
                     </div>
-                    <p className="whitespace-nowrap font-serif text-xl font-bold text-[#fe00b6]">
+                    <p className="whitespace-nowrap font-serif text-base font-bold text-[#fe00b6]">
                       {priceLabel(service.price)}
                     </p>
                   </div>
-                  <p className="mt-4 flex items-center gap-1.5 text-xs font-semibold text-[#8f0d6b]">
-                    <Clock3 className="h-4 w-4 text-[#fe00b6]" />{" "}
+                  <p className="mt-2.5 flex items-center gap-1.5 text-[11px] font-semibold text-[#8f0d6b]">
+                    <Clock3 className="h-3.5 w-3.5 text-[#fe00b6]" />{" "}
                     {service.durationMinutes} minutes duration
                   </p>
                 </article>
