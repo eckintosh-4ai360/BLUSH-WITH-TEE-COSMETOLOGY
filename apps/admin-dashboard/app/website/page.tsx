@@ -94,6 +94,11 @@ function WebsiteContent() {
     onError: error => toast.error(error.message),
   });
 
+  const deleteFaq = trpc.cms.deleteFaq.useMutation({
+    onSuccess: saved("Question deleted.", faqs.refetch),
+    onError: error => toast.error(error.message),
+  });
+
   return (
     <div className="mx-auto max-w-[1100px] space-y-6 pb-10">
       <header className="flex flex-wrap items-end justify-between gap-4 border-b border-border/60 pb-5">
@@ -283,6 +288,15 @@ function WebsiteContent() {
                 meta={[row.category]}
                 detail={row.answer}
                 onEdit={() => setFaqEdit(row)}
+                onDelete={() => {
+                  if (
+                    window.confirm(
+                      `Delete the question "${row.question}"? It will be removed from the website.`,
+                    )
+                  ) {
+                    deleteFaq.mutate({ id: row.id });
+                  }
+                }}
                 onChanged={() => void faqs.refetch()}
               />
             ))}
@@ -474,6 +488,7 @@ function EntryRow({
   meta,
   detail,
   onEdit,
+  onDelete,
   onChanged,
 }: {
   kind: ContentKind;
@@ -485,6 +500,7 @@ function EntryRow({
   meta: ReactNode[];
   detail?: string | null;
   onEdit: () => void;
+  onDelete?: () => void;
   onChanged: () => void;
 }) {
   const shownMeta = meta.filter(Boolean);
@@ -514,6 +530,17 @@ function EntryRow({
       {writable ? (
         <Button variant="ghost" size="sm" className="h-8 w-8 p-0" aria-label={`Edit ${title}`} onClick={onEdit}>
           <Pencil className="h-3.5 w-3.5" />
+        </Button>
+      ) : null}
+      {onDelete && writable ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+          aria-label={`Delete ${title}`}
+          onClick={onDelete}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
         </Button>
       ) : null}
     </li>

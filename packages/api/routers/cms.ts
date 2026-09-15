@@ -390,6 +390,27 @@ export const cmsRouter = router({
       return { id };
     }),
 
+  deleteFaq: permissionProcedure("cms.write")
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+      const [removed] = await db
+        .delete(faqs)
+        .where(eq(faqs.id, input.id))
+        .returning({ id: faqs.id, question: faqs.question });
+      if (!removed) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "That question could not be found." });
+      }
+      await recordAudit(db, ctx.actor, {
+        action: "delete",
+        entity: "faq",
+        entityId: input.id,
+        entityLabel: removed.question.slice(0, 120),
+        summary: `${ctx.actor.name ?? "Staff"} deleted the FAQ "${removed.question.slice(0, 80)}"`,
+      });
+      return { id: input.id };
+    }),
+
   // Publishes, unpublishes or archives one entry without reopening its form.
   setStatus: permissionProcedure("cms.write")
     .input(
