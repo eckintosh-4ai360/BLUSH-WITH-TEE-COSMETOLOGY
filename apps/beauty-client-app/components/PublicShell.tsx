@@ -70,7 +70,7 @@ export default function PublicShell({ children }: { children: React.ReactNode })
             <div className="flex flex-col">
               {/* Brand logo and academy title. */}
               <span className="block whitespace-nowrap font-serif text-base font-bold tracking-tight text-[#8f0d6b] sm:text-lg">
-                Blush With Tee
+                Blush With Tee Artistry
               </span>
               <span className="block whitespace-nowrap text-[8.5px] font-semibold uppercase tracking-[0.24em] text-[#fe00b6] lg:hidden xl:block">
                 School of Cosmetology
