@@ -11,6 +11,7 @@ import {
 import type { Database } from "../dbOrThrow";
 import { buildReference } from "../platform.utils";
 import { recordAudit, type AuditActor } from "./audit";
+import { refreshCustomerTotals } from "./customers";
 import { allocatePayment } from "./fees";
 import { assertVerificationMatches, getGateway } from "./gateway";
 import { toAmountString, toMinor } from "./money";
@@ -258,6 +259,9 @@ async function captureStoreOrder(
       .set({ stockDeductedAt: new Date() })
       .where(eq(storeOrders.id, order.id));
   }
+
+  // Paid orders are what a customer's totals count, so they move with the payment.
+  if (order.customerId) await refreshCustomerTotals(tx, order.customerId);
 
   return crossedReorderLevel;
 }

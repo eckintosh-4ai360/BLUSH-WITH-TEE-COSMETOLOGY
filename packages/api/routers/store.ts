@@ -5,6 +5,7 @@ import {
   cartItems,
   carts,
   inventoryItems,
+  orderAddresses,
   orderItems,
   storeOrders,
 } from "@blush/db/schema";
@@ -17,6 +18,7 @@ import {
 import { alertLowStockInBackground } from "../services/lowStock";
 import { bestEffort } from "../services/notify";
 import { alertStaffToOrder } from "../services/orderAlerts";
+import { ensureCustomer, resolvePerson } from "../services/people";
 import { applyStockMovement } from "../services/stock";
 import { storageGet } from "@blush/storage";
 import { publicProcedure, router, throttledPublicProcedure } from "../trpc";
@@ -386,10 +388,25 @@ export const storeRouter = router({
 
         const total = calculateOrderTotal(items);
         const orderNumber = buildReference("ORD");
+
+        // The buyer becomes a customer record, so the order sits against a person in the back
+        // office and their totals move when it is paid.
+        const personId = await resolvePerson(tx, {
+          fullName: input.customerName,
+          email: input.customerEmail,
+          phone: input.customerPhone,
+          address: input.deliveryAddress?.trim() || null,
+        });
+        const customerId = await ensureCustomer(tx, {
+          personId,
+          userId: ctx.user?.id ?? null,
+        });
+
         const [order] = await tx
           .insert(storeOrders)
           .values({
             orderNumber,
+            customerId,
             userId: ctx.user?.id,
             customerName: input.customerName,
             customerEmail: input.customerEmail.toLowerCase(),
@@ -420,6 +437,17 @@ export const storeRouter = router({
             lineTotal: (money(item.sellingPrice) * item.quantity).toFixed(2),
           }))
         );
+
+        const deliveryAddress = input.deliveryAddress?.trim();
+        if (deliveryAddress) {
+          // The order keeps the full text; the address row is what the order page lists.
+          await tx.insert(orderAddresses).values({
+            orderId: order.id,
+            addressType: "shipping",
+            line1: deliveryAddress.slice(0, 255),
+          });
+        }
+
         // Deducted through applyStockMovement rather than a bare UPDATE.
         for (const item of items) {
           const movement = await applyStockMovement(tx, {
