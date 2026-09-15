@@ -3,12 +3,11 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
   ArrowRight,
   Facebook,
   Instagram,
-  LogOut,
   Mail,
   MapPin,
   Menu,
@@ -21,9 +20,7 @@ import {
 import { formatPhone, telHref, whatsappHref } from "@blush/shared/contact";
 import { Button } from "@blush/ui/components/ui/button";
 import { AskAssistant } from "@/components/AskAssistant";
-import { useAuth } from "@/hooks/useAuth";
 import { useSchoolProfile } from "@/hooks/useSchoolProfile";
-import { staffLoginUrl } from "@/lib/staffDashboard";
 import { trpc } from "@/lib/trpc";
 
 const links = [
@@ -38,19 +35,10 @@ const links = [
 
 export default function PublicShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const router = useRouter();
-  const { user, logout, loading } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const { data: school } = useSchoolProfile();
   // Pages written in the dashboard are listed here, so a new one is reachable without a menu change.
   const pageLinks = trpc.content.pageLinks.useQuery(undefined, { staleTime: 5 * 60_000 });
-
-  const signOut = async () => {
-    setMenuOpen(false);
-    await logout();
-    router.push("/");
-    router.refresh();
-  };
 
   return (
     <div className="min-h-screen overflow-x-clip bg-[#fdf8fc] text-[#2d0423]">
@@ -101,37 +89,14 @@ export default function PublicShell({ children }: { children: React.ReactNode })
 
           <div className="hidden items-center gap-3 sm:flex">
             {/* Action buttons and quick booking links. */}
-            {user ? (
-              <>
-                <Link href="/portal" className="lg:hidden xl:block">
-                  <Button
-                    variant="outline"
-                    className="rounded-full border-[#8f0d6b]/25 bg-white px-4 text-xs font-semibold text-[#8f0d6b] transition-all duration-300 hover:bg-[#faeaf6]"
-                  >
-                    Student Portal
-                  </Button>
-                </Link>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  disabled={loading}
-                  onClick={signOut}
-                  aria-label="Sign out"
-                  title="Sign out"
-                  className="rounded-full text-[#8f0d6b] hover:bg-[#faeaf6] lg:hidden xl:inline-flex"
-                >
-                  <LogOut className="h-4 w-4" />
-                </Button>
-              </>
-            ) : (
+            <Link href="/appointments" className="lg:hidden xl:block">
               <Button
-                asChild
-                variant="ghost"
-                className="rounded-full text-xs font-medium text-[#8f0d6b] transition-colors duration-300 hover:bg-[#faeaf6] lg:hidden xl:inline-flex"
+                variant="outline"
+                className="rounded-full border-[#8f0d6b]/25 bg-white px-4 text-xs font-semibold text-[#8f0d6b] transition-all duration-300 hover:bg-[#faeaf6]"
               >
-                <a href={staffLoginUrl()}>Sign in</a>
+                Book Appointment
               </Button>
-            )}
+            </Link>
             <Link href="/apply">
               <Button
                 className="rounded-full bg-gradient-to-r from-[#fe00b6] to-[#8f0d6b] px-5 text-xs font-semibold text-white shadow-[0_8px_20px_rgba(254,0,182,0.35)] transition-all duration-300 hover:opacity-95 hover:shadow-[0_10px_25px_rgba(254,0,182,0.5)] hover:scale-[1.02]"
@@ -166,27 +131,13 @@ export default function PublicShell({ children }: { children: React.ReactNode })
                 </Link>
               ))}
               <div className="mt-2 flex flex-col gap-2 pt-2 border-t border-[#8f0d6b]/10">
-                {user ? (
-                  <>
-                    <Link href="/portal" onClick={() => setMenuOpen(false)} className="rounded-xl border border-[#8f0d6b]/25 bg-white px-4 py-2.5 text-center text-sm font-semibold text-[#8f0d6b]">
-                      Student Portal
-                    </Link>
-                    <Button
-                      variant="ghost"
-                      disabled={loading}
-                      onClick={signOut}
-                      className="rounded-xl py-2.5 text-sm font-semibold text-[#8f0d6b] hover:bg-[#fdf0f9]"
-                    >
-                      <LogOut className="mr-2 h-4 w-4" /> Sign out
-                    </Button>
-                  </>
-                ) : (
-                  <Button asChild variant="outline" className="rounded-xl border-[#8f0d6b]/25 bg-white py-2.5 text-sm font-semibold text-[#8f0d6b]">
-                    <a href={staffLoginUrl()} onClick={() => setMenuOpen(false)}>
-                      Sign In
-                    </a>
-                  </Button>
-                )}
+                <Link
+                  href="/appointments"
+                  onClick={() => setMenuOpen(false)}
+                  className="rounded-xl border border-[#8f0d6b]/25 bg-white px-4 py-2.5 text-center text-sm font-semibold text-[#8f0d6b]"
+                >
+                  Book an Appointment
+                </Link>
                 <Link
                   href="/apply"
                   onClick={() => setMenuOpen(false)}

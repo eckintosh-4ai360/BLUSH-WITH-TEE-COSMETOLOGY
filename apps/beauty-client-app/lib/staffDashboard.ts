@@ -9,12 +9,6 @@ export function staffDashboardUrl(): string {
   return process.env.NODE_ENV === "development" ? "http://localhost:3000" : MANAGEMENT_URL;
 }
 
-// Where the website's Sign in button goes. The school has no student portal, so signing in means
-// the management dashboard.
-export function staffLoginUrl(): string {
-  return `${staffDashboardUrl()}/login`;
-}
-
 export function isStaffRole(role: string | null | undefined): boolean {
   return role === "staff" || role === "admin";
 }
