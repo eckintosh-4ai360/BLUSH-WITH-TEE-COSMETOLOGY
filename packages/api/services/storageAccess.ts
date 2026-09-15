@@ -11,8 +11,8 @@ import type { StorageAccessCheck, StorageAccessDecision } from "@blush/storage/p
 import { dbOrThrow } from "../dbOrThrow";
 import { resolveAccess } from "./access";
 
-// Marketing assets published on public site.
-const PUBLIC_KEY = /(^|\/)media\/(product|gallery|brochure)\//;
+// Marketing assets published on public site, including banner, event and testimonial images.
+const PUBLIC_KEY = /(^|\/)media\/(product|gallery|brochure|site)\//;
 
 // Admissions documents: transcripts, government IDs, passport photos.
 const APPLICATION_KEY = /(^|\/)applications\//;

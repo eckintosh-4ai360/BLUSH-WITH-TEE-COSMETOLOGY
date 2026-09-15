@@ -8,6 +8,7 @@ import {
   ClipboardList,
   CalendarCheck,
   CreditCard,
+  Globe,
   GraduationCap,
   LayoutDashboard,
   Sparkles,
@@ -229,6 +230,12 @@ export const NAV_SECTIONS: NavSection[] = [
         path: "/staff/roles",
         icon: ShieldCheck,
         permissions: ["roles.read"],
+      },
+      {
+        label: "Website content",
+        path: "/website",
+        icon: Globe,
+        permissions: ["cms.read"],
       },
       {
         label: "Reports",

@@ -9,6 +9,7 @@ import {
   inventoryBalanceAfter,
   parseApplicantContact,
   safeFileName,
+  safeHref,
   slugify,
   validateDocumentUpload,
 } from "./platform.utils";
@@ -58,6 +59,23 @@ describe("applicant contact", () => {
     expect(parseApplicantContact("   ")).toBeNull();
     expect(parseApplicantContact("12345")).toBeNull();
     expect(parseApplicantContact("not a phone")).toBeNull();
+  });
+});
+
+describe("safeHref", () => {
+  it("keeps paths on this site and web addresses", () => {
+    expect(safeHref("/apply")).toBe("/apply");
+    expect(safeHref(" /programs?course=3 ")).toBe("/programs?course=3");
+    expect(safeHref("https://wa.me/233545563536")).toBe("https://wa.me/233545563536");
+  });
+
+  it("refuses anything a browser would run or send elsewhere unannounced", () => {
+    expect(safeHref("javascript:alert(1)")).toBeNull();
+    expect(safeHref("data:text/html,<script>")).toBeNull();
+    expect(safeHref("//evil.example")).toBeNull();
+    expect(safeHref("apply")).toBeNull();
+    expect(safeHref("")).toBeNull();
+    expect(safeHref(null)).toBeNull();
   });
 });
 

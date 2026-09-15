@@ -5,6 +5,7 @@ import { authRouter } from "./routers/auth";
 import { contentRouter } from "./routers/content";
 import { certificatesRouter } from "./routers/certificates";
 import { closingRouter } from "./routers/closing";
+import { cmsRouter } from "./routers/cms";
 import { dashboardRouter } from "./routers/dashboard";
 import { financeRouter } from "./routers/finance";
 import { importsRouter } from "./routers/imports";
@@ -33,6 +34,7 @@ export const adminAppRouter = router({
   admin: adminNamespaceRouter,
   finance: financeRouter,
   closing: closingRouter,
+  cms: cmsRouter,
   imports: importsRouter,
   inventory: inventoryRouter,
   orders: ordersRouter,

@@ -6,6 +6,7 @@ import { ArrowRight, BookOpen, Sparkles, WandSparkles, Award, Users, CheckCircle
 import { Button } from "@blush/ui/components/ui/button";
 import PublicShell from "@/components/PublicShell";
 import HeroCarousel, { type HeroSlide } from "@/components/HeroCarousel";
+import { HomeBanners, Testimonials, UpcomingEvents } from "@/components/home/ContentSections";
 
 const heroStats = [
   { value: "12+", label: "Cosmetology Programs" },
@@ -63,24 +64,6 @@ const pathways = [
     number: "03",
     title: "Launch Your Beauty Career",
     text: "Develop client consultation expertise, professional portfolio development, business ethics, and entrepreneurial readiness.",
-  },
-];
-
-const testimonials = [
-  {
-    quote: "Blush With Tee gave me the craft, technique, and confidence to open my own beauty studio within six months of graduation.",
-    name: "Ama Osei",
-    program: "Comprehensive Cosmetology & Hair Artistry",
-  },
-  {
-    quote: "The educators treat you like an artist from day one. The real clinic hours with paying clients gave me unbeatable confidence.",
-    name: "Efua Mensah",
-    program: "Advanced Makeup & Nail Technology",
-  },
-  {
-    quote: "The admissions process was seamless, fees were transparent, and the kit provided was top-tier salon quality.",
-    name: "Linda Akoto",
-    program: "Professional Esthetics & Skin Therapy",
   },
 ];
 
@@ -176,6 +159,8 @@ export default function Home() {
           </div>
         </section>
 
+        <HomeBanners />
+
         {/* Philosophy / Approach */}
         <section className="container py-24">
           <div className="grid gap-12 lg:grid-cols-[.8fr_1.2fr]">
@@ -252,34 +237,9 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Testimonials */}
-        <section className="container py-24">
-          <div className="max-w-2xl">
-            <p className="eyebrow">Student Stories</p>
-            <h2 className="mt-5 font-serif text-4xl font-bold leading-tight text-[#8f0d6b] sm:text-5xl">
-              What our graduates say.
-            </h2>
-          </div>
-
-          <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {testimonials.map(item => (
-              <figure
-                key={item.name}
-                className="flex h-full flex-col rounded-3xl border border-[#8f0d6b]/15 bg-white/80 p-8 shadow-[0_12px_36px_rgba(143,13,107,.06)] hover:border-[#fe00b6]/35 transition-colors"
-              >
-                <blockquote className="text-sm leading-7 text-[#5c1c4b] italic">
-                  &ldquo;{item.quote}&rdquo;
-                </blockquote>
-                <figcaption className="mt-6 border-t border-[#8f0d6b]/15 pt-5">
-                  <p className="text-sm font-bold text-[#8f0d6b]">{item.name}</p>
-                  <p className="mt-1 text-xs font-semibold uppercase tracking-[.12em] text-[#fe00b6]">
-                    {item.program}
-                  </p>
-                </figcaption>
-              </figure>
-            ))}
-          </div>
-        </section>
+        {/* Published from Website content in the back office; hidden until there are some. */}
+        <UpcomingEvents />
+        <Testimonials />
       </main>
     </PublicShell>
   );

@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  ArrowRight,
   Facebook,
   Instagram,
   LogOut,
@@ -23,6 +24,7 @@ import { AskAssistant } from "@/components/AskAssistant";
 import { useAuth } from "@/hooks/useAuth";
 import { useSchoolProfile } from "@/hooks/useSchoolProfile";
 import { startLogin } from "@/lib/auth";
+import { trpc } from "@/lib/trpc";
 
 const links = [
   { label: "Home", path: "/" },
@@ -50,6 +52,7 @@ export default function PublicShell({ children }: { children: React.ReactNode })
 
   return (
     <div className="min-h-screen overflow-x-clip bg-[#fdf8fc] text-[#2d0423]">
+      <AnnouncementStrip />
       <header className="sticky top-0 z-50 w-full border-b border-[#8f0d6b]/10 bg-white shadow-[0_4px_25px_rgba(143,13,107,0.06)]">
         <div className="container flex h-20 items-center justify-between gap-3 xl:gap-4">
           <Link href="/" className="group flex items-center gap-3">
@@ -291,6 +294,34 @@ export default function PublicShell({ children }: { children: React.ReactNode })
       </footer>
 
       <AskAssistant />
+    </div>
+  );
+}
+
+// The site-wide strip above the header, published from Website content in the back office.
+function AnnouncementStrip() {
+  const { data } = trpc.content.banners.useQuery(
+    { placement: "announcement" },
+    { staleTime: 5 * 60_000, refetchOnWindowFocus: false }
+  );
+  const banner = data?.[0];
+  if (!banner) return null;
+
+  return (
+    <div className="bg-gradient-to-r from-[#8f0d6b] via-[#b0107f] to-[#fe00b6] text-white">
+      <div className="container flex flex-wrap items-center justify-center gap-x-3 gap-y-1 py-2 text-center text-xs sm:text-sm">
+        <Sparkles className="h-3.5 w-3.5 shrink-0 text-[#ffd1f1]" aria-hidden />
+        <span className="font-semibold">{banner.title}</span>
+        {banner.subtitle ? <span className="text-white/85">{banner.subtitle}</span> : null}
+        {banner.ctaLabel && banner.ctaHref ? (
+          <Link
+            href={banner.ctaHref}
+            className="inline-flex items-center gap-1 rounded-full bg-white/15 px-3 py-0.5 font-semibold underline-offset-2 hover:bg-white/25"
+          >
+            {banner.ctaLabel} <ArrowRight className="h-3 w-3" />
+          </Link>
+        ) : null}
+      </div>
     </div>
   );
 }

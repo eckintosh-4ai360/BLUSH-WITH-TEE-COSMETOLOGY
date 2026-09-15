@@ -1,11 +1,135 @@
-import { and, asc, eq, inArray, isNull } from "drizzle-orm";
-import { clinicServices, courseModules, courses, systemSettings } from "@blush/db/schema";
+import { and, asc, desc, eq, gte, inArray, isNull, or } from "drizzle-orm";
+import { z } from "zod";
+import {
+  banners,
+  clinicServices,
+  courseModules,
+  courses,
+  events,
+  faqs,
+  galleryItems,
+  systemSettings,
+  testimonials,
+} from "@blush/db/schema";
+import { storageGet } from "@blush/storage";
 import { dbOrThrow } from "../dbOrThrow";
+import { safeHref } from "../platform.utils";
 import { readSchoolProfile } from "../services/schoolProfile";
 import { publicProcedure, router } from "../trpc";
 
+async function imageUrl(key: string | null | undefined): Promise<string | null> {
+  return key ? (await storageGet(key)).url : null;
+}
+
 // Public read-only content.
 export const contentRouter = router({
+  // Published banners for one place on the site: the homepage band, or the site-wide strip.
+  banners: publicProcedure
+    .input(z.object({ placement: z.enum(["homepage", "announcement"]) }))
+    .query(async ({ input }) => {
+      const db = await dbOrThrow();
+      const rows = await db
+        .select()
+        .from(banners)
+        .where(and(eq(banners.placement, input.placement), eq(banners.status, "published")))
+        .orderBy(asc(banners.sortOrder), desc(banners.createdAt))
+        .limit(6);
+      return Promise.all(
+        rows.map(async row => ({
+          id: row.id,
+          title: row.title,
+          subtitle: row.subtitle,
+          ctaLabel: row.ctaLabel,
+          // Checked again on the way out, whatever was stored.
+          ctaHref: safeHref(row.ctaHref),
+          imageUrl: await imageUrl(row.imageKey),
+        })),
+      );
+    }),
+
+  // Published events that have not finished yet, soonest first.
+  upcomingEvents: publicProcedure.query(async () => {
+    const db = await dbOrThrow();
+    const now = new Date();
+    const rows = await db
+      .select()
+      .from(events)
+      .where(
+        and(
+          eq(events.status, "published"),
+          or(gte(events.startsAt, now), gte(events.endsAt, now)),
+        ),
+      )
+      .orderBy(asc(events.startsAt))
+      .limit(6);
+    return Promise.all(
+      rows.map(async row => ({
+        id: row.id,
+        title: row.title,
+        summary: row.summary,
+        description: row.description,
+        location: row.location,
+        startsAt: row.startsAt,
+        endsAt: row.endsAt,
+        imageUrl: await imageUrl(row.imageKey),
+      })),
+    );
+  }),
+
+  gallery: publicProcedure.query(async () => {
+    const db = await dbOrThrow();
+    const rows = await db
+      .select()
+      .from(galleryItems)
+      .where(eq(galleryItems.status, "published"))
+      .orderBy(asc(galleryItems.sortOrder), desc(galleryItems.createdAt))
+      .limit(120);
+    return Promise.all(
+      rows.map(async row => ({
+        id: row.id,
+        title: row.title,
+        caption: row.caption,
+        category: row.category,
+        altText: row.altText,
+        imageUrl: (await imageUrl(row.storageKey))!,
+      })),
+    );
+  }),
+
+  testimonials: publicProcedure.query(async () => {
+    const db = await dbOrThrow();
+    const rows = await db
+      .select()
+      .from(testimonials)
+      .where(eq(testimonials.status, "published"))
+      .orderBy(asc(testimonials.sortOrder), desc(testimonials.createdAt))
+      .limit(12);
+    return Promise.all(
+      rows.map(async row => ({
+        id: row.id,
+        authorName: row.authorName,
+        authorRole: row.authorRole,
+        quote: row.quote,
+        rating: row.rating,
+        photoUrl: await imageUrl(row.photoKey),
+      })),
+    );
+  }),
+
+  faqs: publicProcedure.query(async () => {
+    const db = await dbOrThrow();
+    return db
+      .select({
+        id: faqs.id,
+        question: faqs.question,
+        answer: faqs.answer,
+        category: faqs.category,
+      })
+      .from(faqs)
+      .where(eq(faqs.status, "published"))
+      .orderBy(asc(faqs.sortOrder), asc(faqs.id));
+  }),
+
   // The prospectus, as both the public site and the admissions desk read it.
   courses: publicProcedure.query(async () => {
     const db = await dbOrThrow();

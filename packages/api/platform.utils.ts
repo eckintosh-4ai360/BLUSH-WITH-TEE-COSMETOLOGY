@@ -64,6 +64,20 @@ export function parseApplicantContact(
   return digits.length >= 7 ? { phoneDigits: digits.slice(-9) } : null;
 }
 
+// A link typed into the back office that the public site will render: a path on this site, or
+// an http(s) address. Anything else (javascript:, data:, protocol-relative) comes back null.
+export function safeHref(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith("/")) return trimmed.startsWith("//") ? null : trimmed;
+  try {
+    const url = new URL(trimmed);
+    return url.protocol === "https:" || url.protocol === "http:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
 export function safeFileName(fileName: string) {
   return (
     fileName

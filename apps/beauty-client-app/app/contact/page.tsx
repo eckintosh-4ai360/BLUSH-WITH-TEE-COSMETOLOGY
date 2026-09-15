@@ -3,12 +3,20 @@
 import Link from "next/link";
 import { ArrowRight, Mail, MapPin, MessageCircle, Phone } from "lucide-react";
 import { formatPhone, telHref, whatsappHref } from "@blush/shared/contact";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@blush/ui/components/ui/accordion";
 import { Button } from "@blush/ui/components/ui/button";
 import PublicShell from "@/components/PublicShell";
 import { useSchoolProfile } from "@/hooks/useSchoolProfile";
+import { trpc } from "@/lib/trpc";
 
 export default function ContactPage() {
   const { data: school, isLoading } = useSchoolProfile();
+  const { data: faqs = [] } = trpc.content.faqs.useQuery(undefined, { staleTime: 5 * 60_000 });
 
   const whatsapp = school?.whatsapp ? whatsappHref(school.whatsapp) : null;
 
@@ -94,6 +102,25 @@ export default function ContactPage() {
             </div>
           </aside>
         </div>
+
+        {faqs.length ? (
+          <section className="mt-20 max-w-3xl">
+            <p className="eyebrow">Good to know</p>
+            <h2 className="mt-4 font-serif text-4xl font-bold text-[#8f0d6b]">Frequently asked questions</h2>
+            <Accordion type="single" collapsible className="mt-8 rounded-3xl border border-[#8f0d6b]/15 bg-white/90 px-6 shadow-[0_12px_36px_rgba(143,13,107,.06)]">
+              {faqs.map(faq => (
+                <AccordionItem key={faq.id} value={String(faq.id)} className="border-[#8f0d6b]/10">
+                  <AccordionTrigger className="text-left font-semibold text-[#8f0d6b] hover:no-underline">
+                    {faq.question}
+                  </AccordionTrigger>
+                  <AccordionContent className="whitespace-pre-line text-sm leading-7 text-[#692156]">
+                    {faq.answer}
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          </section>
+        ) : null}
       </main>
     </PublicShell>
   );

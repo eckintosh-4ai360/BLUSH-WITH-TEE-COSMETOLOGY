@@ -6,7 +6,7 @@ describe("classifyStorageKey", () => {
   const folder = "image/blush-with-tee";
 
   it("treats marketing media as public", () => {
-    for (const purpose of ["product", "gallery", "brochure"]) {
+    for (const purpose of ["product", "gallery", "brochure", "site"]) {
       expect(classifyStorageKey(`${folder}/media/${purpose}/1712-shot_ab12cd34`)).toBe("public");
     }
   });
