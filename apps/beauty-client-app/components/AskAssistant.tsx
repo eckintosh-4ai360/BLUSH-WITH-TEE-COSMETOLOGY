@@ -8,7 +8,7 @@ import { AssistantAnswer } from "./AssistantAnswer";
 type Turn = { role: "user" | "assistant"; content: string; failed?: boolean };
 
 const OPENING =
-  "Hi! I am the BWT assistant. Ask me about our courses, fees, start dates, the student clinic, or anything in the store.";
+  "Hi! I am the BWT assistant. Ask me about our courses and fees, salon services and bookings, or anything in the store.";
 
 const SUGGESTIONS = [
   "What courses do you offer?",

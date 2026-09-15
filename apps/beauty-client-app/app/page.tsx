@@ -11,7 +11,7 @@ import { HomeBanners, Testimonials, UpcomingEvents } from "@/components/home/Con
 const heroStats = [
   { value: "12+", label: "Cosmetology Programs" },
   { value: "6", label: "Training Days a Week" },
-  { value: "Open", label: "Student Clinic to the Public" },
+  { value: "3-in-1", label: "School, Salon & Store" },
 ];
 
 const heroSlides: HeroSlide[] = [
@@ -210,17 +210,17 @@ export default function Home() {
             </div>
 
             <div className="flex flex-col justify-center">
-              <p className="eyebrow">Student Clinic & Academy Store</p>
+              <p className="eyebrow">The Salon & The Store</p>
               <h3 className="mt-4 font-serif text-3xl font-bold text-[#8f0d6b]">
-                Real beauty salon experience.
+                Beauty services and professional supplies.
               </h3>
               <p className="mt-4 max-w-md text-sm leading-7 text-[#692156]">
-                Experience luxury beauty services in our supervised student clinic or stock up on professional academy-grade makeup, hair tools, and beauty kits.
+                Book hair, makeup, nail and skincare services at the Blush With Tee salon or at home, and shop professional makeup, hair tools and beauty kits from our store.
               </p>
               <div className="mt-8 flex flex-wrap gap-3.5">
                 <Link href="/appointments">
                   <Button className="rounded-full bg-gradient-to-r from-[#fe00b6] to-[#8f0d6b] px-6 text-xs font-semibold text-white shadow-[0_8px_20px_rgba(254,0,182,0.3)] hover:scale-105 transition-transform">
-                    Book Student Clinic Service
+                    Book a Salon Service
                   </Button>
                 </Link>
                 <Link href="/store">
@@ -229,7 +229,7 @@ export default function Home() {
                     className="rounded-full border-[#8f0d6b]/25 bg-white px-6 text-xs font-semibold text-[#8f0d6b] hover:bg-[#faeaf6]"
                   >
                     <ShoppingBag className="mr-2 h-4 w-4 text-[#fe00b6]" />
-                    Academy Store
+                    Shop the Store
                   </Button>
                 </Link>
               </div>

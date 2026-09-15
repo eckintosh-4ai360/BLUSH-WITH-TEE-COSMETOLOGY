@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Contact",
-  description: "Get in touch with Blush With Tee School of Cosmetology about admissions, beauty services or the store.",
+  description: "Get in touch with Blush With Tee about admissions, salon bookings or store orders.",
   alternates: { canonical: "/contact" },
 };
 

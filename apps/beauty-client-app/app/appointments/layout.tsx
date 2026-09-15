@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Book a Beauty Service",
-  description: "Book a salon appointment or a home service with Blush With Tee. Services are performed by advanced cosmetology students under educator supervision.",
+  title: "Salon: Book a Beauty Service",
+  description: "Book hair, makeup, nail and skincare services at the Blush With Tee salon, or request a home service.",
   alternates: { canonical: "/appointments" },
 };
 

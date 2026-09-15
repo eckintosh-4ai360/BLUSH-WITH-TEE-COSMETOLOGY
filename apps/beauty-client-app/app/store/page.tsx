@@ -134,14 +134,14 @@ export default function StorePage() {
       <main className="container py-16 sm:py-24">
         <div className="grid gap-12 xl:grid-cols-[1fr_360px]">
           <section>
-            <p className="eyebrow">Academy Beauty Store</p>
+            <p className="eyebrow">The Blush With Tee Store</p>
             <h1 className="mt-5 font-serif text-5xl font-bold leading-none text-[#8f0d6b] sm:text-6xl">
               Professional essentials & salon kits.
             </h1>
             <p className="mt-6 max-w-2xl text-lg leading-8 text-[#692156]">
-              Equip your craft with top-tier beauty tools, student training
-              kits, skincare products, and hair styling formulas curated by
-              Blush With Tee.
+              Beauty tools, skincare, hair products and training kits chosen by
+              Blush With Tee, for students, beauty professionals and everyone
+              who loves beauty.
             </p>
 
             {notice && (

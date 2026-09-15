@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Store",
-  description: "Professional beauty essentials and salon kits from the Blush With Tee academy store.",
+  description: "Shop professional beauty tools, skincare, hair products and kits from the Blush With Tee store.",
   alternates: { canonical: "/store" },
 };
 

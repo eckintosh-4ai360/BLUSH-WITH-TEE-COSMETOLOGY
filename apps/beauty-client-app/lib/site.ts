@@ -1,7 +1,10 @@
-export const SITE_NAME = "BWT School of Cosmetology";
+export const SITE_NAME = "Blush With Tee";
+
+// The home page's title: the three parts of the business, not only the school.
+export const SITE_TITLE = "Blush With Tee | School of Cosmetology, Salon & Beauty Store";
 
 export const SITE_DESCRIPTION =
-  "Apply to a professional cosmetology programme, book a student-clinic beauty service, and shop academy essentials at Blush With Tee School of Cosmetology.";
+  "Train at BWT School of Cosmetology, book hair, makeup, nail and skincare services at the Blush With Tee salon, and shop professional beauty products in our store.";
 
 // The public origin, for canonical links, the sitemap and link previews.
 export function siteUrl(): URL {

@@ -70,7 +70,7 @@ export default function ContactPage() {
               Begin your conversation with Blush With Tee.
             </h1>
             <p className="mt-6 max-w-xl text-lg leading-8 text-[#692156]">
-              Have questions about program schedules, admission requirements, kit supplies, or student clinic bookings? Our friendly admissions team is here to help.
+              Have a question about admissions and programmes, a salon booking, or an order from our store? Our friendly team is here to help.
             </p>
 
             {/* Every detail here comes from Settings in the back office. */}
@@ -180,7 +180,7 @@ export default function ContactPage() {
                     <input
                       value={enquiry.subject}
                       onChange={e => setEnquiry({ ...enquiry, subject: e.target.value })}
-                      placeholder="Admissions, student clinic…"
+                      placeholder="Admissions, salon, store…"
                       className="soft-input"
                     />
                   </label>
@@ -216,7 +216,7 @@ export default function ContactPage() {
               Ready to take the leap into beauty mastery?
             </h2>
             <p className="mt-4 text-sm leading-7 text-white/85">
-              Submit your admissions application online today or visit our student clinic to experience our craft first-hand.
+              Submit your admissions application online today, or book a salon service to experience our craft first-hand.
             </p>
 
             <div className="mt-10 grid gap-4">
@@ -230,7 +230,7 @@ export default function ContactPage() {
                   variant="outline"
                   className="w-full rounded-full border-white/30 bg-white/10 py-6 font-semibold text-white backdrop-blur hover:bg-white/20 hover:text-white"
                 >
-                  Book a Student Clinic Service
+                  Book a Salon Service
                 </Button>
               </Link>
             </div>

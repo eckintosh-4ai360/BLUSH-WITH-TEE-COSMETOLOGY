@@ -5,7 +5,7 @@ import { TooltipProvider } from "@blush/ui/components/ui/tooltip";
 import { Toaster } from "@blush/ui/components/ui/sonner";
 import "@blush/ui/globals.css";
 import { TrpcProvider } from "@/components/TrpcProvider";
-import { SITE_DESCRIPTION, SITE_NAME, siteUrl } from "@/lib/site";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, siteUrl } from "@/lib/site";
 
 const sora = Sora({
   subsets: ["latin"],
@@ -16,7 +16,7 @@ const sora = Sora({
 export const metadata: Metadata = {
   metadataBase: siteUrl(),
   // Each section's layout names its page; the home page keeps the plain school name.
-  title: { default: SITE_NAME, template: `%s | ${SITE_NAME}` },
+  title: { default: SITE_TITLE, template: `%s | ${SITE_NAME}` },
   description: SITE_DESCRIPTION,
   alternates: { canonical: "/" },
   openGraph: {

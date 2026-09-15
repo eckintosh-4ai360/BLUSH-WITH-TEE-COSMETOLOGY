@@ -58,14 +58,14 @@ export default function AppointmentsPage() {
       <main className="container py-16 sm:py-24">
         <div className="grid gap-12 lg:grid-cols-[.85fr_1.15fr]">
           <div>
-            <p className="eyebrow">Blush With Tee Beauty Services</p>
+            <p className="eyebrow">The Blush With Tee Salon</p>
             <h1 className="mt-5 font-serif text-5xl font-bold leading-none text-[#8f0d6b] sm:text-6xl">
               Salon care, wherever you need it.
             </h1>
             <p className="mt-6 max-w-md text-lg leading-8 text-[#692156]">
-              Book a salon appointment or request a home service. All services
-              are performed by advanced cosmetology students under direct
-              educator supervision.
+              Book a salon appointment or request a home service. Choose from
+              our hair, makeup, nail and skincare menu, and we will confirm your
+              booking.
             </p>
 
             <div className="mt-8 grid gap-3">

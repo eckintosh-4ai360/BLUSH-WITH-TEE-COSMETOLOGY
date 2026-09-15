@@ -29,7 +29,7 @@ const links = [
   { label: "Programs", path: "/programs" },
   { label: "Gallery", path: "/gallery" },
   { label: "Store", path: "/store" },
-  { label: "Student Clinic", path: "/appointments" },
+  { label: "Salon", path: "/appointments" },
   { label: "Contact", path: "/contact" },
 ];
 
@@ -61,7 +61,7 @@ export default function PublicShell({ children }: { children: React.ReactNode })
                 Blush With Tee Artistry
               </span>
               <span className="block whitespace-nowrap text-[8.5px] font-semibold uppercase tracking-[0.24em] text-[#fe00b6] lg:hidden xl:block">
-                School of Cosmetology
+                School · Salon · Store
               </span>
             </div>
           </Link>
@@ -162,11 +162,11 @@ export default function PublicShell({ children }: { children: React.ReactNode })
               </div>
               <div className="flex flex-col">
                 <span className="font-serif text-lg font-bold text-[#8f0d6b]">Blush With Tee</span>
-                <span className="text-[8px] font-bold uppercase tracking-[0.2em] text-[#fe00b6]">School of Cosmetology</span>
+                <span className="text-[8px] font-bold uppercase tracking-[0.2em] text-[#fe00b6]">School · Salon · Store</span>
               </div>
             </div>
             <p className="mt-4 max-w-sm text-sm leading-relaxed text-[#692156]">
-              A premier academy dedicated to cultivating future cosmetologists, makeup artists, nail technicians, and beauty entrepreneurs with excellence and intention.
+              A school of cosmetology, a beauty salon and a beauty store: training future beauty professionals, caring for clients and supplying the products both rely on.
             </p>
             <div className="mt-5 flex items-center gap-3 text-xs text-[#8f0d6b]">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-[#faeaf6] px-3 py-1 font-semibold text-[#8f0d6b]">
@@ -178,7 +178,7 @@ export default function PublicShell({ children }: { children: React.ReactNode })
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#8f0d6b]">Explore</p>
             <div className="mt-4 grid gap-2.5 text-sm text-[#5a1b49]">
-              <Link href="/about" className="hover:text-[#fe00b6] transition-colors">About the Academy</Link>
+              <Link href="/about" className="hover:text-[#fe00b6] transition-colors">About Blush With Tee</Link>
               <Link href="/programs" className="hover:text-[#fe00b6] transition-colors">Courses & Pathways</Link>
               <Link href="/apply" className="hover:text-[#fe00b6] transition-colors">Admissions Portal</Link>
               <Link href="/gallery" className="hover:text-[#fe00b6] transition-colors">Studio Showcase</Link>
@@ -195,10 +195,9 @@ export default function PublicShell({ children }: { children: React.ReactNode })
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#8f0d6b]">Connect</p>
             <div className="mt-4 grid gap-2.5 text-sm text-[#5a1b49]">
-              <Link href="/appointments" className="hover:text-[#fe00b6] transition-colors">Student Clinic Appointments</Link>
-              <Link href="/store" className="hover:text-[#fe00b6] transition-colors">Academy Beauty Store</Link>
+              <Link href="/appointments" className="hover:text-[#fe00b6] transition-colors">Salon Appointments</Link>
+              <Link href="/store" className="hover:text-[#fe00b6] transition-colors">Beauty Store</Link>
               <Link href="/contact" className="hover:text-[#fe00b6] transition-colors">Contact & Directions</Link>
-              <Link href="/portal" className="hover:text-[#fe00b6] transition-colors">Student Learning Portal</Link>
             </div>
           </div>
 
