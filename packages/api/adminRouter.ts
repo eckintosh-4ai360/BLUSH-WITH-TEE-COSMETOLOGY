@@ -15,6 +15,7 @@ import { notificationsRouter } from "./routers/notifications";
 import { platformRouter } from "./routers/platform";
 import { reportsRouter } from "./routers/reports";
 import { resultsRouter } from "./routers/results";
+import { revampingRouter } from "./routers/revamping";
 import { servicesRouter } from "./routers/services";
 import { ordersRouter } from "./routers/orders";
 import { staffRouter } from "./routers/staff";
@@ -43,6 +44,7 @@ export const adminAppRouter = router({
   messaging: messagingRouter,
   reports: reportsRouter,
   results: resultsRouter,
+  revamping: revampingRouter,
   services: servicesRouter,
   dashboard: dashboardRouter,
   notifications: notificationsRouter,

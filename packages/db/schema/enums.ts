@@ -188,6 +188,16 @@ export const paymentMethodEnum = pgEnum("payment_method", [
   "online",
 ]);
 
+// How a revamping job was paid for. "memo" is credit taken on account,
+// as written in the salon paper register (cash / memo).
+export const revampingPaymentMethod = pgEnum("revamping_payment_method", [
+  "cash",
+  "mobile_money",
+  "bank",
+  "card",
+  "memo",
+]);
+
 export const paymentStatusEnum = pgEnum("payment_status", [
   "pending",
   "completed",

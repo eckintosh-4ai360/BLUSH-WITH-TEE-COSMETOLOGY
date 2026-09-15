@@ -21,6 +21,7 @@ import {
   notificationChannel,
   notificationType,
   paymentMethodEnum,
+  revampingPaymentMethod,
 } from "./enums";
 import { people, users } from "./identity";
 
@@ -127,6 +128,44 @@ export const serviceSalesRelations = relations(serviceSales, ({ one }) => ({
 }));
 
 export type ServiceSale = typeof serviceSales.$inferSelect;
+
+// The salon revamping register: one line per job, as kept on paper.
+// Columns: Date, Name, Quantity, Style, Total amount, Amount paid,
+// Amount left, Paid type (cash / memo).
+export const revampingRecords = pgTable(
+  "revampingRecords",
+  {
+    id: serial("id").primaryKey(),
+    // Date the revamping was done.
+    revampDate: date("revampDate", { mode: "date" }).notNull(),
+    clientName: varchar("clientName", { length: 160 }).notNull(),
+    // Number of styles or heads worked on.
+    quantity: integer("quantity").notNull(),
+    // What was done, e.g. braids, wig install, hair treatment.
+    style: varchar("style", { length: 160 }).notNull(),
+    totalAmount: numeric("totalAmount", { precision: 12, scale: 2 }).notNull(),
+    amountPaid: numeric("amountPaid", { precision: 12, scale: 2 }).notNull(),
+    // Kept stored so the register reads directly; computed as total - paid.
+    amountLeft: numeric("amountLeft", { precision: 12, scale: 2 }).notNull(),
+    paymentMethod: revampingPaymentMethod("paymentMethod").notNull(),
+    recordedByUserId: integer("recordedByUserId").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt")
+      .defaultNow()
+      .notNull()
+      .$onUpdate(() => new Date()),
+    // Soft-delete timestamp.
+    deletedAt: timestamp("deletedAt"),
+  },
+  table => [
+    index("revamping_date_idx").on(table.revampDate),
+    index("revamping_deleted_idx").on(table.deletedAt),
+  ]
+);
+
+export type RevampingRecord = typeof revampingRecords.$inferSelect;
 
 export const mediaFiles = pgTable(
   "mediaFiles",

@@ -33,6 +33,8 @@ export const PERMISSIONS = {
   "expenses.approve": "Approve or reject expenses",
   "services.read": "View the daily services log",
   "services.write": "Record services carried out and what was charged",
+  "revamping.read": "View the revamping register",
+  "revamping.write": "Record revamping work, payments and balances",
   "closing.read": "View the daily closing register",
   "closing.write": "Close the register at the end of the day",
   "closing.reopen": "Unlock a day that has already been closed",
@@ -129,6 +131,8 @@ export const ROLE_DEFINITIONS: Record<
       "appointments.write",
       "services.read",
       "services.write",
+      "revamping.read",
+      "revamping.write",
       "staff.read",
       "cms.read",
       "cms.write",
@@ -177,6 +181,7 @@ export const ROLE_DEFINITIONS: Record<
       "suppliers.read",
       "appointments.read",
       "appointments.write",
+      "revamping.read",
     ],
   },
   storekeeper: {
@@ -260,6 +265,10 @@ export const ROLE_DEFINITIONS: Record<
       // Daily services tracking
       "services.read",
       "services.write",
+
+      // Salon revamping register
+      "revamping.read",
+      "revamping.write",
 
       "notifications.read",
     ],

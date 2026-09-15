@@ -144,6 +144,12 @@ export const NAV_SECTIONS: NavSection[] = [
         permissions: ["services.read"],
       },
       {
+        label: "Revamping",
+        path: "/finance/revamping",
+        icon: Scissors,
+        permissions: ["revamping.read"],
+      },
+      {
         label: "Appointments",
         path: "/appointments",
         icon: CalendarClock,
