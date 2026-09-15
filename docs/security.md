@@ -146,7 +146,7 @@ Filenames are stripped of everything outside `[a-zA-Z0-9._-]`, so path
 separators cannot survive.
 
 Student documents are stored as authenticated Cloudinary resources and served
-through `/api/manus-storage/[...key]`, which is the only route to the bytes and
+through `/api/storage/[...key]`, which is the only route to the bytes and
 so is where access is decided. `storageAccessPolicy` classifies the key:
 
 | Key | Who may fetch it |
