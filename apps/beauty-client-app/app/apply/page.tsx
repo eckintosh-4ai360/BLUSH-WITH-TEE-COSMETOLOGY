@@ -22,6 +22,7 @@ import {
   HeartHandshake,
   HelpCircle,
   Info,
+  Loader2,
   MapPin,
   Phone,
   Printer,
@@ -48,6 +49,15 @@ async function fileToDataUrl(file: File) {
     reader.readAsDataURL(file);
   });
 }
+
+// A supporting document sent after the application itself is saved.
+type DocumentUpload = {
+  documentType: "transcript" | "government_id";
+  label: string;
+  file: File;
+  status: "uploading" | "uploaded" | "failed";
+  error?: string;
+};
 
 const APPLICATION_STEPS = [
   { key: "submitted", label: "Submitted" },
@@ -142,8 +152,11 @@ function ApplyFormContent() {
   const [transcript, setTranscript] = useState<File | null>(null);
   const [governmentId, setGovernmentId] = useState<File | null>(null);
 
+  const [uploads, setUploads] = useState<DocumentUpload[]>([]);
   const [success, setSuccess] = useState<{
     reference: string;
+    // What the server checks before attaching a document to this application.
+    contact: string;
     email?: string;
     courseTitle: string;
     applicantName: string;
@@ -230,33 +243,24 @@ function ApplyFormContent() {
         statement: statement.trim() || undefined,
       });
 
-      // Upload documents if provided. The server only attaches them when the
+      // The application is saved from here on. Showing the confirmation before the documents
+      // upload means a failed upload is retried on its own, never by submitting the whole form
+      // again and filing a second application. The server attaches a document only when the
       // contact matches the one the form was filed with.
       const uploadContact = email.trim() || phone.trim();
-      if (transcript) {
-        await upload.mutateAsync({
-          reference: result.reference,
-          contact: uploadContact,
-          documentType: "transcript",
-          fileName: transcript.name,
-          mimeType: transcript.type,
-          base64Data: await fileToDataUrl(transcript),
-        });
-      }
-
-      if (governmentId) {
-        await upload.mutateAsync({
-          reference: result.reference,
-          contact: uploadContact,
-          documentType: "government_id",
-          fileName: governmentId.name,
-          mimeType: governmentId.type,
-          base64Data: await fileToDataUrl(governmentId),
-        });
-      }
+      const queued: DocumentUpload[] = [
+        ...(transcript
+          ? [{ documentType: "transcript" as const, label: "Transcript or past certificate", file: transcript, status: "uploading" as const }]
+          : []),
+        ...(governmentId
+          ? [{ documentType: "government_id" as const, label: "Ghana Card, passport or ID", file: governmentId, status: "uploading" as const }]
+          : []),
+      ];
+      setUploads(queued);
 
       setSuccess({
         reference: result.reference,
+        contact: uploadContact,
         email: email.trim() || undefined,
         courseTitle: result.courseTitle || selectedCourse?.title || "Cosmetology Programme",
         applicantName: fullName.trim(),
@@ -294,12 +298,42 @@ function ApplyFormContent() {
         },
       });
       window.scrollTo({ top: 0, behavior: "smooth" });
+
+      for (const item of queued) {
+        await sendDocument(result.reference, uploadContact, item);
+      }
     } catch (reason) {
       setError(
         reason instanceof Error
           ? reason.message
           : "Your application could not be submitted. Please try again."
       );
+    }
+  }
+
+  // Sends one document for an application that already exists, and records how it went.
+  async function sendDocument(reference: string, contact: string, item: DocumentUpload) {
+    const mark = (patch: Partial<DocumentUpload>) =>
+      setUploads(current =>
+        current.map(entry => (entry.documentType === item.documentType ? { ...entry, ...patch } : entry)),
+      );
+
+    mark({ status: "uploading", error: undefined });
+    try {
+      await upload.mutateAsync({
+        reference,
+        contact,
+        documentType: item.documentType,
+        fileName: item.file.name,
+        mimeType: item.file.type,
+        base64Data: await fileToDataUrl(item.file),
+      });
+      mark({ status: "uploaded" });
+    } catch (reason) {
+      mark({
+        status: "failed",
+        error: reason instanceof Error ? reason.message : "The document could not be uploaded.",
+      });
     }
   }
 
@@ -624,6 +658,46 @@ function ApplyFormContent() {
                   )}
                 </div>
 
+                {uploads.length ? (
+                  <div className="mx-auto max-w-md rounded-2xl border border-[#8f0d6b]/15 bg-white p-5 text-left">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-[#8f0d6b]/80">
+                      Supporting documents
+                    </p>
+                    <ul className="mt-3 space-y-3">
+                      {uploads.map(item => (
+                        <li key={item.documentType} className="text-sm text-[#692156]">
+                          <span className="flex items-center gap-2 font-semibold text-[#8f0d6b]">
+                            {item.status === "uploading" ? (
+                              <Loader2 className="h-4 w-4 animate-spin text-[#fe00b6]" />
+                            ) : item.status === "uploaded" ? (
+                              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                            ) : (
+                              <AlertCircle className="h-4 w-4 text-[#e01a4f]" />
+                            )}
+                            {item.label}
+                          </span>
+                          <span className="mt-0.5 block pl-6 text-xs">
+                            {item.status === "uploading"
+                              ? "Uploading…"
+                              : item.status === "uploaded"
+                                ? "Received."
+                                : `Not received: ${item.error ?? "the upload failed"}. Your application is still saved.`}
+                          </span>
+                          {item.status === "failed" ? (
+                            <button
+                              type="button"
+                              onClick={() => success && void sendDocument(success.reference, success.contact, item)}
+                              className="ml-6 mt-1.5 rounded-full border border-[#8f0d6b]/25 px-3 py-1 text-xs font-semibold text-[#8f0d6b] hover:bg-[#faeaf6]"
+                            >
+                              Try uploading again
+                            </button>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+
                 <div className="flex items-center justify-center gap-3 flex-wrap pt-4">
                   <Button
                     onClick={() =>
@@ -641,6 +715,9 @@ function ApplyFormContent() {
                   <Button
                     onClick={() => {
                       setSuccess(null);
+                      setUploads([]);
+                      setTranscript(null);
+                      setGovernmentId(null);
                       setSelectedCourseId("");
                     }}
                     className="rounded-full bg-gradient-to-r from-[#fe00b6] to-[#8f0d6b] px-6 text-white font-bold shadow-md"
