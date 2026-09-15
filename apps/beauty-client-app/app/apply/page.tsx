@@ -22,6 +22,7 @@ import {
   HeartHandshake,
   HelpCircle,
   Info,
+  Loader2,
   MapPin,
   Phone,
   Printer,
@@ -48,6 +49,15 @@ async function fileToDataUrl(file: File) {
     reader.readAsDataURL(file);
   });
 }
+
+// A supporting document sent after the application itself is saved.
+type DocumentUpload = {
+  documentType: "transcript" | "government_id";
+  label: string;
+  file: File;
+  status: "uploading" | "uploaded" | "failed";
+  error?: string;
+};
 
 const APPLICATION_STEPS = [
   { key: "submitted", label: "Submitted" },
@@ -100,6 +110,7 @@ function ApplyFormContent() {
 
   const { data: courses = [], isLoading: loadingCourses } = trpc.content.courses.useQuery();
   const { data: termsData } = trpc.content.terms.useQuery();
+  const { data: intakes = [] } = trpc.content.intakes.useQuery();
   const { data: school } = useSchoolProfile();
   const submit = trpc.admissions.submit.useMutation();
   const upload = trpc.admissions.uploadDocument.useMutation();
@@ -130,7 +141,7 @@ function ApplyFormContent() {
   const [otherSocialMedia, setOtherSocialMedia] = useState("");
   const [educationalLevel, setEducationalLevel] = useState("SHS");
   const [paymentPlan, setPaymentPlan] = useState("Full Payment");
-  const [startDate, setStartDate] = useState("");
+  const [intakeId, setIntakeId] = useState("");
   const [guardianName, setGuardianName] = useState("");
   const [guardianAddress, setGuardianAddress] = useState("");
   const [guardianPhone, setGuardianPhone] = useState("");
@@ -141,8 +152,11 @@ function ApplyFormContent() {
   const [transcript, setTranscript] = useState<File | null>(null);
   const [governmentId, setGovernmentId] = useState<File | null>(null);
 
+  const [uploads, setUploads] = useState<DocumentUpload[]>([]);
   const [success, setSuccess] = useState<{
     reference: string;
+    // What the server checks before attaching a document to this application.
+    contact: string;
     email?: string;
     courseTitle: string;
     applicantName: string;
@@ -165,6 +179,19 @@ function ApplyFormContent() {
     if (!selectedCourseId) return null;
     return courses.find(c => String(c.id) === selectedCourseId) || null;
   }, [selectedCourseId, courses]);
+
+  const openIntakes = useMemo(
+    () => intakes.filter(intake => String(intake.courseId) === selectedCourseId),
+    [intakes, selectedCourseId],
+  );
+
+  const selectedIntake = useMemo(() => {
+    if (!intakeId) return null;
+    return intakes.find(intake => String(intake.id) === intakeId) || null;
+  }, [intakeId, intakes]);
+
+  const formatIntakeDate = (value: Date | string) =>
+    new Date(value).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -204,9 +231,10 @@ function ApplyFormContent() {
         otherSocialMedia: otherSocialMedia.trim() || undefined,
         educationalLevel: educationalLevel || undefined,
         courseId: Number(selectedCourseId),
+        intakeId: intakeId ? Number(intakeId) : undefined,
         paymentPlan: paymentPlan || undefined,
         duration: selectedCourse ? `${selectedCourse.durationWeeks} weeks` : undefined,
-        startDate: startDate ? new Date(startDate) : undefined,
+        startDate: selectedIntake ? new Date(selectedIntake.startDate) : undefined,
         guardianName: guardianName.trim() || undefined,
         guardianAddress: guardianAddress.trim() || undefined,
         guardianPhone: guardianPhone.trim() || undefined,
@@ -215,33 +243,24 @@ function ApplyFormContent() {
         statement: statement.trim() || undefined,
       });
 
-      // Upload documents if provided. The server only attaches them when the
+      // The application is saved from here on. Showing the confirmation before the documents
+      // upload means a failed upload is retried on its own, never by submitting the whole form
+      // again and filing a second application. The server attaches a document only when the
       // contact matches the one the form was filed with.
       const uploadContact = email.trim() || phone.trim();
-      if (transcript) {
-        await upload.mutateAsync({
-          reference: result.reference,
-          contact: uploadContact,
-          documentType: "transcript",
-          fileName: transcript.name,
-          mimeType: transcript.type,
-          base64Data: await fileToDataUrl(transcript),
-        });
-      }
-
-      if (governmentId) {
-        await upload.mutateAsync({
-          reference: result.reference,
-          contact: uploadContact,
-          documentType: "government_id",
-          fileName: governmentId.name,
-          mimeType: governmentId.type,
-          base64Data: await fileToDataUrl(governmentId),
-        });
-      }
+      const queued: DocumentUpload[] = [
+        ...(transcript
+          ? [{ documentType: "transcript" as const, label: "Transcript or past certificate", file: transcript, status: "uploading" as const }]
+          : []),
+        ...(governmentId
+          ? [{ documentType: "government_id" as const, label: "Ghana Card, passport or ID", file: governmentId, status: "uploading" as const }]
+          : []),
+      ];
+      setUploads(queued);
 
       setSuccess({
         reference: result.reference,
+        contact: uploadContact,
         email: email.trim() || undefined,
         courseTitle: result.courseTitle || selectedCourse?.title || "Cosmetology Programme",
         applicantName: fullName.trim(),
@@ -267,7 +286,7 @@ function ApplyFormContent() {
           educationalLevel: educationalLevel || null,
           paymentPlan: paymentPlan || null,
           duration: selectedCourse ? `${selectedCourse.durationWeeks} weeks` : null,
-          startDate: startDate || null,
+          startDate: selectedIntake ? formatIntakeDate(selectedIntake.startDate) : null,
           guardianName: guardianName.trim() || null,
           guardianAddress: guardianAddress.trim() || null,
           guardianPhone: guardianPhone.trim() || null,
@@ -279,12 +298,42 @@ function ApplyFormContent() {
         },
       });
       window.scrollTo({ top: 0, behavior: "smooth" });
+
+      for (const item of queued) {
+        await sendDocument(result.reference, uploadContact, item);
+      }
     } catch (reason) {
       setError(
         reason instanceof Error
           ? reason.message
           : "Your application could not be submitted. Please try again."
       );
+    }
+  }
+
+  // Sends one document for an application that already exists, and records how it went.
+  async function sendDocument(reference: string, contact: string, item: DocumentUpload) {
+    const mark = (patch: Partial<DocumentUpload>) =>
+      setUploads(current =>
+        current.map(entry => (entry.documentType === item.documentType ? { ...entry, ...patch } : entry)),
+      );
+
+    mark({ status: "uploading", error: undefined });
+    try {
+      await upload.mutateAsync({
+        reference,
+        contact,
+        documentType: item.documentType,
+        fileName: item.file.name,
+        mimeType: item.file.type,
+        base64Data: await fileToDataUrl(item.file),
+      });
+      mark({ status: "uploaded" });
+    } catch (reason) {
+      mark({
+        status: "failed",
+        error: reason instanceof Error ? reason.message : "The document could not be uploaded.",
+      });
     }
   }
 
@@ -459,22 +508,24 @@ function ApplyFormContent() {
               <div className="flex items-center gap-2 text-[#8f0d6b]">
                 <Clock className="h-5 w-5 text-[#fe00b6]" />
                 <h3 className="text-sm font-bold uppercase tracking-wider">
-                  Class Hours & Schedule
+                  Class Hours &amp; Schedule
                 </h3>
               </div>
               <ul className="mt-3 space-y-2 text-xs text-[#692156]">
-                <li className="flex items-start gap-2">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#fe00b6] mt-1.5 shrink-0" />
-                  <span><b>Regular Classes:</b> Monday – Saturday (8:00 AM – 5:00 PM)</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#fe00b6] mt-1.5 shrink-0" />
-                  <span><b>Weekday Beginners:</b> Tuesday – Friday (9:00 AM – 2:00 PM)</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#fe00b6] mt-1.5 shrink-0" />
-                  <span><b>Weekday Advanced:</b> Tuesday – Friday (9:00 AM – 5:00 PM)</span>
-                </li>
+                {selectedCourse ? (
+                  <li className="flex items-start gap-2">
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#fe00b6] mt-1.5 shrink-0" />
+                    <span>
+                      <b>Schedule:</b>{" "}
+                      {selectedCourse.schedule || "Monday – Saturday (8:00 AM – 5:00 PM)"}
+                    </span>
+                  </li>
+                ) : (
+                  <li className="flex items-start gap-2">
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#fe00b6] mt-1.5 shrink-0" />
+                    <span>Select a programme to see its class hours and schedule.</span>
+                  </li>
+                )}
                 <li className="flex items-start gap-2 text-[#8f0d6b] font-medium">
                   <span className="h-1.5 w-1.5 rounded-full bg-[#fe00b6] mt-1.5 shrink-0" />
                   <span><b>Reporting Time:</b> 8:00 AM sharp</span>
@@ -487,16 +538,26 @@ function ApplyFormContent() {
                   Toiletries to be Brought (Day 1)
                 </p>
                 <div className="mt-2 rounded-2xl bg-white/80 p-3 text-xs leading-relaxed text-[#692156] border border-[#8f0d6b]/10">
-                  <p>• One big size Omo</p>
-                  <p>• One big size Dettol</p>
-                  <p>• One big size Paper Roll</p>
-                  <p>• 2 big wet wipes</p>
-                  <p>• 1 full pack of razor blades</p>
+                  {selectedCourse?.toiletries ? (
+                    <ul className="list-disc pl-4 space-y-0.5">
+                      {selectedCourse.toiletries
+                        .split(/[,;\n]/)
+                        .map(item => item.trim())
+                        .filter(Boolean)
+                        .map((item, index) => (
+                          <li key={index}>{item}</li>
+                        ))}
+                    </ul>
+                  ) : selectedCourse ? (
+                    <p>The school will confirm this programme&apos;s Day 1 toiletries list on enrolment.</p>
+                  ) : (
+                    <p>Your selected programme&apos;s Day 1 toiletries list will appear here.</p>
+                  )}
                 </div>
               </div>
 
               <div className="mt-4 rounded-2xl bg-amber-500/10 p-3 text-xs text-amber-900 border border-amber-500/20">
-                <b>Tools & Products:</b> All training products and tools are purchased at the school store to guarantee authentic quality and uniformity.
+                <b>Tools &amp; Products:</b> All training products and tools are purchased at the school store to guarantee authentic quality and uniformity.
               </div>
             </div>
 
@@ -597,6 +658,46 @@ function ApplyFormContent() {
                   )}
                 </div>
 
+                {uploads.length ? (
+                  <div className="mx-auto max-w-md rounded-2xl border border-[#8f0d6b]/15 bg-white p-5 text-left">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-[#8f0d6b]/80">
+                      Supporting documents
+                    </p>
+                    <ul className="mt-3 space-y-3">
+                      {uploads.map(item => (
+                        <li key={item.documentType} className="text-sm text-[#692156]">
+                          <span className="flex items-center gap-2 font-semibold text-[#8f0d6b]">
+                            {item.status === "uploading" ? (
+                              <Loader2 className="h-4 w-4 animate-spin text-[#fe00b6]" />
+                            ) : item.status === "uploaded" ? (
+                              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                            ) : (
+                              <AlertCircle className="h-4 w-4 text-[#e01a4f]" />
+                            )}
+                            {item.label}
+                          </span>
+                          <span className="mt-0.5 block pl-6 text-xs">
+                            {item.status === "uploading"
+                              ? "Uploading…"
+                              : item.status === "uploaded"
+                                ? "Received."
+                                : `Not received: ${item.error ?? "the upload failed"}. Your application is still saved.`}
+                          </span>
+                          {item.status === "failed" ? (
+                            <button
+                              type="button"
+                              onClick={() => success && void sendDocument(success.reference, success.contact, item)}
+                              className="ml-6 mt-1.5 rounded-full border border-[#8f0d6b]/25 px-3 py-1 text-xs font-semibold text-[#8f0d6b] hover:bg-[#faeaf6]"
+                            >
+                              Try uploading again
+                            </button>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+
                 <div className="flex items-center justify-center gap-3 flex-wrap pt-4">
                   <Button
                     onClick={() =>
@@ -614,6 +715,9 @@ function ApplyFormContent() {
                   <Button
                     onClick={() => {
                       setSuccess(null);
+                      setUploads([]);
+                      setTranscript(null);
+                      setGovernmentId(null);
                       setSelectedCourseId("");
                     }}
                     className="rounded-full bg-gradient-to-r from-[#fe00b6] to-[#8f0d6b] px-6 text-white font-bold shadow-md"
@@ -949,13 +1053,31 @@ function ApplyFormContent() {
                     </label>
 
                     <label className="field-label">
-                      Preferred Start Date
-                      <input
-                        type="date"
-                        value={startDate}
-                        onChange={e => setStartDate(e.target.value)}
+                      Next Intake
+                      <select
+                        value={intakeId}
+                        onChange={e => setIntakeId(e.target.value)}
                         className="soft-input"
-                      />
+                        disabled={!selectedCourseId || !openIntakes.length}
+                      >
+                        {!selectedCourseId ? (
+                          <option value="">Select a programme first</option>
+                        ) : openIntakes.length ? (
+                          <>
+                            <option value="">Choose an intake</option>
+                            {openIntakes.map(intake => (
+                              <option key={intake.id} value={String(intake.id)}>
+                                {intake.title} — starts {formatIntakeDate(intake.startDate)}
+                                {intake.applicationDeadline
+                                  ? ` (apply by ${formatIntakeDate(intake.applicationDeadline)})`
+                                  : ""}
+                              </option>
+                            ))}
+                          </>
+                        ) : (
+                          <option value="">No intake open yet — contact the school</option>
+                        )}
+                      </select>
                     </label>
                   </div>
                 </div>

@@ -1,7 +1,7 @@
 import { and, eq, sql, type SQL } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { applicationDocuments, applications, courses } from "@blush/db/schema";
+import { applicationDocuments, applications, courses, intakes } from "@blush/db/schema";
 import { storagePut } from "@blush/storage";
 import { dbOrThrow } from "../dbOrThrow";
 import {
@@ -51,6 +51,8 @@ const applicationInput = z.object({
   educationalLevel: z.string().trim().max(120).optional(),
   education: z.string().trim().max(1800).optional(),
   courseId: z.number().int().positive(),
+  // The open intake the applicant chose; its start date becomes the start date.
+  intakeId: z.number().int().positive().optional(),
   paymentPlan: z.string().trim().max(80).optional(),
   duration: z.string().trim().max(80).optional(),
   startDate: z.coerce.date().optional(),
@@ -71,6 +73,26 @@ export const admissionsRouter = router({
       .where(and(eq(courses.id, input.courseId), eq(courses.isActive, true)))
       .limit(1);
     if (!course) throw new TRPCError({ code: "NOT_FOUND", message: "The selected program is unavailable." });
+
+    // The applicant picked an intake, so its start date wins over any free text.
+    let startDate = input.startDate;
+    if (input.intakeId) {
+      const [intake] = await db
+        .select()
+        .from(intakes)
+        .where(
+          and(
+            eq(intakes.id, input.intakeId),
+            eq(intakes.courseId, input.courseId),
+            eq(intakes.status, "open"),
+          ),
+        )
+        .limit(1);
+      if (!intake) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "That intake is no longer open." });
+      }
+      startDate = intake.startDate;
+    }
 
     const reference = buildReference("APP");
     const email = input.email && input.email.trim().length > 0 ? input.email.trim().toLowerCase() : null;
@@ -97,12 +119,13 @@ export const admissionsRouter = router({
         educationalLevel: input.educationalLevel,
         education: input.education,
         courseId: input.courseId,
+        intakeId: input.intakeId,
         paymentPlan: input.paymentPlan,
         // The quote the applicant is signing against.
         tuition: course.tuition,
         productFee: course.productFee,
         duration: input.duration || `${course.durationWeeks} weeks`,
-        startDate: input.startDate,
+        startDate,
         guardianName: input.guardianName,
         guardianAddress: input.guardianAddress,
         guardianPhone: input.guardianPhone,

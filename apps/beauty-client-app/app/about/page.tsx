@@ -1,7 +1,15 @@
+import type { Metadata } from "next";
 import PublicShell from "@/components/PublicShell";
 import Link from "next/link";
 import { ArrowRight, Sparkles, Heart, Award, Users } from "lucide-react";
 import { Button } from "@blush/ui/components/ui/button";
+
+export const metadata: Metadata = {
+  title: "About",
+  description:
+    "Blush With Tee School of Cosmetology trains beauty artists to build sustainable, world-class careers.",
+  alternates: { canonical: "/about" },
+};
 
 export default function AboutPage() {
   return (

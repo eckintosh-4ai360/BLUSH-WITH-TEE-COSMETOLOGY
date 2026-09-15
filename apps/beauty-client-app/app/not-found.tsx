@@ -1,38 +1,42 @@
-"use client";
-
 import Link from "next/link";
-import { AlertCircle, Home } from "lucide-react";
-import { Button } from "@blush/ui/components/ui/button";
-import { Card, CardContent } from "@blush/ui/components/ui/card";
+import { ArrowLeft, Sparkles } from "lucide-react";
 
 export default function NotFound() {
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
-      <Card className="w-full max-w-lg mx-4 shadow-lg border-0 bg-white/80 backdrop-blur-sm">
-        <CardContent className="pt-8 pb-8 text-center">
-          <div className="flex justify-center mb-6">
-            <div className="relative">
-              <div className="absolute inset-0 bg-red-100 rounded-full animate-pulse" />
-              <AlertCircle className="relative h-16 w-16 text-red-500" />
-            </div>
+    <div className="flex min-h-screen w-full items-center justify-center bg-gradient-to-br from-[#8f0d6b] via-[#54063f] to-[#1c0015] px-4">
+      <div className="relative w-full max-w-lg overflow-hidden rounded-[2.25rem] border border-[#fe00b6]/30 bg-white/95 p-10 text-center shadow-[0_30px_90px_rgba(0,0,0,.5)] backdrop-blur">
+        <div className="pointer-events-none absolute -left-20 -top-20 h-56 w-56 rounded-full bg-[#fe00b6]/15 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-20 -right-20 h-56 w-56 rounded-full bg-[#8f0d6b]/20 blur-3xl" />
+
+        <div className="relative">
+          <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-[#faeaf6]">
+            <Sparkles className="h-8 w-8 text-[#fe00b6]" />
           </div>
-          <h1 className="text-4xl font-bold text-slate-900 mb-2">404</h1>
-          <h2 className="text-xl font-semibold text-slate-700 mb-4">Page Not Found</h2>
-          <p className="text-slate-600 mb-8 leading-relaxed">
-            Sorry, the page you are looking for doesn't exist.
+          <h1 className="mt-6 font-serif text-6xl font-bold leading-none text-[#8f0d6b]">404</h1>
+          <h2 className="mt-3 font-serif text-2xl font-bold text-[#8f0d6b]">This page has left the salon.</h2>
+          <p className="mx-auto mt-4 max-w-sm text-sm leading-7 text-[#692156]">
+            Sorry, the page you are looking for doesn&apos;t exist.
             <br />
             It may have been moved or deleted.
           </p>
-          <div id="not-found-button-group" className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Link href="/">
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg">
-                <Home className="w-4 h-4 mr-2" />
-                Go Home
-              </Button>
+
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
+            <Link
+              href="/"
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#fe00b6] to-[#8f0d6b] px-7 py-3 text-sm font-bold text-white shadow-[0_10px_28px_rgba(254,0,182,.35)] transition-transform hover:scale-[1.02]"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to Home
+            </Link>
+            <Link
+              href="/contact"
+              className="inline-flex items-center justify-center rounded-full border border-[#8f0d6b]/25 bg-white px-7 py-3 text-sm font-semibold text-[#8f0d6b] transition-colors hover:bg-[#faeaf6]"
+            >
+              Contact the School
             </Link>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }

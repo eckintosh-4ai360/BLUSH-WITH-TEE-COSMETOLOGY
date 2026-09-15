@@ -36,7 +36,6 @@ import {
   storeOrders,
   studentProfiles,
   suppliers,
-  testimonials,
   users,
 } from "../schema";
 
@@ -1941,44 +1940,14 @@ export async function seedDemoData(db: Database): Promise<DemoSeedResult> {
     );
   }
 
-  // Website content
+  // Website content. No testimonials are seeded: they read as real claims and
+  // must come from real graduates, published from the back office when ready.
 
-  const [{ total: existingTestimonials }] = await db
+  const [{ total: existingFaqs }] = await db
     .select({ total: sql<number>`count(*)::int` })
-    .from(testimonials);
+    .from(faqs);
 
-  if (!existingTestimonials) {
-    await db.insert(testimonials).values([
-      {
-        authorName: "Akosua Mensah",
-        authorRole: "Graduate, Professional Hair Artistry",
-        quote:
-          "I walked in nervous and walked out running my own salon chair. The practical hours made the difference.",
-        rating: 5,
-        sortOrder: 0,
-        status: "published",
-      },
-      {
-        authorName: "Efua Boateng",
-        authorRole: "Graduate, Nail Craft & Design",
-        quote:
-          "The instructors correct your technique until it is right. My clients notice.",
-        rating: 5,
-        sortOrder: 1,
-        status: "published",
-      },
-      {
-        authorName: "Gifty Owusu",
-        authorRole: "Student, Foundations of Beauty",
-        quote:
-          "Small classes, real clients in the student clinic, and honest feedback every week.",
-        rating: 5,
-        sortOrder: 2,
-        status: "published",
-      },
-    ]);
-    counts.testimonials = 3;
-
+  if (!existingFaqs) {
     await db.insert(faqs).values([
       {
         question: "What qualifications do I need to enrol?",

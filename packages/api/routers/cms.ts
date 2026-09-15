@@ -1,7 +1,7 @@
 import { asc, desc, eq } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { banners, events, faqs, galleryItems, testimonials } from "@blush/db/schema";
+import { banners, enquiries, events, faqs, galleryItems, testimonials } from "@blush/db/schema";
 import { storageGet, storagePut } from "@blush/storage";
 import { dbOrThrow } from "../dbOrThrow";
 import {
@@ -95,6 +95,60 @@ export const cmsRouter = router({
     const db = await dbOrThrow();
     return db.select().from(faqs).orderBy(asc(faqs.sortOrder), asc(faqs.id));
   }),
+
+  // Messages sent from the public contact page, newest first.
+  enquiries: permissionProcedure("cms.read").query(async () => {
+    const db = await dbOrThrow();
+    return db.select().from(enquiries).orderBy(desc(enquiries.createdAt));
+  }),
+
+  setEnquiryStatus: permissionProcedure("cms.write")
+    .input(
+      z.object({
+        id: z.number().int().positive(),
+        status: z.enum(["new", "handled"]),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+      const [updated] = await db
+        .update(enquiries)
+        .set({ status: input.status })
+        .where(eq(enquiries.id, input.id))
+        .returning({ id: enquiries.id });
+      if (!updated) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "That enquiry could not be found." });
+      }
+      await recordAudit(db, ctx.actor, {
+        action: "set_status",
+        entity: "enquiry",
+        entityId: input.id,
+        newValue: { status: input.status },
+        summary: `${ctx.actor.name ?? "Staff"} marked enquiry #${input.id} as ${input.status}`,
+      });
+      return { id: input.id, status: input.status };
+    }),
+
+  deleteEnquiry: permissionProcedure("cms.write")
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+      const [removed] = await db
+        .delete(enquiries)
+        .where(eq(enquiries.id, input.id))
+        .returning({ id: enquiries.id, name: enquiries.name });
+      if (!removed) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "That enquiry could not be found." });
+      }
+      await recordAudit(db, ctx.actor, {
+        action: "delete",
+        entity: "enquiry",
+        entityId: input.id,
+        entityLabel: removed.name,
+        summary: `${ctx.actor.name ?? "Staff"} deleted enquiry #${input.id} from ${removed.name}`,
+      });
+      return { id: input.id };
+    }),
 
   // Stores a picture for the site. Gallery photos and other site images live under public
   // prefixes, so the storage proxy serves them without a sign-in.

@@ -24,6 +24,12 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: "/:path*", headers: SECURITY_HEADERS }];
   },
+  // Files used to be served from /api/manus-storage. Low-stock emails already sent link there.
+  async redirects() {
+    return [
+      { source: "/api/manus-storage/:path*", destination: "/api/storage/:path*", permanent: true },
+    ];
+  },
 };
 
 export default nextConfig;

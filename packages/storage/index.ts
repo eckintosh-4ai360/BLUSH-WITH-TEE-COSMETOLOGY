@@ -105,13 +105,13 @@ export async function storagePut(
   }
 
   const key = `${toResourceType(uploaded.resource_type)}/${uploaded.public_id}`;
-  return { key, url: `/api/manus-storage/${key}` };
+  return { key, url: `/api/storage/${key}` };
 }
 
 // Resolves relative storage proxy path for a key.
 export async function storageGet(relKey: string): Promise<{ key: string; url: string }> {
   const key = normalizeKey(relKey);
-  return { key, url: `/api/manus-storage/${key}` };
+  return { key, url: `/api/storage/${key}` };
 }
 
 // Generates time-limited signed delivery URL for authenticated access.
