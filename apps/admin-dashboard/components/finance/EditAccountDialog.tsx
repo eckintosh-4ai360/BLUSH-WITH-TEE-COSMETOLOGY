@@ -267,9 +267,9 @@ function ChargeRow({
     onError: (err) => toast.error(err.message),
   });
 
+  // An empty field is read as zero.
   const parsedAmount = Number(amountDue);
   const canSave =
-    amountDue.trim() !== "" &&
     Number.isFinite(parsedAmount) &&
     parsedAmount >= 0 &&
     description.trim().length >= 2;
@@ -414,12 +414,12 @@ function PaymentRow({
     onError: (err) => toast.error(err.message),
   });
 
+  // An empty field is read as zero.
   const parsedAmount = Number(amount);
   const editable = payment.status === "completed";
   const canSave =
-    amount.trim() !== "" &&
     Number.isFinite(parsedAmount) &&
-    parsedAmount > 0 &&
+    parsedAmount >= 0 &&
     parsedAmount !== payment.amount &&
     reason.trim().length >= 2;
 

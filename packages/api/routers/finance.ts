@@ -969,7 +969,8 @@ export const financeRouter = router({
     .input(
       z.object({
         id: z.number().int().positive(),
-        amount: z.number().positive(),
+        // Zero clears a payment that was recorded by mistake.
+        amount: z.number().min(0),
         reason: z.string().trim().min(2).max(200),
       }),
     )

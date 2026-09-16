@@ -40,8 +40,8 @@ export function assertCorrectable(payment: {
       message: `A ${payment.status} payment cannot be corrected.`,
     });
   }
-  if (payment.newAmountMinor <= 0) {
-    throw new TRPCError({ code: "BAD_REQUEST", message: "Amount must be a positive number." });
+  if (payment.newAmountMinor < 0) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "Amount cannot be negative." });
   }
   if (payment.newAmountMinor < payment.refundedMinor) {
     throw new TRPCError({

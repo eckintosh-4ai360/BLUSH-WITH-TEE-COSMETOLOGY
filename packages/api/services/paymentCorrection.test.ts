@@ -26,10 +26,14 @@ describe("assertCorrectable", () => {
     expect(() => assertCorrectable(payment)).not.toThrow();
   });
 
-  it("refuses store payments, refunded payments and amounts that are not positive", () => {
+  it("accepts zero, for a payment recorded by mistake", () => {
+    expect(() => assertCorrectable({ ...payment, newAmountMinor: 0 })).not.toThrow();
+  });
+
+  it("refuses store payments, refunded payments and negative amounts", () => {
     expect(() => assertCorrectable({ ...payment, studentId: null })).toThrow(/student fee/);
     expect(() => assertCorrectable({ ...payment, status: "refunded" })).toThrow(/refunded/);
-    expect(() => assertCorrectable({ ...payment, newAmountMinor: 0 })).toThrow(/positive/);
+    expect(() => assertCorrectable({ ...payment, newAmountMinor: -100 })).toThrow(/negative/);
   });
 
   it("refuses an amount below what was already refunded, or no change at all", () => {
