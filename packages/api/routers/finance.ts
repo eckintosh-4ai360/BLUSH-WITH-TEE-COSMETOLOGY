@@ -28,6 +28,7 @@ import { allocatePayment, assertRefundable, studentAccountSummary } from "../ser
 import { fromMinor, money, toAmountString, toMinor } from "../services/money";
 import { notify, staffRecipients } from "../services/notify";
 import { listInputSchema, likePattern, paginate, paginationBounds } from "../services/pagination";
+import { correctPaymentAmount } from "../services/paymentCorrection";
 import { recordRevenue, reverseRevenue } from "../services/revenue";
 import { adminProcedure, permissionProcedure, router } from "../trpc";
 
@@ -960,6 +961,46 @@ export const financeRouter = router({
       });
 
       return { id: input.id };
+    }),
+
+  // Corrects the amount on a payment that was entered wrongly. The charges it paid and the
+  // revenue ledger follow the new amount.
+  updatePayment: adminProcedure
+    .input(
+      z.object({
+        id: z.number().int().positive(),
+        amount: z.number().positive(),
+        reason: z.string().trim().min(2).max(200),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await dbOrThrow();
+
+      return db.transaction(async tx => {
+        const corrected = await correctPaymentAmount(tx, {
+          paymentId: input.id,
+          amountMinor: toMinor(input.amount),
+          reason: input.reason,
+          recordedByUserId: ctx.user.id,
+        });
+
+        const oldAmount = fromMinor(corrected.oldMinor);
+        const newAmount = fromMinor(corrected.newMinor);
+        await recordAudit(tx, ctx.actor, {
+          action: "update",
+          entity: "payment",
+          entityId: input.id,
+          entityLabel: corrected.reference,
+          oldValue: { amount: oldAmount },
+          newValue: { amount: newAmount, reason: input.reason },
+          summary: `${ctx.actor.name ?? "Admin"} corrected payment ${corrected.reference} on student ${corrected.studentId}: ${cedis(oldAmount)} → ${cedis(newAmount)} (reason: ${input.reason})`,
+        });
+
+        return {
+          id: input.id,
+          summary: await studentAccountSummary(tx, corrected.studentId),
+        };
+      });
     }),
 
   // Payments.

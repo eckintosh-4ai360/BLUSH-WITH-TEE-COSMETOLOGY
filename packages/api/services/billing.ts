@@ -254,7 +254,7 @@ export async function syncStudentCharges(
 }
 
 // Applies money already taken to charges that did not exist when it was taken.
-async function allocateUnappliedPayments(db: DbExecutor, studentId: number): Promise<number> {
+export async function allocateUnappliedPayments(db: DbExecutor, studentId: number): Promise<number> {
   const taken = await db
     .select({
       id: payments.id,
