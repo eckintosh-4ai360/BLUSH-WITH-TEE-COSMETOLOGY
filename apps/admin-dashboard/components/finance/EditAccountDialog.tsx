@@ -50,6 +50,16 @@ export type EditableCharge = {
   status: string;
 };
 
+export type EditablePayment = {
+  id: number;
+  reference: string;
+  amount: number;
+  refundedAmount: number;
+  paymentMethod: string;
+  status: string;
+  paidAt: Date | string | null;
+};
+
 // Helpers.
 
 function formatDate(value: Date | string | null | undefined) {
@@ -384,6 +394,137 @@ function ChargeRow({
   );
 }
 
+function PaymentRow({
+  payment,
+  onSaved,
+}: {
+  payment: EditablePayment;
+  onSaved: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [amount, setAmount] = useState(String(payment.amount));
+  const [reason, setReason] = useState("");
+
+  const update = trpc.finance.updatePayment.useMutation({
+    onSuccess: () => {
+      toast.success("Payment corrected and the balance updated.");
+      setEditing(false);
+      onSaved();
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
+  const parsedAmount = Number(amount);
+  const editable = payment.status === "completed";
+  const canSave =
+    amount.trim() !== "" &&
+    Number.isFinite(parsedAmount) &&
+    parsedAmount > 0 &&
+    parsedAmount !== payment.amount &&
+    reason.trim().length >= 2;
+
+  if (editing) {
+    return (
+      <TableRow className="bg-muted/30">
+        <TableCell className="font-medium text-foreground">{payment.reference}</TableCell>
+        <TableCell className="text-muted-foreground">{formatDate(payment.paidAt)}</TableCell>
+        <TableCell colSpan={2}>
+          <Input
+            id={`payment-reason-${payment.id}`}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            className="h-7 text-sm"
+            placeholder="Reason for the correction (required)"
+          />
+        </TableCell>
+        <TableCell className="text-right">
+          <Input
+            id={`payment-amount-${payment.id}`}
+            inputMode="decimal"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            className="h-7 w-28 text-right text-sm ml-auto"
+            placeholder="0.00"
+          />
+        </TableCell>
+        <TableCell className="text-right">
+          <div className="flex justify-end gap-1">
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7 text-muted-foreground hover:text-foreground"
+              onClick={() => setEditing(false)}
+              aria-label="Cancel edit payment"
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7 text-green-600 hover:text-green-700"
+              disabled={!canSave || update.isPending}
+              onClick={() =>
+                update.mutate({
+                  id: payment.id,
+                  amount: parsedAmount,
+                  reason: reason.trim(),
+                })
+              }
+              aria-label="Save payment"
+            >
+              {update.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Check className="h-3.5 w-3.5" />
+              )}
+            </Button>
+          </div>
+        </TableCell>
+      </TableRow>
+    );
+  }
+
+  return (
+    <TableRow>
+      <TableCell className="font-medium text-foreground">{payment.reference}</TableCell>
+      <TableCell className="text-muted-foreground">{formatDate(payment.paidAt)}</TableCell>
+      <TableCell className="capitalize text-muted-foreground">
+        {payment.paymentMethod.replace(/_/g, " ")}
+      </TableCell>
+      <TableCell>
+        <Badge variant={editable ? "secondary" : "outline"} className="capitalize">
+          {payment.status}
+        </Badge>
+      </TableCell>
+      <TableCell className="text-right tabular-nums">
+        {formatMoney(payment.amount)}
+        {payment.refundedAmount > 0 ? (
+          <span className="block text-xs text-muted-foreground">
+            {formatMoney(payment.refundedAmount)} refunded
+          </span>
+        ) : null}
+      </TableCell>
+      <TableCell className="text-right">
+        {editable ? (
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-7 w-7 text-muted-foreground hover:text-foreground"
+            onClick={() => {
+              setAmount(String(payment.amount));
+              setReason("");
+              setEditing(true);
+            }}
+            aria-label={`Edit payment ${payment.reference}`}
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
+        ) : null}
+      </TableCell>
+    </TableRow>
+  );
+}
+
 // Main dialog Admin-only dialog that lets an administrator correct billing records.
 export function EditAccountDialog({
   open,
@@ -392,6 +533,7 @@ export function EditAccountDialog({
   studentName,
   adjustments,
   charges,
+  payments,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -399,6 +541,7 @@ export function EditAccountDialog({
   studentName: string;
   adjustments: EditableAdjustment[];
   charges: EditableCharge[];
+  payments: EditablePayment[];
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -423,6 +566,9 @@ export function EditAccountDialog({
             </TabsTrigger>
             <TabsTrigger value="charges" className="flex-1">
               Charges ({charges.length})
+            </TabsTrigger>
+            <TabsTrigger value="payments" className="flex-1">
+              Payments ({payments.length})
             </TabsTrigger>
           </TabsList>
 
@@ -500,6 +646,47 @@ export function EditAccountDialog({
                         <ChargeRow
                           key={charge.id}
                           charge={charge}
+                          onSaved={onSaved}
+                        />
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </>
+            )}
+          </TabsContent>
+
+          {/* Payments tab. */}
+          <TabsContent value="payments" className="mt-4">
+            {!payments.length ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                No payments have been recorded for this student yet.
+              </p>
+            ) : (
+              <>
+                <p className="mb-3 text-xs text-muted-foreground">
+                  Click <Pencil className="inline h-3 w-3" /> to correct an amount
+                  that was entered wrongly. The charges it paid, the balance and
+                  the revenue ledger all follow the new amount. Use a refund for
+                  money that was actually handed back.
+                </p>
+                <div className="overflow-x-auto rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Reference</TableHead>
+                        <TableHead>Paid</TableHead>
+                        <TableHead>Method</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Amount (GHS)</TableHead>
+                        <TableHead className="w-24" />
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {payments.map((payment) => (
+                        <PaymentRow
+                          key={payment.id}
+                          payment={payment}
                           onSaved={onSaved}
                         />
                       ))}

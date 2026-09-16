@@ -443,6 +443,15 @@ function StudentDetailContent({ studentId }: { studentId: number }) {
           balance: charge.balance,
           status: charge.status,
         }))}
+        payments={payments.map(payment => ({
+          id: payment.id,
+          reference: payment.reference,
+          amount: payment.amount,
+          refundedAmount: payment.refundedAmount,
+          paymentMethod: payment.paymentMethod,
+          status: payment.status,
+          paidAt: payment.paidAt,
+        }))}
         onSaved={() => {
           refresh();
         }}
