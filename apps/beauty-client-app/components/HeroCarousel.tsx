@@ -1,13 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 
 export type HeroSlide = {
-  // Hero photograph path, falling back to background tone.
+  // Hero photograph path, falling back to background tone. A video slide uses it as nothing but
+  // its key, so the poster is what shows before playback.
   src: string;
+  // A looping clip, played only while this slide is on screen.
+  video?: string;
+  poster?: string;
   alt: string;
   label: string;
   meta: string;
@@ -17,12 +21,15 @@ export type HeroSlide = {
 };
 
 const SLIDE_MS = 5000;
+// A clip is given longer than a photograph, so it is not cut off a moment after it starts.
+const VIDEO_SLIDE_MS = 9000;
 
 export default function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
   const [reduced, setReduced] = useState(false);
   const [missing, setMissing] = useState<Record<string, true>>({});
+  const videos = useRef(new Map<number, HTMLVideoElement>());
 
   useEffect(() => {
     const mql = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -32,11 +39,29 @@ export default function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
     return () => mql.removeEventListener("change", sync);
   }, []);
 
+  const slideMs = slides[index]?.video ? VIDEO_SLIDE_MS : SLIDE_MS;
+
   useEffect(() => {
     if (reduced || paused || slides.length < 2) return;
-    const id = window.setInterval(() => setIndex(i => (i + 1) % slides.length), SLIDE_MS);
-    return () => window.clearInterval(id);
-  }, [reduced, paused, slides.length]);
+    const id = window.setTimeout(() => setIndex(i => (i + 1) % slides.length), slideMs);
+    return () => window.clearTimeout(id);
+  }, [reduced, paused, slides.length, slideMs, index]);
+
+  // Only the slide on screen plays, and it starts from the top each time it comes round. Hovering
+  // holds the carousel still but lets the clip keep playing.
+  useEffect(() => {
+    for (const [slide, element] of videos.current) {
+      if (slide === index && !reduced) {
+        // Browsers only autoplay muted video, whatever the markup said.
+        element.muted = true;
+        element.currentTime = 0;
+        // Autoplay is refused in some browsers even when muted; the poster then stands in.
+        void element.play().catch(() => {});
+      } else {
+        element.pause();
+      }
+    }
+  }, [index, reduced]);
 
   const markMissing = useCallback((src: string) => {
     setMissing(current => (current[src] ? current : { ...current, [src]: true }));
@@ -61,9 +86,25 @@ export default function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
               aria-hidden={!isActive}
               className={`absolute inset-0 transition-opacity duration-[900ms] ease-out ${isActive ? "opacity-100" : "opacity-0"}`}
             >
-              {/* Gradient background underlay while image is loading. */}
+              {/* Gradient background underlay while the image or clip is loading. */}
               <div className={`absolute inset-0 bg-gradient-to-br ${slide.tone}`} />
-              {!missing[slide.src] && (
+              {slide.video ? (
+                <video
+                  ref={element => {
+                    if (element) videos.current.set(i, element);
+                    else videos.current.delete(i);
+                  }}
+                  src={slide.video}
+                  poster={slide.poster}
+                  muted
+                  loop
+                  playsInline
+                  // Only the first clip is worth fetching up front; the rest wait their turn.
+                  preload={i === 0 ? "auto" : "metadata"}
+                  aria-label={slide.alt}
+                  className="absolute inset-0 h-full w-full object-cover"
+                />
+              ) : !missing[slide.src] ? (
                 <Image
                   src={slide.src}
                   alt={slide.alt}
@@ -73,7 +114,7 @@ export default function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
                   onError={() => markMissing(slide.src)}
                   className={`object-cover ${isActive && !reduced ? "hero-zoom" : ""}`}
                 />
-              )}
+              ) : null}
               <div className="absolute inset-0 bg-gradient-to-t from-[#1b0114]/90 via-[#1b0114]/25 to-transparent" />
             </div>
           );
@@ -108,7 +149,7 @@ export default function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
                     key={`${index}-${paused}-${reduced}`}
                     className="hero-progress block h-full w-full rounded-full bg-gradient-to-r from-[#fe00b6] to-white shadow-[0_0_8px_#fe00b6]"
                     style={{
-                      animationDuration: `${SLIDE_MS}ms`,
+                      animationDuration: `${slideMs}ms`,
                       animationPlayState: paused ? "paused" : "running",
                     }}
                   />

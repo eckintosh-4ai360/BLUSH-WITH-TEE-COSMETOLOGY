@@ -15,10 +15,18 @@ const heroStats = [
   { value: "3-in-1", label: "School, Salon & Store" },
 ];
 
+// Hero clips live in Cloudinary, so the CDN streams them rather than this server. q_auto picks the
+// smallest encoding a browser will take, and so_1 grabs a frame one second in as the poster.
+const HERO_CLIPS = "https://res.cloudinary.com/xjfbc5qo/video/upload";
+const heroVideo = (name: string) => `${HERO_CLIPS}/q_auto/blush-with-tee/hero/${name}.mp4`;
+const heroPoster = (name: string) => `${HERO_CLIPS}/so_1,q_auto,f_jpg/blush-with-tee/hero/${name}.jpg`;
+
 const heroSlides: HeroSlide[] = [
   {
     src: "/hero/hair.jpg",
-    alt: "A professional stylist sectioning and styling a client's hair in the salon",
+    video: heroVideo("hero-1"),
+    poster: heroPoster("hero-1"),
+    alt: "Hair being styled in the Blush With Tee salon",
     label: "Hair Artistry & Design",
     meta: "24 Weeks · Professional Diploma",
     href: "/programs",
@@ -26,7 +34,9 @@ const heroSlides: HeroSlide[] = [
   },
   {
     src: "/hero/makeup.jpg",
-    alt: "A beauty student applying face makeup with a brush and palette",
+    video: heroVideo("hero-2"),
+    poster: heroPoster("hero-2"),
+    alt: "Makeup being applied in the Blush With Tee studio",
     label: "Professional Makeup Artistry",
     meta: "Masterclasses & Studio Practical",
     href: "/programs",
@@ -34,7 +44,9 @@ const heroSlides: HeroSlide[] = [
   },
   {
     src: "/hero/nails.jpg",
-    alt: "Close-up of a student blending concealer under the eye with a makeup brush",
+    video: heroVideo("hero-3"),
+    poster: heroPoster("hero-3"),
+    alt: "Face makeup being blended in the Blush With Tee studio",
     label: "Face Beat & Foundation",
     meta: "12 Weeks · Studio Certification",
     href: "/programs",
