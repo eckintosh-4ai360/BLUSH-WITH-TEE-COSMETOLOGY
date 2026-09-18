@@ -57,7 +57,7 @@ export default function ProgramsPage() {
           </h1>
           <p className="mt-4 text-base font-semibold text-[#fe00b6] flex items-center gap-2">
             <MapPin className="h-4 w-4 shrink-0" />
-            Blush With Tee Beauty School{school?.address ? ` · ${school.address}` : ""}
+            BWT School of Cosmetology{school?.address ? ` · ${school.address}` : ""}
           </p>
           <p className="mt-2 max-w-2xl text-base leading-relaxed text-[#692156]">
             Master full professional cosmetology or specialized individual beauty crafts under expert hands-on mentorship, comprehensive practical studio hours, and business readiness coaching.

@@ -391,7 +391,7 @@ export function buildAdmissionFormHtml(
   <img src="${escapeHtml(logoAbsUrl)}" alt="Blush With Tee Logo" />
   <div class="header-text">
     <div class="header-badge">Official Student Admission File</div>
-    <div class="school-name">BLUSH WITH TEE BEAUTY SCHOOL</div>
+    <div class="school-name">BWT School of Cosmetology</div>
     <div class="school-sub">${address}</div>
     <div class="school-contact">Phone: <b>${phone}</b> &nbsp;|&nbsp; WhatsApp: <b>${whatsapp}</b></div>
   </div>
@@ -546,7 +546,7 @@ export function buildAdmissionFormHtml(
 <div class="declaration">
   <div class="section-title" style="border-color:#c9a8c9">5. Student Signature &amp; Declaration</div>
   <div class="declaration-text">
-    "I hereby declare that all information provided above is accurate and truthful. I have read, understood, and agreed to abide by all the rules, terms, policies, and regulations governing Blush With Tee Beauty School."
+    "I hereby declare that all information provided above is accurate and truthful. I have read, understood, and agreed to abide by all the rules, terms, policies, and regulations governing BWT School of Cosmetology."
   </div>
   <div class="sig-row">
     <div>
@@ -588,7 +588,7 @@ export function buildAdmissionFormHtml(
 
 <!-- FOOTER -->
 <div class="footer">
-  BLUSH WITH TEE BEAUTY SCHOOL — ${address} &nbsp;·&nbsp; Tel: ${phone} / ${whatsapp} &nbsp;·&nbsp; This document is an official school admission record.
+  BWT SCHOOL OF COSMETOLOGY — ${address} &nbsp;·&nbsp; Tel: ${phone} / ${whatsapp} &nbsp;·&nbsp; This document is an official school admission record.
 </div>
 
 </div><!-- end page-wrap -->

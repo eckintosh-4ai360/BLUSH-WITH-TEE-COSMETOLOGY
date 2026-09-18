@@ -203,7 +203,7 @@ export function ViewAdmissionFormDialog({
                   Official Student Admission File
                 </span>
                 <h2 className="font-serif text-xl sm:text-2xl font-bold tracking-tight text-[#8f0d6b] leading-tight">
-                  BLUSH WITH TEE BEAUTY SCHOOL
+                  BWT School of Cosmetology
                 </h2>
                 <p className="text-[10px] font-bold uppercase tracking-wider text-[#fe00b6] flex items-center justify-center sm:justify-start gap-1">
                   <MapPin className="h-3 w-3" />
@@ -374,7 +374,7 @@ export function ViewAdmissionFormDialog({
               <span className="text-[9px] font-semibold text-emerald-700">✓ Agreed to Terms &amp; Regulations</span>
             </div>
             <p className="text-[9.5px] text-slate-600 italic leading-relaxed mb-2">
-              &quot;I hereby declare that all information provided is accurate and truthful. I have read, understood, and agreed to abide by all the rules, terms, policies, and regulations governing Blush With Tee Beauty School.&quot;
+              &quot;I hereby declare that all information provided is accurate and truthful. I have read, understood, and agreed to abide by all the rules, terms, policies, and regulations governing BWT School of Cosmetology.&quot;
             </p>
             <div className="flex items-end justify-between border-t border-dashed border-slate-200 pt-2">
               <div>

@@ -52,13 +52,13 @@ export default function TermsPage() {
               Governing the School
             </p>
             <p className="mt-2 text-sm text-[#692156] max-w-xl mx-auto">
-              All students and applicants of Blush With Tee Beauty School are required to read, understand, and agree to the following terms before enrolling.
+              All students and applicants of BWT School of Cosmetology are required to read, understand, and agree to the following terms before enrolling.
             </p>
           </div>
 
           {/* School Identity Banner */}
           <div className="mb-10 rounded-2xl border border-[#8f0d6b]/20 bg-gradient-to-r from-[#fdf2fa] via-white to-[#fdf2fa] p-5 text-center shadow-sm">
-            <p className="font-serif text-xl font-bold text-[#8f0d6b]">BLUSH WITH TEE</p>
+            <p className="font-serif text-xl font-bold text-[#8f0d6b]">BWT School of Cosmetology</p>
             {school?.address ? (
               <p className="text-sm text-[#692156] mt-0.5">{school.address}</p>
             ) : null}

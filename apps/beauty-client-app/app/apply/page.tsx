@@ -395,7 +395,7 @@ function ApplyFormContent() {
             Official Admissions Portal
           </Badge>
           <h1 className="mt-4 font-serif text-4xl font-bold tracking-tight text-[#8f0d6b] sm:text-5xl">
-            BLUSH WITH TEE BEAUTY SCHOOL
+            BWT School of Cosmetology
           </h1>
           <p className="mt-2 text-sm font-semibold text-[#fe00b6] flex items-center justify-center gap-2">
             <MapPin className="h-4 w-4 shrink-0" />
@@ -1223,7 +1223,7 @@ function ApplyFormContent() {
                       className="mt-1 h-4 w-4 rounded border-[#8f0d6b]/30 text-[#fe00b6] focus:ring-[#fe00b6]"
                     />
                     <span className="text-xs text-[#692156] leading-relaxed">
-                      I have read, understood, and agreed to all the rules, terms, policies, and regulations governing Blush With Tee Beauty School as stated in the{" "}
+                      I have read, understood, and agreed to all the rules, terms, policies, and regulations governing BWT School of Cosmetology as stated in the{" "}
                       <Link href="/terms" target="_blank" className="font-bold text-[#8f0d6b] underline hover:text-[#fe00b6]">
                         Terms &amp; Conditions
                       </Link>.
