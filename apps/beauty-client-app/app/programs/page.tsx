@@ -47,21 +47,26 @@ export default function ProgramsPage() {
   return (
     <PublicShell>
       <main className="container py-16 sm:py-24">
-        {/* Header section */}
-        <div className="max-w-3xl">
-          <Badge className="bg-[#faeaf6] text-[#8f0d6b] px-4 py-1.5 text-xs font-bold uppercase tracking-widest hover:bg-[#faeaf6]">
-            Academic Curriculum & Prospectus
-          </Badge>
-          <h1 className="mt-4 font-serif text-4xl font-bold leading-none text-[#8f0d6b] sm:text-6xl">
-            Find the craft that sparks your passion.
-          </h1>
-          <p className="mt-4 text-base font-semibold text-[#fe00b6] flex items-center gap-2">
-            <MapPin className="h-4 w-4 shrink-0" />
-            BWT School of Cosmetology{school?.address ? ` · ${school.address}` : ""}
-          </p>
-          <p className="mt-2 max-w-2xl text-base leading-relaxed text-[#692156]">
-            Master full professional cosmetology or specialized individual beauty crafts under expert hands-on mentorship, comprehensive practical studio hours, and business readiness coaching.
-          </p>
+        {/* Header section: the title on one side, where and what on the other. */}
+        <div className="grid items-end gap-8 lg:grid-cols-[1.15fr_.85fr] lg:gap-12">
+          <div>
+            <Badge className="bg-[#faeaf6] text-[#8f0d6b] px-4 py-1.5 text-xs font-bold uppercase tracking-widest hover:bg-[#faeaf6]">
+              Academic Curriculum & Prospectus
+            </Badge>
+            <h1 className="mt-4 font-serif text-4xl font-bold leading-none text-[#8f0d6b] sm:text-6xl">
+              Find the craft that sparks your passion.
+            </h1>
+          </div>
+
+          <div>
+            <p className="flex items-start gap-2 text-base font-semibold text-[#fe00b6]">
+              <MapPin className="mt-1 h-4 w-4 shrink-0" />
+              <span>BWT School of Cosmetology{school?.address ? ` · ${school.address}` : ""}</span>
+            </p>
+            <p className="mt-3 text-base leading-relaxed text-[#692156]">
+              Master full professional cosmetology or specialized individual beauty crafts under expert hands-on mentorship, comprehensive practical studio hours, and business readiness coaching.
+            </p>
+          </div>
         </div>
 
         {/* Categories Tab Filter */}
