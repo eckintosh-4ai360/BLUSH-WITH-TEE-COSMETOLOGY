@@ -64,18 +64,23 @@ export default function ContactPage() {
   return (
     <PublicShell>
       <main className="container py-16 sm:py-24">
-        <div className="grid gap-14 lg:grid-cols-[1fr_.85fr]">
+        {/* The title on one side, what we can help with on the other. */}
+        <div className="grid items-end gap-8 lg:grid-cols-[1.15fr_.85fr] lg:gap-12">
           <div>
             <p className="eyebrow">Connect With Us</p>
             <h1 className="mt-5 font-serif text-5xl font-bold leading-none text-[#8f0d6b] sm:text-6xl">
               Begin your conversation with Blush With Tee.
             </h1>
-            <p className="mt-6 max-w-xl text-lg leading-8 text-[#692156]">
-              Have a question about admissions and programmes, a salon booking, or an order from our store? Our friendly team is here to help.
-            </p>
+          </div>
+          <p className="text-lg leading-8 text-[#692156]">
+            Have a question about admissions and programmes, a salon booking, or an order from our store? Our friendly team is here to help.
+          </p>
+        </div>
 
+        <div className="mt-14 grid gap-14 lg:grid-cols-[1fr_.85fr]">
+          <div>
             {/* Every detail here comes from Settings in the back office. */}
-            <div className="mt-10 grid gap-4 text-sm text-[#6a2557]">
+            <div className="grid gap-4 text-sm text-[#6a2557]">
               {isLoading ? (
                 [0, 1, 2].map(item => (
                   <div key={item} className="h-24 animate-pulse rounded-3xl border border-[#8f0d6b]/10 bg-white/70" />
