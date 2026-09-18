@@ -1,7 +1,7 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
-import { Minus, Plus, ShoppingBag, X, Sparkles } from "lucide-react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { Loader2, Minus, Plus, Search, ShoppingBag, X, Sparkles } from "lucide-react";
 import { Button } from "@blush/ui/components/ui/button";
 import PublicShell from "@/components/PublicShell";
 import { OrderPayment } from "@/components/store/OrderPayment";
@@ -15,6 +15,19 @@ function createSessionToken() {
   localStorage.setItem(key, token);
   return token;
 }
+
+const SORTS = [
+  { value: "featured", label: "Featured" },
+  { value: "price_asc", label: "Price: low to high" },
+  { value: "price_desc", label: "Price: high to low" },
+  { value: "newest", label: "Newest first" },
+  { value: "name", label: "Name A-Z" },
+] as const;
+
+type Sort = (typeof SORTS)[number]["value"];
+
+// One screenful at a time, however big the catalogue grows.
+const PAGE_SIZE = 12;
 
 const ORDER_STEPS = [
   "new",
@@ -62,7 +75,60 @@ export default function StorePage() {
     orderNumber: string;
     email: string;
   } | null>(null);
-  const { data: products = [], isLoading, isError } = trpc.store.products.useQuery();
+  // What the shopper is looking for. The search box waits for a pause in typing before asking.
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState<string | null>(null);
+  const [sort, setSort] = useState<Sort>("featured");
+  const [inStockOnly, setInStockOnly] = useState(false);
+  const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    const id = window.setTimeout(() => setSearch(searchInput.trim()), 300);
+    return () => window.clearTimeout(id);
+  }, [searchInput]);
+
+  const filters = useMemo(
+    () => ({
+      search: search || undefined,
+      category: category ?? undefined,
+      inStockOnly,
+      sort,
+      pageSize: PAGE_SIZE,
+    }),
+    [search, category, inStockOnly, sort],
+  );
+
+  // A new filter starts the list again at the first page.
+  useEffect(() => {
+    setPage(1);
+  }, [filters]);
+
+  const catalogue = trpc.store.catalogue.useQuery({ ...filters, page });
+  const { data: categories = [] } = trpc.store.categories.useQuery(undefined, {
+    staleTime: 5 * 60_000,
+  });
+
+  // Pages already fetched stay on screen, so "Load more" adds to the grid rather than replacing it.
+  const [products, setProducts] = useState<NonNullable<typeof catalogue.data>["rows"]>([]);
+  useEffect(() => {
+    if (!catalogue.data) return;
+    setProducts(current =>
+      catalogue.data.page === 1 ? catalogue.data.rows : [...current, ...catalogue.data.rows],
+    );
+  }, [catalogue.data]);
+
+  const isLoading = catalogue.isLoading || (catalogue.isFetching && page === 1);
+  const isError = Boolean(catalogue.error);
+  const total = catalogue.data?.total ?? 0;
+  const filtered = Boolean(search || category || inStockOnly);
+  const clearFilters = () => {
+    setSearchInput("");
+    setSearch("");
+    setCategory(null);
+    setInStockOnly(false);
+    setSort("featured");
+  };
   const { data: cart } = trpc.store.cart.useQuery(
     { sessionToken: sessionToken ?? "" },
     { enabled: Boolean(sessionToken) }
@@ -160,7 +226,91 @@ export default function StorePage() {
               </div>
             ) : null}
 
-            <div className="mt-12 grid gap-6 sm:grid-cols-2">
+            {/* Search, categories and sorting: what keeps the shop usable as the range grows. */}
+            <div className="mt-10 space-y-4">
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <label className="relative flex-1">
+                  <span className="sr-only">Search the store</span>
+                  <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8f0d6b]/50" />
+                  <input
+                    value={searchInput}
+                    onChange={event => setSearchInput(event.target.value)}
+                    placeholder="Search products..."
+                    className="soft-input search-input w-full"
+                  />
+                  {searchInput ? (
+                    <button
+                      type="button"
+                      onClick={() => setSearchInput("")}
+                      aria-label="Clear the search"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-[#8f0d6b]/60 hover:text-[#fe00b6]"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  ) : null}
+                </label>
+
+                <label className="sm:w-56">
+                  <span className="sr-only">Sort products</span>
+                  <select
+                    value={sort}
+                    onChange={event => setSort(event.target.value as Sort)}
+                    className="soft-input w-full"
+                  >
+                    {SORTS.map(option => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              {categories.length ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <CategoryChip active={!category} onClick={() => setCategory(null)}>
+                    All products
+                  </CategoryChip>
+                  {categories.map(entry => (
+                    <CategoryChip
+                      key={entry.name}
+                      active={category === entry.name}
+                      onClick={() => setCategory(entry.name)}
+                    >
+                      {entry.name} <span className="opacity-70">({entry.total})</span>
+                    </CategoryChip>
+                  ))}
+                </div>
+              ) : null}
+
+              <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-[#692156]">
+                <label className="flex cursor-pointer items-center gap-2 font-semibold text-[#8f0d6b]">
+                  <input
+                    type="checkbox"
+                    checked={inStockOnly}
+                    onChange={event => setInStockOnly(event.target.checked)}
+                    className="h-4 w-4 rounded border-[#8f0d6b]/30 text-[#fe00b6] focus:ring-[#fe00b6]"
+                  />
+                  In stock only
+                </label>
+                <span>
+                  {isLoading
+                    ? "Loading products…"
+                    : `Showing ${products.length} of ${total} product${total === 1 ? "" : "s"}`}
+                  {filtered ? (
+                    <button
+                      type="button"
+                      onClick={clearFilters}
+                      className="ml-3 font-semibold text-[#fe00b6] underline underline-offset-2"
+                    >
+                      Clear filters
+                    </button>
+                  ) : null}
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-8 grid gap-6 sm:grid-cols-2">
               {isLoading
                 ? [1, 2].map(id => (
                     <div
@@ -230,13 +380,38 @@ export default function StorePage() {
                   ))}
               {/* Only real catalogue items are shown: Add to Bag sends the database id. */}
               {!isLoading && products.length === 0 ? (
-                <p className="col-span-full rounded-3xl border border-[#8f0d6b]/15 bg-white/90 p-8 text-center text-sm leading-6 text-[#692156]">
+                <div className="col-span-full rounded-3xl border border-[#8f0d6b]/15 bg-white/90 p-8 text-center text-sm leading-6 text-[#692156]">
                   {isError
                     ? "The store could not be loaded just now. Please refresh the page to try again."
-                    : "No products are on sale at the moment. Please check back soon."}
-                </p>
+                    : filtered
+                      ? "No products match what you are looking for."
+                      : "No products are on sale at the moment. Please check back soon."}
+                  {!isError && filtered ? (
+                    <Button
+                      variant="outline"
+                      onClick={clearFilters}
+                      className="mt-4 rounded-full border-[#8f0d6b]/25 bg-white px-5 text-xs font-semibold text-[#8f0d6b]"
+                    >
+                      Clear filters
+                    </Button>
+                  ) : null}
+                </div>
               ) : null}
             </div>
+
+            {catalogue.data?.hasMore ? (
+              <div className="mt-10 flex justify-center">
+                <Button
+                  variant="outline"
+                  disabled={catalogue.isFetching}
+                  onClick={() => setPage(current => current + 1)}
+                  className="gap-2 rounded-full border-[#8f0d6b]/25 bg-white px-7 py-6 text-sm font-semibold text-[#8f0d6b] hover:bg-[#faeaf6]"
+                >
+                  {catalogue.isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  Load more ({total - products.length} left)
+                </Button>
+              </div>
+            ) : null}
           </section>
 
           <aside className="h-fit rounded-[2.25rem] border border-[#8f0d6b]/15 bg-white/95 p-7 shadow-[0_16px_40px_rgba(143,13,107,.08)] xl:sticky xl:top-28">
@@ -457,5 +632,30 @@ export default function StorePage() {
         </div>
       </main>
     </PublicShell>
+  );
+}
+
+function CategoryChip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`rounded-full border px-4 py-1.5 text-xs font-semibold transition-colors ${
+        active
+          ? "border-[#8f0d6b] bg-[#8f0d6b] text-white"
+          : "border-[#8f0d6b]/20 bg-white text-[#8f0d6b] hover:border-[#fe00b6]/50"
+      }`}
+    >
+      {children}
+    </button>
   );
 }

@@ -504,7 +504,14 @@
   background: rgba(16, 38, 46, 0.72);
   color: #e4f4f7;
 }
-.dark .soft-input::placeholder {
+.dark /* A search box: room for the icon on the left and the clear button on the right. The padding is
+   set here because .soft-input's own shorthand would otherwise win over a utility class. */
+.soft-input.search-input {
+  padding-left: 2.6rem;
+  padding-right: 2.5rem;
+}
+
+.soft-input::placeholder {
   color: #7f9fa9;
   font-size: 0.75rem;
   font-weight: 400;
