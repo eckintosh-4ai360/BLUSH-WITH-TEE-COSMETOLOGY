@@ -1,10 +1,11 @@
-import { and, eq } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, ilike, or, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
   cartItems,
   carts,
   inventoryItems,
+  productCategories,
   orderAddresses,
   orderItems,
   paymentIntents,
@@ -40,27 +41,110 @@ const checkoutLimit = throttledPublicProcedure({ bucket: "store.checkout", limit
 const payLimit = throttledPublicProcedure({ bucket: "store.payOrder", limit: 20, windowMs: 60 * 60_000 });
 const confirmLimit = throttledPublicProcedure({ bucket: "store.confirmPayment", limit: 30, windowMs: 10 * 60_000 });
 
+// What the storefront sells: on the shelf, switched on, and marked as sold online.
+const onSale = and(eq(inventoryItems.isSellable, true), eq(inventoryItems.isActive, true));
+
+// Items carry a linked category and an older free-text one. The shop groups by whichever it has,
+// so nothing is left out of the filters.
+const categoryName = sql<string>`coalesce(${productCategories.name}, ${inventoryItems.category})`;
+
+export const CATALOGUE_SORTS = ["featured", "price_asc", "price_desc", "newest", "name"] as const;
+
 export const storeRouter = router({
-  products: publicProcedure.query(async () => {
+  // The categories with something to sell in them, and how many.
+  categories: publicProcedure.query(async () => {
     const db = await dbOrThrow();
     const rows = await db
-      .select()
+      .select({ name: categoryName, total: count() })
       .from(inventoryItems)
-      .where(
-        and(
-          eq(inventoryItems.isSellable, true),
-          eq(inventoryItems.isActive, true)
-        )
-      );
-    return Promise.all(
-      rows.map(async item => ({
-        ...item,
-        unitCost: money(item.unitCost),
-        sellingPrice: money(item.sellingPrice),
-        imageUrl: await resolveProductImageUrl(item.imageKey, item),
-      }))
-    );
+      .leftJoin(productCategories, eq(inventoryItems.categoryId, productCategories.id))
+      .where(onSale)
+      .groupBy(categoryName)
+      .orderBy(categoryName);
+    return rows.filter(row => row.name).map(row => ({ name: row.name, total: Number(row.total) }));
   }),
+
+  // One page of the catalogue. The shop never loads the whole stock list: as the range grows, the
+  // search, the category and the page are what narrow it, and they are all applied in the database.
+  catalogue: publicProcedure
+    .input(
+      z
+        .object({
+          search: z.string().trim().max(120).optional(),
+          category: z.string().trim().max(120).optional(),
+          inStockOnly: z.boolean().default(false),
+          sort: z.enum(CATALOGUE_SORTS).default("featured"),
+          page: z.number().int().min(1).max(500).default(1),
+          pageSize: z.number().int().min(1).max(48).default(12),
+        })
+        .default({ inStockOnly: false, sort: "featured", page: 1, pageSize: 12 }),
+    )
+    .query(async ({ input }) => {
+      const db = await dbOrThrow();
+      const term = input.search?.trim();
+
+      const where = and(
+        onSale,
+        input.inStockOnly ? gt(inventoryItems.quantityOnHand, 0) : undefined,
+        input.category ? sql`lower(${categoryName}) = ${input.category.toLowerCase()}` : undefined,
+        term
+          ? or(
+              ilike(inventoryItems.name, `%${term}%`),
+              ilike(inventoryItems.description, `%${term}%`),
+              ilike(inventoryItems.sku, `%${term}%`),
+              sql`${categoryName} ilike ${`%${term}%`}`,
+            )
+          : undefined,
+      );
+
+      // Featured keeps what can be bought today at the front; the rest are plain orderings.
+      const order =
+        input.sort === "price_asc"
+          ? [asc(inventoryItems.sellingPrice), asc(inventoryItems.name)]
+          : input.sort === "price_desc"
+            ? [desc(inventoryItems.sellingPrice), asc(inventoryItems.name)]
+            : input.sort === "newest"
+              ? [desc(inventoryItems.createdAt), asc(inventoryItems.name)]
+              : input.sort === "name"
+                ? [asc(inventoryItems.name)]
+                : [sql`case when ${inventoryItems.quantityOnHand} > 0 then 0 else 1 end`, asc(inventoryItems.name)];
+
+      const [rows, [totals]] = await Promise.all([
+        db
+          .select({ item: inventoryItems, categoryName })
+          .from(inventoryItems)
+          .leftJoin(productCategories, eq(inventoryItems.categoryId, productCategories.id))
+          .where(where)
+          .orderBy(...order)
+          .limit(input.pageSize)
+          .offset((input.page - 1) * input.pageSize),
+        db
+          .select({ total: count() })
+          .from(inventoryItems)
+          .leftJoin(productCategories, eq(inventoryItems.categoryId, productCategories.id))
+          .where(where),
+      ]);
+
+      const total = Number(totals?.total ?? 0);
+      return {
+        rows: await Promise.all(
+          rows.map(async row => ({
+            id: row.item.id,
+            name: row.item.name,
+            description: row.item.description,
+            category: row.categoryName ?? row.item.category,
+            sellingPrice: money(row.item.sellingPrice),
+            quantityOnHand: row.item.quantityOnHand,
+            imageUrl: await resolveProductImageUrl(row.item.imageKey, row.item),
+          })),
+        ),
+        page: input.page,
+        pageSize: input.pageSize,
+        total,
+        totalPages: Math.max(Math.ceil(total / input.pageSize), 1),
+        hasMore: input.page * input.pageSize < total,
+      };
+    }),
   lookupOrder: lookupLimit
     .input(
       z.object({
