@@ -1,7 +1,6 @@
 # Retries texts and emails that did not send, by calling the dashboard's flush route.
 #
-# Only needed when the dashboard runs on a serverless host such as Vercel. A normal Node server
-# retries on its own (see MESSAGING_RETRY_INTERVAL_MINUTES in apps/admin-dashboard/.env.example).
+# This is what makes retries happen: the dashboard only retries when this route is called.
 #
 # To switch it on, add two repository secrets under Settings → Secrets and variables → Actions:
 #   ADMIN_URL              the dashboard's address, for example https://admin.example.com
