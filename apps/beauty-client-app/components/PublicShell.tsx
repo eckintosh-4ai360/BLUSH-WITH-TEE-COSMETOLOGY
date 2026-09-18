@@ -262,19 +262,22 @@ export default function PublicShell({ children }: { children: React.ReactNode })
         </Reveal>
 
         <div className="border-t border-[#8f0d6b]/10 bg-white/60 py-6">
-          <div className="container flex flex-col items-center justify-between gap-3 text-xs text-[#8f0d6b]/80 sm:flex-row">
+          {/* Three columns, so the credit sits in the middle of the page rather than between its neighbours. */}
+          <div className="container grid gap-3 text-center text-xs text-[#8f0d6b]/80 sm:grid-cols-3 sm:items-center sm:text-left">
             <p>© {new Date().getFullYear()} Blush With Tee Artistry. All rights reserved.</p>
-            <div className="flex items-center gap-4">
-              <Link href="/terms" className="underline underline-offset-2 hover:text-[#fe00b6] transition-colors font-semibold">
+
+            <p className="font-semibold sm:text-center">Designed by Eckintosh</p>
+
+            <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 sm:justify-end">
+              <Link href="/terms" className="font-semibold underline underline-offset-2 transition-colors hover:text-[#fe00b6]">
                 Terms & Conditions
               </Link>
-              <Link href="" className="underline underline-offset-2 hover:text-[#fe00b6] transition-colors font-semibold">
-                Designed by Eckintosh  
-              </Link>
-              <span className="text-[#8f0d6b]/30">·</span>
-              <p className="flex items-center gap-1 font-medium">
+              <span className="text-[#8f0d6b]/30" aria-hidden>
+                ·
+              </span>
+              <span className="flex items-center gap-1 font-medium">
                 Empowering beauty artists with <span className="text-[#fe00b6]">♥</span> passion & craft
-              </p>
+              </span>
             </div>
           </div>
         </div>
