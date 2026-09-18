@@ -5,20 +5,9 @@ import { ImagePlus, Loader2 } from "lucide-react";
 import { Button } from "@blush/ui/components/ui/button";
 import { Label } from "@blush/ui/components/ui/label";
 import { Textarea } from "@blush/ui/components/ui/textarea";
+import { ACCEPTED_IMAGE_TYPES, prepareImageUpload, uploadErrorMessage } from "@blush/shared/image-upload";
 import { trpc } from "@/lib/trpc";
 import { MarkdownPreview } from "./MarkdownPreview";
-
-const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
-const ACCEPTED = "image/jpeg,image/png,image/webp";
-
-function fileToDataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(new Error("The file could not be read."));
-    reader.readAsDataURL(file);
-  });
-}
 
 // The body of a page or post, written with light formatting, with a preview and photo insert.
 export function MarkdownEditor({
@@ -57,20 +46,20 @@ export function MarkdownEditor({
   const pick = async (file: File | undefined) => {
     if (!file) return;
     setError(null);
-    if (!ACCEPTED.split(",").includes(file.type)) return setError("Use a JPEG, PNG or WEBP photo.");
-    if (file.size > MAX_UPLOAD_BYTES) return setError("That photo is larger than 8 MB. Resize it and try again.");
     try {
+      // Scaled down here, so a camera original is not sent whole.
+      const prepared = await prepareImageUpload(file);
       const uploaded = await upload.mutateAsync({
         area: "site",
         fileName: file.name,
-        mimeType: file.type as "image/jpeg" | "image/png" | "image/webp",
-        base64Data: await fileToDataUrl(file),
+        mimeType: prepared.mimeType,
+        base64Data: prepared.dataUrl,
       });
       const alt = file.name.replace(/\.[a-z0-9]+$/i, "").replace(/[-_]+/g, " ").replace(/[[\]]/g, "");
       insertAtCursor(`![${alt}](${uploaded.url})`);
       setMode("write");
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "The photo could not be uploaded.");
+      setError(uploadErrorMessage(reason));
     } finally {
       if (picker.current) picker.current.value = "";
     }
@@ -110,7 +99,7 @@ export function MarkdownEditor({
       <input
         ref={picker}
         type="file"
-        accept={ACCEPTED}
+        accept={ACCEPTED_IMAGE_TYPES}
         className="sr-only"
         onChange={event => void pick(event.target.files?.[0])}
       />

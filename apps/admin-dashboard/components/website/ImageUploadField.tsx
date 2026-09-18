@@ -4,20 +4,8 @@ import { useRef, useState } from "react";
 import { ImagePlus, Loader2, X } from "lucide-react";
 import { Button } from "@blush/ui/components/ui/button";
 import { Label } from "@blush/ui/components/ui/label";
+import { ACCEPTED_IMAGE_TYPES, prepareImageUpload, uploadErrorMessage } from "@blush/shared/image-upload";
 import { trpc } from "@/lib/trpc";
-
-// Mirrors the server's own ceiling, so an oversized photo fails before it uploads.
-const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
-const ACCEPTED = "image/jpeg,image/png,image/webp";
-
-async function fileToDataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(new Error("The file could not be read."));
-    reader.readAsDataURL(file);
-  });
-}
 
 export type UploadedImage = { key: string; url: string | null };
 
@@ -45,19 +33,13 @@ export function ImageUploadField({
   const pick = async (file: File | undefined) => {
     if (!file) return;
     setError(null);
-    if (!ACCEPTED.split(",").includes(file.type)) {
-      setError("Use a JPEG, PNG or WEBP photo.");
-      return;
-    }
-    if (file.size > MAX_UPLOAD_BYTES) {
-      setError("That photo is larger than 8 MB. Resize it and try again.");
-      return;
-    }
     try {
+      // Scaled down here, so a camera original is not sent whole.
+      const prepared = await prepareImageUpload(file);
       const payload = {
         fileName: file.name,
-        mimeType: file.type as "image/jpeg" | "image/png" | "image/webp",
-        base64Data: await fileToDataUrl(file),
+        mimeType: prepared.mimeType,
+        base64Data: prepared.dataUrl,
       };
       const uploaded =
         area === "product"
@@ -65,7 +47,7 @@ export function ImageUploadField({
           : await siteUpload.mutateAsync({ ...payload, area });
       onChange(uploaded);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "The photo could not be uploaded.");
+      setError(uploadErrorMessage(reason));
     } finally {
       if (input.current) input.current.value = "";
     }
@@ -95,7 +77,7 @@ export function ImageUploadField({
       <input
         ref={input}
         type="file"
-        accept={ACCEPTED}
+        accept={ACCEPTED_IMAGE_TYPES}
         className="sr-only"
         onChange={event => void pick(event.target.files?.[0])}
       />

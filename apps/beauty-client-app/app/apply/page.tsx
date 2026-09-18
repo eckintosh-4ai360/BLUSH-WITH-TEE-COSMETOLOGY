@@ -35,19 +35,39 @@ import {
   Users,
 } from "lucide-react";
 import { formatPhone, telHref, whatsappHref } from "@blush/shared/contact";
+import {
+  ACCEPTED_IMAGE_TYPES,
+  documentTooLargeMessage,
+  prepareImageUpload,
+  uploadErrorMessage,
+} from "@blush/shared/image-upload";
 import { Badge } from "@blush/ui/components/ui/badge";
 import { Button } from "@blush/ui/components/ui/button";
 import PublicShell from "@/components/PublicShell";
 import { useSchoolProfile } from "@/hooks/useSchoolProfile";
 import { trpc } from "@/lib/trpc";
 
-async function fileToDataUrl(file: File) {
+function fileToDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result));
     reader.onerror = () => reject(new Error("The file could not be read."));
     reader.readAsDataURL(file);
   });
+}
+
+// A photographed document is scaled down here; a PDF cannot be, so it has to be small enough
+// already. Either way what leaves the browser fits inside what the server will accept.
+async function prepareDocument(file: File): Promise<{ mimeType: string; base64Data: string }> {
+  if (ACCEPTED_IMAGE_TYPES.split(",").includes(file.type)) {
+    // Kept a little larger than a website photo, so small print stays readable.
+    const prepared = await prepareImageUpload(file, { maxEdge: 2400, targetBytes: 1_200_000 });
+    return { mimeType: prepared.mimeType, base64Data: prepared.dataUrl };
+  }
+
+  const tooLarge = documentTooLargeMessage(file);
+  if (tooLarge) throw new Error(tooLarge);
+  return { mimeType: file.type, base64Data: await fileToDataUrl(file) };
 }
 
 // A supporting document sent after the application itself is saved.
@@ -320,20 +340,17 @@ function ApplyFormContent() {
 
     mark({ status: "uploading", error: undefined });
     try {
+      const prepared = await prepareDocument(item.file);
       await upload.mutateAsync({
         reference,
         contact,
         documentType: item.documentType,
         fileName: item.file.name,
-        mimeType: item.file.type,
-        base64Data: await fileToDataUrl(item.file),
+        ...prepared,
       });
       mark({ status: "uploaded" });
     } catch (reason) {
-      mark({
-        status: "failed",
-        error: reason instanceof Error ? reason.message : "The document could not be uploaded.",
-      });
+      mark({ status: "failed", error: uploadErrorMessage(reason) });
     }
   }
 
@@ -1133,7 +1150,7 @@ function ApplyFormContent() {
                       <FileUp className="h-5 w-5 text-[#fe00b6]" />
                       <span>
                         <b>{transcript ? transcript.name : "Transcript or Past Certificate"}</b>
-                        <small>PDF, JPG, PNG, or WEBP · max 8 MB</small>
+                        <small>PDF, JPG, PNG or WEBP · photos are resized for you</small>
                       </span>
                       <input
                         type="file"
@@ -1146,7 +1163,7 @@ function ApplyFormContent() {
                       <FileUp className="h-5 w-5 text-[#fe00b6]" />
                       <span>
                         <b>{governmentId ? governmentId.name : "Ghana Card / Passport / Valid ID"}</b>
-                        <small>PDF, JPG, PNG, or WEBP · max 8 MB</small>
+                        <small>PDF, JPG, PNG or WEBP · photos are resized for you</small>
                       </span>
                       <input
                         type="file"
