@@ -212,7 +212,7 @@ export default function PublicShell({ children }: { children: React.ReactNode })
                   {page.title}
                 </Link>
               ))}
-              <Link href="/terms" className="hover:text-[#fe00b6] transition-colors font-semibold">Terms & Conditions</Link>
+              {/* Terms sits in the bar at the very bottom, so it is not repeated here. */}
             </div>
           </div>
 
