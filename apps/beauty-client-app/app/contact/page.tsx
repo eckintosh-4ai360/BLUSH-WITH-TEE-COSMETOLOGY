@@ -243,7 +243,7 @@ export default function ContactPage() {
             <div className="grid gap-0 lg:grid-cols-[.9fr_1.1fr]">
               <div className="p-8 sm:p-10">
                 <p className="eyebrow">Find us</p>
-                <h2 className="mt-4 font-serif text-4xl font-bold text-[#8f0d6b]">Visit the academy</h2>
+                <h2 className="mt-4 font-serif text-4xl font-bold text-[#8f0d6b]">Visit our premises</h2>
                 <p className="mt-4 text-sm leading-7 text-[#692156]">
                   {school?.address ?? "Tarkwa, Ghana"} — come by the school, salon and store, or open the map for turn-by-turn directions.
                 </p>
