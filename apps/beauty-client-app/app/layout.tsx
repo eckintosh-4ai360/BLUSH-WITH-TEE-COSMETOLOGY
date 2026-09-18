@@ -32,7 +32,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={sora.variable}>
+    <html lang="en" className={sora.variable} data-site="public">
 
       <body suppressHydrationWarning>
         <TrpcProvider>
