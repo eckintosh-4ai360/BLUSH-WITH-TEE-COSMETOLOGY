@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, BookOpen, Sparkles, WandSparkles, Award, Users, CheckCircle2, ShoppingBag } from "lucide-react";
+import { ArrowRight, BookOpen, Rocket, Scissors, Sparkles, WandSparkles, Award, Users, CheckCircle2, ShoppingBag } from "lucide-react";
 import { Button } from "@blush/ui/components/ui/button";
 import PublicShell from "@/components/PublicShell";
 import HeroCarousel, { type HeroSlide } from "@/components/HeroCarousel";
@@ -65,16 +65,19 @@ const heroSlides: HeroSlide[] = [
 const pathways = [
   {
     number: "01",
+    icon: WandSparkles,
     title: "Master High-Demand Skills",
     text: "From foundation techniques to contemporary trends in hair, makeup, nails, and esthetics, graduate with industry-ready mastery.",
   },
   {
     number: "02",
+    icon: Scissors,
     title: "Hands-On Studio Training",
     text: "Experience real-world salon operations, live client clinics, and personalized mentorship from seasoned beauty educators.",
   },
   {
     number: "03",
+    icon: Rocket,
     title: "Launch Your Beauty Career",
     text: "Develop client consultation expertise, professional portfolio development, business ethics, and entrepreneurial readiness.",
   },
@@ -206,10 +209,15 @@ export default function Home() {
                 <article
                   className="group relative rounded-3xl border border-[#8f0d6b]/15 bg-white/80 p-8 shadow-[0_12px_36px_rgba(143,13,107,.07)] transition-all duration-300 hover:-translate-y-1.5 hover:border-[#fe00b6]/40 hover:shadow-[0_20px_45px_rgba(254,0,182,.14)]"
                 >
-                  <span className="inline-block rounded-full bg-[#faeaf6] px-3.5 py-1 text-xs font-bold tracking-[.18em] text-[#8f0d6b] group-hover:bg-[#fe00b6] group-hover:text-white transition-colors">
-                    {path.number}
-                  </span>
-                  <h3 className="mt-8 font-serif text-2xl font-bold text-[#8f0d6b]">{path.title}</h3>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#faeaf6] text-[#fe00b6] transition-colors group-hover:bg-[#fe00b6] group-hover:text-white">
+                      <path.icon className="h-5 w-5" aria-hidden />
+                    </span>
+                    <span className="rounded-full bg-[#faeaf6] px-3.5 py-1 text-xs font-bold tracking-[.18em] text-[#8f0d6b] transition-colors group-hover:bg-[#fe00b6] group-hover:text-white">
+                      {path.number}
+                    </span>
+                  </div>
+                  <h3 className="mt-6 font-serif text-2xl font-bold text-[#8f0d6b]">{path.title}</h3>
                   <p className="mt-4 text-sm leading-7 text-[#6a2557]">{path.text}</p>
                 </article>
               </RevealItem>
