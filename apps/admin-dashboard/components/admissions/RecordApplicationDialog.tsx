@@ -255,7 +255,7 @@ export function RecordApplicationDialog({
                 <DialogDescription>
                   {editing
                     ? `Correcting ${editing.reference} · ${editing.fullName}`
-                    : "Blush With Tee Beauty School · Tarkwa Branch (Allied Filling Station, A’koon)"}
+                    : "BWT School of Cosmetology · Tarkwa Branch (Allied Filling Station, A’koon)"}
                 </DialogDescription>
               </div>
             </div>
